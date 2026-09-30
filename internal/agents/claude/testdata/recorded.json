@@ -1,0 +1,319 @@
+{
+  "schema": 1,
+  "claude_version": "2.1.285",
+  "captured_on": "2026-09-30",
+  "cases": [
+    {
+      "name": "SessionStart",
+      "payload": {
+        "session_id": "00000000-0000-4000-8000-000000000001",
+        "transcript_path": "/fixture/transcript.jsonl",
+        "cwd": "/fixture/repo",
+        "hook_event_name": "SessionStart",
+        "source": "startup"
+      },
+      "status": "idle",
+      "summary": "",
+      "detail": {}
+    },
+    {
+      "name": "UserPromptSubmit",
+      "payload": {
+        "session_id": "00000000-0000-4000-8000-000000000001",
+        "transcript_path": "/fixture/transcript.jsonl",
+        "cwd": "/fixture/repo",
+        "prompt_id": "00000000-0000-4000-8000-000000000002",
+        "permission_mode": "default",
+        "hook_event_name": "UserPromptSubmit",
+        "prompt": "Use Read to read .tools/claude-w3-capture/fixture.txt, then reply with exactly: colony fixture complete."
+      },
+      "status": "working",
+      "summary": "Use Read to read .tools/claude-w3-capture/fixture.txt, then reply with exactly: colony fixture complete.",
+      "detail": {}
+    },
+    {
+      "name": "PreToolUse-Read",
+      "payload": {
+        "session_id": "00000000-0000-4000-8000-000000000001",
+        "transcript_path": "/fixture/transcript.jsonl",
+        "cwd": "/fixture/repo",
+        "prompt_id": "00000000-0000-4000-8000-000000000002",
+        "permission_mode": "default",
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Read",
+        "tool_input": {
+          "file_path": "/fixture/repo/.tools/claude-w3-capture/fixture.txt"
+        },
+        "tool_use_id": "toolu_01W3Yb74iq91FkjCEG35Ednj"
+      },
+      "status": "working",
+      "summary": "Read: /fixture/repo/.tools/claude-w3-capture/fixture.txt",
+      "detail": {
+        "tool": "Read",
+        "input": "/fixture/repo/.tools/claude-w3-capture/fixture.txt"
+      }
+    },
+    {
+      "name": "PostToolUse-Read",
+      "payload": {
+        "session_id": "00000000-0000-4000-8000-000000000001",
+        "transcript_path": "/fixture/transcript.jsonl",
+        "cwd": "/fixture/repo",
+        "prompt_id": "00000000-0000-4000-8000-000000000002",
+        "permission_mode": "default",
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Read",
+        "tool_input": {
+          "file_path": "/fixture/repo/.tools/claude-w3-capture/fixture.txt"
+        },
+        "tool_response": {
+          "type": "text",
+          "file": {
+            "filePath": "/fixture/repo/.tools/claude-w3-capture/fixture.txt",
+            "content": "colony fixture: hello\n",
+            "numLines": 2,
+            "startLine": 1,
+            "totalLines": 2
+          }
+        },
+        "tool_use_id": "toolu_01W3Yb74iq91FkjCEG35Ednj",
+        "duration_ms": 2
+      },
+      "status": "working",
+      "summary": "Read: /fixture/repo/.tools/claude-w3-capture/fixture.txt",
+      "detail": {
+        "tool": "Read",
+        "input": "/fixture/repo/.tools/claude-w3-capture/fixture.txt"
+      }
+    },
+    {
+      "name": "Stop",
+      "payload": {
+        "session_id": "00000000-0000-4000-8000-000000000001",
+        "transcript_path": "/fixture/transcript.jsonl",
+        "cwd": "/fixture/repo",
+        "prompt_id": "00000000-0000-4000-8000-000000000002",
+        "permission_mode": "default",
+        "hook_event_name": "Stop",
+        "stop_hook_active": false,
+        "last_assistant_message": "colony fixture complete",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "status": "ready",
+      "summary": "colony fixture complete",
+      "detail": {}
+    },
+    {
+      "name": "SessionEnd",
+      "payload": {
+        "session_id": "00000000-0000-4000-8000-000000000001",
+        "transcript_path": "/fixture/transcript.jsonl",
+        "cwd": "/fixture/repo",
+        "prompt_id": "00000000-0000-4000-8000-000000000002",
+        "hook_event_name": "SessionEnd",
+        "reason": "other"
+      },
+      "status": "ended",
+      "summary": "",
+      "detail": {}
+    },
+    {
+      "name": "PreToolUse-AskUserQuestion",
+      "payload": {
+        "session_id": "00000000-0000-4000-8000-000000000003",
+        "transcript_path": "/fixture/transcript.jsonl",
+        "cwd": "/fixture/repo",
+        "scratchpad_dir": "/fixture/scratchpad",
+        "prompt_id": "00000000-0000-4000-8000-000000000004",
+        "permission_mode": "default",
+        "hook_event_name": "PreToolUse",
+        "tool_name": "AskUserQuestion",
+        "tool_input": {
+          "questions": [
+            {
+              "question": "Which fixture option?",
+              "header": "Fixture",
+              "options": [
+                {
+                  "label": "Alpha",
+                  "description": "Option Alpha"
+                },
+                {
+                  "label": "Beta",
+                  "description": "Option Beta"
+                }
+              ],
+              "multiSelect": false
+            }
+          ]
+        },
+        "tool_use_id": "toolu_01FQsgXtmAhhwUKQFS6Ase7K"
+      },
+      "status": "question",
+      "summary": "Which fixture option?\n  1) Alpha — Option Alpha\n  2) Beta — Option Beta",
+      "detail": {
+        "question": "Which fixture option?\n  1) Alpha — Option Alpha\n  2) Beta — Option Beta"
+      }
+    },
+    {
+      "name": "Notification-permission_prompt",
+      "payload": {
+        "session_id": "00000000-0000-4000-8000-000000000003",
+        "transcript_path": "/fixture/transcript.jsonl",
+        "cwd": "/fixture/repo",
+        "scratchpad_dir": "/fixture/scratchpad",
+        "prompt_id": "00000000-0000-4000-8000-000000000004",
+        "hook_event_name": "Notification",
+        "message": "Claude needs your permission",
+        "notification_type": "permission_prompt"
+      },
+      "status": "permission",
+      "summary": "Claude needs your permission",
+      "detail": {
+        "message": "Claude needs your permission"
+      }
+    },
+    {
+      "name": "PostToolUse-AskUserQuestion",
+      "payload": {
+        "session_id": "00000000-0000-4000-8000-000000000003",
+        "transcript_path": "/fixture/transcript.jsonl",
+        "cwd": "/fixture/repo",
+        "scratchpad_dir": "/fixture/scratchpad",
+        "prompt_id": "00000000-0000-4000-8000-000000000004",
+        "permission_mode": "default",
+        "hook_event_name": "PostToolUse",
+        "tool_name": "AskUserQuestion",
+        "tool_input": {
+          "questions": [
+            {
+              "question": "Which fixture option?",
+              "header": "Fixture",
+              "options": [
+                {
+                  "label": "Alpha",
+                  "description": "Option Alpha"
+                },
+                {
+                  "label": "Beta",
+                  "description": "Option Beta"
+                }
+              ],
+              "multiSelect": false
+            }
+          ],
+          "answers": {
+            "Which fixture option?": "Alpha"
+          },
+          "annotations": {}
+        },
+        "tool_response": {
+          "questions": [
+            {
+              "question": "Which fixture option?",
+              "header": "Fixture",
+              "options": [
+                {
+                  "label": "Alpha",
+                  "description": "Option Alpha"
+                },
+                {
+                  "label": "Beta",
+                  "description": "Option Beta"
+                }
+              ],
+              "multiSelect": false
+            }
+          ],
+          "answers": {
+            "Which fixture option?": "Alpha"
+          },
+          "annotations": {}
+        },
+        "tool_use_id": "toolu_01FQsgXtmAhhwUKQFS6Ase7K",
+        "duration_ms": 1
+      },
+      "status": "working",
+      "summary": "AskUserQuestion: {\"questions\":[{\"question\":\"Which fixture option?\",\"header\":\"Fixture\",\"options\":[{\"label\":\"Alpha\",\"description\":\"Option Alpha\"},{\"label\":\"Beta\",\"description\":\"Option Beta\"}],\"multiSelect\":false}],\"answers\":{\"Which fixture option?\":\"Alpha\"},\"annotations\":{}}",
+      "detail": {
+        "tool": "AskUserQuestion",
+        "input": "{\"questions\":[{\"question\":\"Which fixture option?\",\"header\":\"Fixture\",\"options\":[{\"label\":\"Alpha\",\"description\":\"Option Alpha\"},{\"label\":\"Beta\",\"description\":\"Option Beta\"}],\"multiSelect\":false}],\"answers\":{\"Which fixture option?\":\"Alpha\"},\"annotations\":{}}"
+      }
+    },
+    {
+      "name": "PreToolUse-Bash",
+      "payload": {
+        "session_id": "00000000-0000-4000-8000-000000000003",
+        "transcript_path": "/fixture/transcript.jsonl",
+        "cwd": "/fixture/repo",
+        "scratchpad_dir": "/fixture/scratchpad",
+        "prompt_id": "00000000-0000-4000-8000-000000000004",
+        "permission_mode": "default",
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "touch .tools/claude-w3-capture/permission-marker",
+          "description": "Create permission marker file"
+        },
+        "tool_use_id": "toolu_01AHHiGNtEP7ZjfaUeQbnteK"
+      },
+      "status": "working",
+      "summary": "Bash: touch .tools/claude-w3-capture/permission-marker",
+      "detail": {
+        "tool": "Bash",
+        "input": "touch .tools/claude-w3-capture/permission-marker"
+      }
+    },
+    {
+      "name": "PostToolUse-Bash",
+      "payload": {
+        "session_id": "00000000-0000-4000-8000-000000000003",
+        "transcript_path": "/fixture/transcript.jsonl",
+        "cwd": "/fixture/repo",
+        "scratchpad_dir": "/fixture/scratchpad",
+        "prompt_id": "00000000-0000-4000-8000-000000000004",
+        "permission_mode": "default",
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "touch .tools/claude-w3-capture/permission-marker",
+          "description": "Create permission marker file"
+        },
+        "tool_response": {
+          "stdout": "",
+          "stderr": "",
+          "interrupted": false,
+          "isImage": false,
+          "noOutputExpected": true
+        },
+        "tool_use_id": "toolu_01AHHiGNtEP7ZjfaUeQbnteK",
+        "duration_ms": 557
+      },
+      "status": "working",
+      "summary": "Bash: touch .tools/claude-w3-capture/permission-marker",
+      "detail": {
+        "tool": "Bash",
+        "input": "touch .tools/claude-w3-capture/permission-marker"
+      }
+    },
+    {
+      "name": "Notification-idle_prompt",
+      "payload": {
+        "session_id": "00000000-0000-4000-8000-000000000003",
+        "transcript_path": "/fixture/transcript.jsonl",
+        "cwd": "/fixture/repo",
+        "scratchpad_dir": "/fixture/scratchpad",
+        "prompt_id": "00000000-0000-4000-8000-000000000004",
+        "hook_event_name": "Notification",
+        "message": "Claude is waiting for your input",
+        "notification_type": "idle_prompt"
+      },
+      "status": "idle",
+      "summary": "Claude is waiting for your input",
+      "detail": {
+        "message": "Claude is waiting for your input"
+      }
+    }
+  ]
+}

@@ -53,15 +53,16 @@ func (c *Catalog) Load(dir string) ([]Manifest, error) {
 }
 
 func Join(manifests []Manifest, sessions []tmux.Session) []Row {
-	live := make(map[string]string, len(sessions))
+	live := make(map[string]tmux.Session, len(sessions))
 	for _, s := range sessions {
 		if s.Name != tmux.MonitorSession {
-			live[s.Name] = s.MinionID
+			live[s.Name] = s
 		}
 	}
 	rows := make([]Row, 0, len(manifests))
 	for _, m := range manifests {
-		rows = append(rows, Row{Manifest: m, Alive: live[tmux.SessionName(m.ID)] == m.ID})
+		s := live[tmux.SessionName(m.ID)]
+		rows = append(rows, Row{Manifest: m, Alive: s.MinionID == m.ID, Status: s.Status, Since: s.Since, Seen: s.Seen})
 	}
 	return rows
 }

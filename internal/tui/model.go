@@ -3,6 +3,7 @@ package tui
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/thomashartm/colony/internal/minion"
+	"github.com/thomashartm/colony/internal/state"
 	"github.com/thomashartm/colony/internal/tmux"
 )
 
@@ -39,6 +41,11 @@ type Model struct {
 	choices                           []tmux.Client
 	choice                            int
 	poll                              tea.Cmd
+	fetchDetail                       func(minion.Row, uint64, bool) tea.Cmd
+	detailSeq                         uint64
+	event                             state.Event
+	gitDetail                         string
+	alert, bell                       bool
 }
 
 func newModel(monitor, inside bool, client string, poll tea.Cmd) Model {
@@ -59,10 +66,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.pollError = ""
 		id := m.selectedID()
+		old := make(map[string]minion.Row, len(m.rows))
+		for _, r := range m.rows {
+			old[r.ID] = r
+		}
+		ring := false
+		if m.loaded && m.monitor {
+			for _, r := range msg.rows {
+				prev := old[r.ID]
+				s := r.CurrentStatus()
+				if state.Attention(s) && (!state.Attention(prev.CurrentStatus()) || (s == prev.CurrentStatus() && r.Since != prev.Since)) {
+					m.alert = true
+					ring = m.bell
+				}
+			}
+		}
 		m.rows, m.clients, m.loaded = msg.rows, msg.clients, true
 		sort.SliceStable(m.rows, func(i, j int) bool {
-			if m.rows[i].Alive != m.rows[j].Alive {
-				return m.rows[i].Alive
+			if sectionOrder(m.rows[i]) != sectionOrder(m.rows[j]) {
+				return sectionOrder(m.rows[i]) < sectionOrder(m.rows[j])
+			}
+			if state.Attention(m.rows[i].CurrentStatus()) && m.rows[i].Since != m.rows[j].Since {
+				return m.rows[i].Since < m.rows[j].Since
 			}
 			return m.rows[i].ID < m.rows[j].ID
 		})
@@ -74,7 +99,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.selected = max(0, min(m.selected, len(m.rows)-1))
 		m.updateDetail()
-		return m, nextPoll()
+		cmd := m.requestDetail(id != m.selectedID())
+		var bell tea.Cmd
+		if ring {
+			bell = func() tea.Msg { _, _ = fmt.Fprint(os.Stdout, "\a"); return nil }
+		}
+		return m, tea.Batch(nextPoll(), cmd, bell)
+	case detailMsg:
+		if msg.id == m.selectedID() && msg.seq == m.detailSeq {
+			m.event, m.gitDetail = msg.event, msg.git
+			if msg.err != nil {
+				m.message = msg.err.Error()
+			}
+			m.updateDetail()
+		}
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		m.detail.Width, m.detail.Height = m.detailWidth(), max(1, m.height-5)
@@ -88,6 +126,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 	case tea.KeyMsg:
+		previousID := m.selectedID()
 		if m.busy {
 			return m, nil
 		}
@@ -127,10 +166,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "enter":
+			m.alert = false
 			return m.jump()
+		}
+		if previousID != m.selectedID() {
+			m.alert = false
+			return m, m.requestDetail(true)
 		}
 	}
 	return m, nil
+}
+
+func (m *Model) requestDetail(force bool) tea.Cmd {
+	if force {
+		m.event = state.Event{}
+		m.gitDetail = ""
+		m.updateDetail()
+	}
+	if m.fetchDetail == nil || m.selectedID() == "" {
+		return nil
+	}
+	m.detailSeq++
+	return m.fetchDetail(m.rows[m.selected], m.detailSeq, force)
 }
 
 func (m *Model) selectRow(index int) {
@@ -271,10 +328,7 @@ func (m *Model) updateDetail() {
 		return
 	}
 	r := m.rows[m.selected]
-	state := "alive"
-	if !r.Alive {
-		state = "dead"
-	}
+	status := r.CurrentStatus()
 	var clients []string
 	for _, c := range m.clients {
 		if c.Session == tmux.SessionName(r.ID) {
@@ -282,11 +336,30 @@ func (m *Model) updateDetail() {
 		}
 	}
 	body := strings.Join([]string{
-		clean(r.Name), "", field("ID", r.ID), field("Session", state), field("Ticket", r.Ticket),
+		clean(r.Name), "", field("ID", r.ID), field("Status", status+" · "+since(r)), field("Ticket", r.Ticket),
 		field("Repo", r.Repo), field("Branch", r.Branch), field("Base", r.Base), field("Agent", r.Agent),
 		"", field("Worktree", r.Worktree), field("Main repo", r.RepoPath), field("Remote", r.RemoteURL),
 		field("Created", r.CreatedAt.Local().Format("2006-01-02 15:04 MST")), field("Tabs", strings.Join(clients, ", ")),
 	}, "\n")
+	if m.event.Status == status {
+		text := m.event.Summary
+		switch status {
+		case "question":
+			if q := m.event.Detail["question"]; q != "" {
+				text = q
+			}
+		case "permission":
+			if tool := m.event.Detail["tool"]; tool != "" {
+				text = tool + ": " + m.event.Detail["input"] + "\n\n" + text
+			}
+		}
+		if text != "" {
+			body = multiline(text) + "\n\n────────────────────\n" + body
+		}
+	}
+	if status == "ready" && m.gitDetail != "" {
+		body += "\n\n" + multiline(m.gitDetail)
+	}
 	m.detail.SetContent(ansi.Hardwrap(body, m.detail.Width, true))
 }
 
@@ -304,8 +377,13 @@ func (m Model) View() string {
 		}
 	}
 	header := fmt.Sprintf(" colony  %d alive · %d dead", alive, len(m.rows)-alive)
+	header += "  " + totals(m.rows)
 	if m.monitor {
 		header = fmt.Sprintf(" colony monitor  %d alive · %d dead", alive, len(m.rows)-alive)
+		header += "  " + totals(m.rows)
+		if m.alert {
+			header += "  ! NEW ATTENTION"
+		}
 		if target, err := WorkClient(m.clients, m.pinned); err == nil {
 			header += "  work: " + clean(target.Name)
 			if m.pinned != "" {
@@ -351,19 +429,12 @@ func (m Model) listView(height, width int) string {
 	selectedLine := 0
 	last := ""
 	for i, r := range m.rows {
-		section := "ALIVE"
-		if !r.Alive {
-			section = "DEAD"
+		group := section(r)
+		if group != last {
+			lines = append(lines, group)
+			last = group
 		}
-		if section != last {
-			lines = append(lines, section)
-			last = section
-		}
-		icon := "●"
-		color := lipgloss.Color("2")
-		if !r.Alive {
-			icon, color = "✗", lipgloss.Color("1")
-		}
+		icon, color := statusIcon(r.CurrentStatus())
 		name := r.Name
 		if name == "" {
 			name = r.ID
@@ -371,8 +442,10 @@ func (m Model) listView(height, width int) string {
 		if r.Ticket != "" {
 			name = r.Ticket + " · " + name
 		}
-		line := fit(" "+icon+" "+clean(name), width)
-		style := lipgloss.NewStyle().Foreground(color)
+		age := since(r)
+		label := fit(clean(name), max(1, width-lipgloss.Width(icon)-len(age)-4))
+		line := " " + lipgloss.NewStyle().Foreground(color).Render(icon) + " " + label + " " + age
+		style := lipgloss.NewStyle()
 		if i == m.selected {
 			style = style.Reverse(true)
 			selectedLine = len(lines)

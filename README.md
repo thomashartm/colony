@@ -23,8 +23,16 @@ make build
 ./bin/colony --help
 ```
 
-For a local install, run `go install ./cmd/colony` with your Go bin directory on
-PATH. Source builds report `dev`; snapshot binaries include the Git commit.
+For a local install:
+
+```sh
+CGO_ENABLED=0 go install ./cmd/colony
+export PATH="$(go env GOPATH)/bin:$PATH"
+colony version
+```
+
+Keep that PATH entry in your shell configuration. Source builds report `dev`;
+snapshot binaries include the Git commit.
 
 ## Start a minion
 
@@ -62,9 +70,9 @@ The main checkout's files stay untouched. Local `.env` and `.env.*` files and
 `graphify-out` directories are copied recursively, preserving attributes and
 existing destination files. Searches exclude `.git` and `node_modules`.
 
-When the agent exits, its pane becomes a shell. `colony ls` reports **alive** while
-the tmux session exists and **dead** after it ends; this describes the session,
-not whether the agent is currently working. Manifests live in
+When the agent exits, its pane becomes a shell. `colony ls` shows both the agent status
+and whether its tmux session is **alive** or **dead**. After Claude exits, its
+status is **ended** while the shell session remains alive. Manifests live in
 `${XDG_STATE_HOME:-~/.local/state}/colony/minions/`. If creation fails after a
 worktree has been made, colony reports the error and retains that worktree.
 
@@ -93,8 +101,11 @@ schema 1 is supported.
 ## Session overview
 
 Run `colony` to browse your minions in a terminal overview. The left list shows
-alive and dead sessions; the right pane shows the selected minion's repository,
-branch, agent, worktree and attached terminals. It refreshes every second.
+**NEEDS YOU** (permission, question, ready, idle), **WORKING**, and **ENDED / DEAD**.
+Waiting minions appear oldest first, with a status icon and elapsed time.
+The right pane shows the request or response, repository, branch, agent, worktree
+and attached terminals. Ready minions also show their commit and diff summary.
+It refreshes every second, including details for the selected minion.
 
 | Key | Action |
 | --- | --- |
@@ -105,6 +116,45 @@ branch, agent, worktree and attached terminals. It refreshes every second.
 
 The overview needs a terminal at least 60 columns wide and 10 rows high.
 Use `colony ls` for plain text output.
+
+### Claude status reporting
+
+Install hooks once, with colony on PATH:
+
+```sh
+colony hooks install claude
+```
+
+The installer merges into `~/.claude/settings.json`, preserves other settings and
+hooks, and backs up an existing file before changing it. Running it again makes
+no changes. Restart existing Claude sessions to load the hooks. To start Claude
+again in an existing minion, exit Claude and run `claude` in that same pane.
+Sessions outside colony are ignored.
+
+| State | Meaning |
+| --- | --- |
+| ⚠ permission | Approval needed; details show the requested tool/command |
+| ? question | Claude is asking a question; details show its options |
+| ✓ ready | A turn finished; details show the last response |
+| ◌ idle | Session started or Claude is waiting for input |
+| ● working / starting | Claude is running or the session is starting |
+| ■ ended / ✗ dead | Agent exited / tmux session ended |
+
+Use **Enter** to jump to a minion and answer Claude there. Codex and OpenCode
+currently show session availability without live agent attention states.
+
+Hooks produce no terminal output and always exit successfully. Diagnostics go to
+`${XDG_STATE_HOME:-~/.local/state}/colony/report.log`; per-minion event history is
+beside its manifest as `<id>.events.jsonl`. Hooks do not change manifests.
+
+New minion sessions show their status and ticket in tmux's status bar. For
+existing sessions, add this to your tmux configuration and reload it:
+
+```tmux
+set -g status-interval 2
+set -g status-left-length 50
+set -g status-left "#{?#{@colony_minion},#{@colony_status} #{@colony_ticket} ,}"
+```
 
 ### Popup
 
@@ -136,6 +186,22 @@ to follow activity again. If there is no work tab, open another terminal and run
 In the monitor, **q** detaches the terminal and leaves the overview running.
 Closing the terminal also leaves it running; `colony monitor` reconnects to it.
 The `_colony` session does not appear in the minion list.
+
+The header shows per-status counts and **NEW ATTENTION** when a minion needs you.
+Selecting another minion or jumping acknowledges the marker. To also ring the
+terminal bell, add `monitor_bell = true` to colony's configuration, then restart
+the overview process. Terminal notification behavior depends on your terminal's
+bell settings.
+
+After upgrading colony, restart an existing monitor to load the new binary
+(`q` only detaches it):
+
+```sh
+tmux kill-session -t _colony
+colony monitor
+```
+
+This restarts the overview; minion sessions keep running.
 
 ## Development checks
 

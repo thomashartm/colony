@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/thomashartm/colony/internal/config"
+	"github.com/thomashartm/colony/internal/report"
 	"github.com/thomashartm/colony/internal/tmux"
 	"github.com/thomashartm/colony/internal/tui"
 )
@@ -14,6 +15,11 @@ import (
 var version = "dev"
 
 func main() {
+	// Hooks must bypass Cobra's flag errors, help output and nonzero exits.
+	if len(os.Args) > 1 && os.Args[1] == "report" {
+		report.Run(os.Args[2:], os.Stdin)
+		return
+	}
 	if err := newRootCommand().Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "colony:", err)
 		os.Exit(1)
@@ -34,10 +40,11 @@ func newRootCommand() *cobra.Command {
 			DisableDefaultCmd: true,
 		},
 		RunE: func(_ *cobra.Command, _ []string) error {
-			if _, err := config.Load(); err != nil {
+			cfg, err := config.Load()
+			if err != nil {
 				return err
 			}
-			return tui.Run(monitor, client)
+			return tui.Run(monitor, client, cfg.MonitorBell)
 		},
 	}
 	root.Flags().BoolVar(&monitor, "monitor", false, "Run the monitor overview (internal)")
@@ -53,7 +60,7 @@ func newRootCommand() *cobra.Command {
 			return err
 		},
 	})
-	root.AddCommand(spawnCommand(), listCommand(), connectCommand(true), connectCommand(false), execAgentCommand())
+	root.AddCommand(spawnCommand(), listCommand(), connectCommand(true), connectCommand(false), execAgentCommand(), reportCommand(), hooksCommand())
 	root.AddCommand(&cobra.Command{
 		Use: "config", Short: "Show the configured repository and worktree roots", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -72,7 +79,7 @@ func newRootCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Existing files are preserved. Add this line to ~/.tmux.conf and reload tmux configuration:\nsource-file %q\n", path)
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Existing files are preserved. Add this line to ~/.tmux.conf and reload tmux configuration:\nsource-file %q\n\nEnable Claude status reporting: colony hooks install claude\n", path)
 			return err
 		},
 	})

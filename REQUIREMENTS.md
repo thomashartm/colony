@@ -1,7 +1,7 @@
 # colony — Requirements
 
 Document schema: `1`  
-Status: W0–W2 implementations available; see DELIVERY.md and GitHub CI for validation. W3–W11 pending.
+Status: W0–W3 implementations available; see DELIVERY.md and GitHub CI for validation. W4–W11 pending.
 Source: user specification, 2026-09-30.
 
 ## Delivery agreement: MVP mode
@@ -316,6 +316,7 @@ with `.` and `:` replaced by `_`. A tmux session is a minion if and only if its
 | `@colony_minion` | spawn/adopt | Minion id |
 | `@colony_status` | report; initialized by spawn | starting, working, permission, question, ready, idle, ended |
 | `@colony_since` | report | Unix timestamp of last status change |
+| `@colony_context` | report | Bounded schema-1 event JSON for the latest mapped hook; retains question/tool context without logging every tool call |
 | `@colony_seen` | report | Unix timestamp of last hook call, for any event |
 | `@colony_ticket`, `@colony_crew`, `@colony_agent` | spawn/edit | Status-line fields; crew is the title |
 | `@colony_color`, `@colony_emoji` | spawn/edit | Resolved palette color and emoji |
@@ -467,12 +468,18 @@ Claude/OpenCode or argv for Codex notify.
 | Other PreToolUse / PostToolUse | working | Tool and short input |
 | Notification: permission prompt | permission | Message |
 | Notification: idle prompt | idle | No required summary |
-| Stop | ready | Last assistant text; read only the transcript tail |
+| Stop | ready | Prefer last_assistant_message; otherwise read only the final 64 KiB of transcript |
 | SessionEnd | ended | No required summary |
 
 Classify notifications by `notification_type` when available, otherwise message
 text (permission versus waiting for input). Verify installed-version fields and
 transcript format; retain recorded payloads as golden fixtures.
+
+W3 verified Claude Code 2.1.285. AskUserQuestion also emits a generic permission
+notification: retain the question state and options when this notification is
+from the same agent session. Other permission notifications retain the latest
+tool input for that session. Stop provides `last_assistant_message`; its
+transcript may not yet contain the final record when the hook runs.
 
 ### 7.3 Codex
 
@@ -610,7 +617,8 @@ Only expose keys once their capability is implemented.
 
 Every second, make one `list-sessions -F` call containing all colony options and
 one `list-clients -F '#{client_tty}\t#{client_session}'` call. Reload manifests
-when mtime changes. Read event tails on selection change. Capture panes only for
+when mtime changes. Read event tails on selection change and when the selected
+log mtime/size changes. Capture panes only for
 Codex minions. Monitor client-activity and selected-event freshness clarifications
 are recorded in §14.
 
@@ -869,9 +877,9 @@ they do not authorize expanding an earlier work item.
 | When | Question |
 | --- | --- |
 | W0 (resolved) | Use literal item numbering: W0 → v0.0.0, W1 → v0.1.0. GitHub destination supplied by the user: https://github.com/thomashartm/colony. |
-| First affected writer | Define schema representation for prompts, logs, generated shell snippets and third-party settings. Preserve copied reference/artifact files unchanged; the literal “every file” rule needs an explicit boundary for these copies. |
+| W3 (resolved for current writers) | Owned JSONL records carry schema: 1; generated config/snippets use schema fields/comments. Preserve third-party Claude settings format and exact backup bytes; the integration template has schema 1 and backup filenames carry colony-v1. Copied reference/artifact files remain unchanged. Prompt representation is deferred to W6. |
 | W1 (resolved) | Use the branch-based default path, such as `aderis-api/feat-412-fx-cache`. Reserve normalized tmux session names as well as ids; prefix the repo on collision, then refuse if still occupied. |
-| W3 | Selected event detail is specified to reload only on selection change, but a selected minion can change status during polling. Decide when its event tail refreshes. |
+| W3 (resolved) | Tail-read events on selection change and when the selected log mtime or size changes during polling. Ready commit/diff data refreshes with those events. This keeps selected details live without reading whole logs. |
 | W2 (resolved) | Each poll reads client_name, client_tty, client_session and client_activity in one client-list call. Monitor jumps recheck clients before switching. T pins a client in memory; q detaches the monitor while keeping its TUI running. The popup binding uses run-shell to expand the originating client before display-popup runs. |
 | W6 | The send-keys fallback waits for idle, but Codex/OpenCode reporting arrives in W8. Choose a working prompt handoff without a future dependency. |
 | W9 | R and Shift+R are ordinarily the same uppercase terminal key. Choose distinguishable selected/all refresh bindings. |

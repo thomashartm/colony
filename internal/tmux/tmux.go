@@ -2,18 +2,23 @@
 package tmux
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
 
 type Session struct {
 	Name     string
 	MinionID string
 	Monitor  bool
+	Status   string
+	Since    int64
+	Seen     int64
 }
 
 func run(args ...string) (string, error) {
@@ -27,7 +32,7 @@ func run(args ...string) (string, error) {
 func Sessions() ([]Session, error) {
 	// Older tmux releases replace tabs with underscores for non-UTF-8 clients.
 	// Force UTF-8 for machine-readable records, including outside tmux.
-	out, err := run("-u", "list-sessions", "-F", "#{session_name}\t#{@colony_minion}\t#{@colony_monitor}")
+	out, err := run("-u", "list-sessions", "-F", "#{session_name}\t#{@colony_minion}\t#{@colony_monitor}\t#{@colony_status}\t#{@colony_since}\t#{@colony_seen}")
 	if err != nil {
 		if strings.Contains(out, "no server running on ") || strings.Contains(out, "no sessions") ||
 			(strings.Contains(out, "error connecting to ") && strings.Contains(out, "No such file or directory")) {
@@ -41,7 +46,13 @@ func Sessions() ([]Session, error) {
 		if len(fields) < 2 {
 			return nil, fmt.Errorf("unexpected tmux session record %q", line)
 		}
-		sessions = append(sessions, Session{Name: fields[0], MinionID: fields[1], Monitor: len(fields) > 2 && fields[2] == "1"})
+		s := Session{Name: fields[0], MinionID: fields[1], Monitor: len(fields) > 2 && fields[2] == "1"}
+		if len(fields) >= 6 {
+			s.Status = fields[3]
+			s.Since, _ = strconv.ParseInt(fields[4], 10, 64)
+			s.Seen, _ = strconv.ParseInt(fields[5], 10, 64)
+		}
+		sessions = append(sessions, s)
 	}
 	return sessions, nil
 }
@@ -49,6 +60,8 @@ func Sessions() ([]Session, error) {
 func SessionName(id string) string {
 	return strings.NewReplacer(".", "_", ":", "_").Replace(id)
 }
+
+const StatusLeft = "#{?#{@colony_minion},#{@colony_status} #{@colony_ticket} ,}"
 
 func Start(id, worktree, ticket, agent string) error {
 	self, err := os.Executable()
@@ -68,11 +81,47 @@ func Start(id, worktree, ticket, agent string) error {
 	// Multiple shell-command arguments bypass tmux's shell-string interpretation.
 	// User-controlled values are positional arguments, never interpolated code.
 	args = append(args, "/bin/sh", "-c", `"$1" exec-agent "$2"; exec "$3" -l`, "colony", self, id, shell)
-	for _, option := range [][2]string{{"@colony_minion", id}, {"@colony_ticket", ticket}, {"@colony_agent", agent}} {
+	now := strconv.FormatInt(time.Now().Unix(), 10)
+	for _, option := range [][2]string{{"@colony_minion", id}, {"@colony_ticket", ticket}, {"@colony_agent", agent}, {"@colony_status", "starting"}, {"@colony_since", now}, {"@colony_seen", now}} {
 		args = append(args, ";", "set-option", "-t", "="+name+":", option[0], option[1])
 	}
+	args = append(args, ";", "set-option", "-t", "="+name+":", "status-left", StatusLeft, ";", "set-option", "-t", "="+name+":", "status-left-length", "50", ";", "set-option", "-t", "="+name+":", "status-interval", "2")
 	_, err = run(args...)
 	return err
+}
+
+// ReportStatus and ReportUpdate together use at most two tmux processes.
+type HookState struct {
+	Status  string
+	Context string
+}
+
+func ReportStatus(ctx context.Context, id string) (HookState, error) {
+	out, err := exec.CommandContext(ctx, "tmux", "-u", "display-message", "-p", "-t", "="+SessionName(id)+":", "#{@colony_minion}\t#{@colony_status}\t#{@colony_context}").CombinedOutput()
+	if err != nil {
+		return HookState{}, fmt.Errorf("tmux report lookup: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	fields := strings.SplitN(strings.TrimSuffix(string(out), "\n"), "\t", 3)
+	if len(fields) != 3 || fields[0] != id {
+		return HookState{}, fmt.Errorf("session is not marked as minion %q", id)
+	}
+	return HookState{Status: fields[1], Context: fields[2]}, nil
+}
+func ReportUpdate(ctx context.Context, id, status, contextText string, changed bool, seen int64) error {
+	target := "=" + SessionName(id) + ":"
+	stamp := strconv.FormatInt(seen, 10)
+	args := []string{"set-option", "-t", target, "@colony_seen", stamp}
+	if contextText != "" {
+		args = append(args, ";", "set-option", "-t", target, "@colony_context", contextText)
+	}
+	if changed {
+		args = append(args, ";", "set-option", "-t", target, "@colony_status", status, ";", "set-option", "-t", target, "@colony_since", stamp)
+	}
+	out, err := exec.CommandContext(ctx, "tmux", args...).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("tmux report update: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
 }
 
 func Switch(id string) error {

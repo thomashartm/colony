@@ -52,14 +52,14 @@ func spawnCommand() *cobra.Command {
 
 func listCommand() *cobra.Command {
 	return &cobra.Command{
-		Use: "ls", Short: "List minions and whether their tmux sessions are alive", Args: cobra.NoArgs,
+		Use: "ls", Short: "List minions, agent status and tmux session state", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			rows, err := minion.List()
 			if err != nil {
 				return err
 			}
 			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 4, 2, ' ', 0)
-			if _, err := fmt.Fprintln(w, "ID\tTICKET\tREPO\tBRANCH\tAGENT\tSTATE"); err != nil {
+			if _, err := fmt.Fprintln(w, "ID\tTICKET\tREPO\tBRANCH\tAGENT\tSTATUS\tSTATE"); err != nil {
 				return err
 			}
 			for _, row := range rows {
@@ -71,7 +71,7 @@ func listCommand() *cobra.Command {
 				if ticket == "" {
 					ticket = "—"
 				}
-				if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", row.ID, ticket, row.Repo, row.Branch, row.Agent, status); err != nil {
+				if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.ID, ticket, row.Repo, row.Branch, row.Agent, row.CurrentStatus(), status); err != nil {
 					return err
 				}
 			}

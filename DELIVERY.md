@@ -96,10 +96,57 @@ selection and other later-item features. Native Claude and Codex permission-mode
 requests remain tracked in [#1](https://github.com/thomashartm/colony/issues/1) and
 [#2](https://github.com/thomashartm/colony/issues/2).
 
+## W3 — Claude attention states: implementation complete
+
+Delivered Claude hook reporting, attention sections and details, monitor counts,
+new-attention markers and optional terminal bell (`monitor_bell = true`).
+
+- `colony hooks install claude` merges seven hooks idempotently and backs up an
+  existing settings file. Global user hooks are installed only on explicit use
+  of that command; implementation testing used temporary settings.
+- Recorded real Claude Code 2.1.285 lifecycle, Read, Bash, question, permission
+  and idle payloads. Fixtures include version and reproduction notes. Stop's
+  direct assistant message avoids a transcript flush delay observed in testing;
+  older payloads use a bounded transcript-tail fallback.
+- `report` always exits 0 and emits no stdout/stderr. It ignores sessions without
+  COLONY_MINION, caps payloads and event lines, bounds stdin/tmux waits at 250 ms,
+  and uses two tmux invocations. Error logging gets at most another 10 ms and
+  appends schema-1 report.log records when the state filesystem is available.
+- tmux holds status, transition time, last-seen time and bounded latest event
+  context. Generic permission notifications preserve a pending question, or
+  retain the preceding tool/command. Hooks never write manifests. Events append
+  only for transitions and the specified lifecycle/notification events.
+- NEEDS YOU sorts oldest first; WORKING and ENDED / DEAD follow. Selected details
+  tail-refresh on event mtime/size changes; ready detail includes commit and diff.
+  `ls` includes STATUS alongside the existing alive/dead STATE column. Existing
+  unreported sessions remain usable. New sessions get a tmux status display;
+  init preserves existing config files, with manual upgrade steps in the README.
+- Owned event records have schema 1. Claude settings preserve their native format
+  and backups preserve exact bytes (versioned filenames); no unrelated schema
+  key is inserted into third-party configuration.
+- Tests cover recorded mappings, backup/idempotency, bounded records, timeout and
+  error behavior, ordering/alerts, and real hook-to-terminal updates with an
+  isolated tmux server and fixture Git repository. The terminal test covers the
+  optional bell, fresh selected details and a ready commit/diff. It also verifies
+  exactly two tmux calls and unchanged manifest bytes/mtime.
+- Local full-process benchmark: **14.39 ms p95** across 300 invocations on macOS
+  arm64 (Apple M4 Pro, Go 1.25.5, tmux 3.6a), using the shipped CGO_ENABLED=0 /
+  trimpath build and real tmux. This is a local measurement, not a guarantee for
+  every host. Reproduce with `go test ./cmd/colony -run '^$' -bench
+  '^BenchmarkReportCLI$' -benchtime=300x`.
+
+Local tests, vet, lint, all four static builds and snapshot packaging passed.
+Hosted CI and the v0.3.0 release checkpoint are pending validation.
+
+Deliberately left out: event rotation and stale detection (W11), Codex/OpenCode
+reporting (W8), retire/revive (W4), crews, spawn forms and native permission modes
+([#1](https://github.com/thomashartm/colony/issues/1),
+[#2](https://github.com/thomashartm/colony/issues/2)).
+
 ## Next checkpoint
 
-Stop after W2. Feedback focus: overview layout and density, and whether automatic
-work-tab selection or pinning suits daily use. W3 remains pending user feedback.
+Stop after W3. Feedback focus: whether attention ordering, question/permission
+context and monitor alerts fit daily Claude use. W4 waits for user feedback.
 
 Continue using the original [wt 1.2.0](reference/wt) and
 [wt-clean 1.0.0](reference/wt-clean) alongside colony until W10 delivers the full

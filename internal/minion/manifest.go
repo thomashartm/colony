@@ -81,7 +81,20 @@ func loadAll(dir string) ([]Manifest, error) {
 
 type Row struct {
 	Manifest
-	Alive bool
+	Alive  bool
+	Status string
+	Since  int64
+	Seen   int64
+}
+
+func (r Row) CurrentStatus() string {
+	if !r.Alive {
+		return "dead"
+	}
+	if !state.ValidStatus(r.Status) {
+		return "alive"
+	}
+	return r.Status
 }
 
 func List() ([]Row, error) {
@@ -100,17 +113,7 @@ func List() ([]Row, error) {
 	if err != nil {
 		return nil, err
 	}
-	rows := make([]Row, 0, len(manifests))
-	for _, m := range manifests {
-		alive := false
-		for _, session := range sessions {
-			if session.MinionID == m.ID && session.Name == tmux.SessionName(m.ID) {
-				alive = true
-			}
-		}
-		rows = append(rows, Row{Manifest: m, Alive: alive})
-	}
-	return rows, nil
+	return Join(manifests, sessions), nil
 }
 
 func RequireLive(id string) error {

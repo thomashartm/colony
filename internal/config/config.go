@@ -16,6 +16,7 @@ type Config struct {
 	Schema        int    `toml:"schema"`
 	ReposRoot     string `toml:"repos_root"`
 	WorktreesRoot string `toml:"worktrees_root"`
+	MonitorBell   bool   `toml:"monitor_bell"`
 }
 
 // Load reads the XDG config file, defaults missing settings, and expands ~/.

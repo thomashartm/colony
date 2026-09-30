@@ -12,7 +12,7 @@ import (
 )
 
 // Run restores the terminal before replacing this process with tmux attach.
-func Run(monitor bool, client string) error {
+func Run(monitor bool, client string, bell bool) error {
 	if !term.IsTerminal(os.Stdin.Fd()) || !term.IsTerminal(os.Stdout.Fd()) {
 		return fmt.Errorf("the overview requires a terminal; use colony ls for text output")
 	}
@@ -47,11 +47,15 @@ func Run(monitor bool, client string) error {
 		}
 		return snapshot{rows: minion.Join(manifests, sessions), clients: clients}
 	}
-	result, err := tea.NewProgram(newModel(monitor, inside, client, poll), tea.WithAltScreen()).Run()
+	m := newModel(monitor, inside, client, poll)
+	m.bell = bell
+	cache := &detailCache{dir: dir}
+	m.fetchDetail = cache.command
+	result, err := tea.NewProgram(m, tea.WithAltScreen()).Run()
 	if err != nil {
 		return err
 	}
-	m := result.(Model)
+	m = result.(Model)
 	if m.attachID != "" {
 		return tmux.Attach(m.attachID)
 	}

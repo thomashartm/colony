@@ -1,5 +1,9 @@
 # colony
 
+<p align="center">
+  <img src="colony-logo.png" alt="colony logo" width="320">
+</p>
+
 colony is a terminal tool for parallel AI coding sessions. The project is being
 built one usable slice at a time; see [REQUIREMENTS.md](REQUIREMENTS.md).
 

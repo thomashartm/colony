@@ -209,7 +209,9 @@ func TestOverviewAndMonitor(t *testing.T) {
 	f.colony("init")
 	popupPath := filepath.Join(f.home, "config/colony/colony.tmux.conf")
 	f.tmux("source-file", popupPath)
-	binding := f.tmux("list-keys", "-T", "prefix", "h")
+	// Some tmux versions show a single requested key in the client's status
+	// line; listing the table consistently writes machine-readable stdout.
+	binding := f.tmux("list-keys", "-T", "prefix")
 	if !strings.Contains(binding, "--client #{q:client_name}") {
 		t.Fatalf("popup binding: %s", binding)
 	}

@@ -164,6 +164,54 @@ those minions; their worktrees and sessions remain. Archived manifests retain
 their historical crew id. Crews are stored in
 `${XDG_STATE_HOME:-~/.local/state}/colony/crews.toml`.
 
+## Blueprints
+
+Blueprints are Markdown templates for a minion's initial prompt. Store them in
+`${XDG_CONFIG_HOME:-~/.config}/colony/blueprints/`, or in the main repository's
+`.colony/blueprints/` directory. A repository blueprint overrides a global one
+with the same name. An optional `repos` list restricts where it is available.
+
+Start with [feature-plan-first.md](examples/blueprints/feature-plan-first.md):
+
+```sh
+mkdir -p ~/.config/colony/blueprints
+cp examples/blueprints/feature-plan-first.md ~/.config/colony/blueprints/
+colony blueprint list --repo api
+colony blueprint show feature-plan-first --repo api
+colony blueprint validate --repo api
+colony spawn --repo api --branch feat/412-fx-cache --ticket 412 --name "FX cache" \
+  --blueprint feature-plan-first --var 'constraints=Keep the change small'
+```
+
+Use your XDG config directory instead of `~/.config` if you have customized it.
+Without `--repo`, the authoring commands use global files. `validate [name]`
+checks syntax and renders with empty values, so templates should handle absent
+optional inputs.
+
+Each file starts with TOML between `+++` lines, followed by a Go text/template
+body. Front matter supports `schema = 1`, `name`, `description`, `agent`, `args`,
+`repos` and `vars`. Omitted name defaults to the filename without `.md`; omitted
+agent defaults to Claude. Unknown front-matter keys are ignored.
+
+Template fields are `Repo`, `Branch`, `Base`, `Ticket`, `Name`, `Worktree`,
+`Crew.Title`, `Crew.URL`, `Crew.Kind`, and `Vars.<name>`. Unset fields and missing
+variable keys render empty. Repeat `--var key=value` to supply variables; values
+can contain commas, equals signs and newlines. The last value for a key wins.
+`vars` lists suggested inputs; it does not make them mandatory.
+
+The CLI's `--agent` overrides the blueprint's agent. If the blueprint has arguments
+for a different agent, colony refuses the mismatch before creating a worktree.
+Blueprint arguments are passed unchanged, so the example's Claude plan mode is
+selected by its `args = ["--permission-mode", "plan"]`.
+
+Claude and Codex receive the rendered prompt as one positional argument;
+OpenCode uses `--prompt`. Prompts are never interpolated into a shell command.
+Rendered prompts are limited to 64 KiB and saved privately beside the manifest
+as `<id>.prompt.md`, with a schema comment that is removed before delivery.
+The manifest records the blueprint name and agent arguments. **Revive preserves
+those arguments without replaying the initial prompt.** Retirement archives the
+prompt with the rest of the minion's state.
+
 ## Configuration
 
 Reads `${XDG_CONFIG_HOME:-~/.config}/colony/config.toml`. Missing files/settings
@@ -192,7 +240,8 @@ Run `colony` to browse your minions in a terminal overview. The left list shows
 **NEEDS YOU** (permission, question, ready, idle), **WORKING**, and **ENDED / DEAD**.
 Waiting minions appear oldest first, with a status icon and elapsed time.
 The right pane shows the request or response, repository, branch, agent, worktree
-and attached terminals. Ready minions also show their commit and diff summary.
+and attached terminals, plus the selected blueprint. Ready minions also show
+their commit and diff summary.
 It refreshes every second, including details for the selected minion.
 
 | Key | Action |

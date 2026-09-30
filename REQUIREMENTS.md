@@ -1,7 +1,7 @@
 # colony — Requirements
 
 Document schema: `1`  
-Status: W0–W5 implementations available; see DELIVERY.md and GitHub CI for validation. W6–W11 pending.
+Status: W0–W6 implementations available; see DELIVERY.md and GitHub CI for validation. W7–W11 pending.
 Source: user specification, 2026-09-30.
 
 ## Delivery agreement: MVP mode
@@ -811,8 +811,8 @@ tags; grouping g; e for crew/color; manager G.
 
 **Scope:** Discovery/parsing/rendering with Repo, Branch, Base, Ticket, Name,
 Worktree, Crew.*, Vars.*. Spawn blueprint/var flags; list/show/validate; Claude
-positional prompt and send-keys fallback for other agents, subject to the
-no-forward-dependency clarification in §14.
+positional prompt. W6 uses the verified native prompt arguments for Codex and
+OpenCode as well, resolving the no-forward-dependency question in §14.
 
 **Done:** Rendering golden tests and fake-agent integration test receiving prompt.
 
@@ -885,7 +885,8 @@ they do not authorize expanding an earlier work item.
 | W4 (resolved) | Refuse retiring the caller's own tmux session, since killing its pane would interrupt cleanup. Use the monitor, another session or an outside terminal. Force overrides dirty/unpushed checks, never worktree ownership checks. |
 | W4 (resolved) | Revive is detached and applies only to active dead manifests with an existing linked worktree. Archived minions stay retired. Archive filename collisions receive a UTC timestamp suffix, preserving previous history. Protected branches remain hard-coded main/master/develop until W10. |
 | W5 (resolved) | Fixed palette and agent badges; tmux status-bar and emoji-title styling are enabled. Styling switches and badge customization are deferred until usage warrants them. Crew titles are manual, URLs are http/https, and no GitHub lookup occurs. Empty crew/color fields in the minion editor clear assignment/override. Forced crew removal unassigns active/dead manifests; archives remain historical. |
-| W6 | The send-keys fallback waits for idle, but Codex/OpenCode reporting arrives in W8. Choose a working prompt handoff without a future dependency. |
+| W6 (resolved) | Installed Claude 2.1.286 and Codex 0.159.2 accept positional prompts; OpenCode 1.18.21 accepts --prompt. Use these native arguments now, bringing initial prompt delivery forward from W8; no idle-hook or send-keys fallback is needed. Revive preserves blueprint args without replaying the prompt. CLI agent wins; conflicting agent-specific blueprint args are refused. |
+| W6 (resolved) | Prompt files use a schema-1 Markdown comment, stripped on delivery. Render/validate known fields and missing Vars keys as empty strings; unknown struct fields are template errors. Vars are optional, with repeated CLI values taking the last value. Render before worktree creation, then save the prompt before the manifest/session; cap prompts at 64 KiB for portable argv delivery. |
 | W9 | R and Shift+R are ordinarily the same uppercase terminal key. Choose distinguishable selected/all refresh bindings. |
 | W10 | Legacy wt worktree_dir means a root directory; colony worktree_dir is a relative template. Specify import mapping, consistent with WT_WORKTREE_DIR → worktrees_root. |
 | W10 | Env copying requires basename-only parity, while the example `config/*.local.yaml` contains a path. Choose whether to correct the example or explicitly change matching semantics. |

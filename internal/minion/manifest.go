@@ -15,6 +15,8 @@ import (
 )
 
 type Manifest struct {
+	Blueprint string     `toml:"blueprint,omitempty"`
+	AgentArgs []string   `toml:"agent_args,omitempty"`
 	Schema    int        `toml:"schema"`
 	ID        string     `toml:"id"`
 	Name      string     `toml:"name"`

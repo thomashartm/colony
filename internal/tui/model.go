@@ -417,10 +417,14 @@ func (m *Model) updateDetail() {
 			clients = append(clients, c.Name)
 		}
 	}
+	blueprintInfo := ""
+	if r.Blueprint != "" {
+		blueprintInfo = "\n" + field("Blueprint", r.Blueprint)
+	}
 	body := strings.Join([]string{
 		colored("▌ "+clean(r.Name), minion.Color(r.Manifest, m.crews)), "", field("ID", r.ID), field("Status", status+" · "+since(r)), field("Ticket", r.Ticket),
 		field("Repo", r.Repo), field("Branch", r.Branch), field("Base", r.Base), field("Agent", r.Agent) + " · " + coloredBadge(r.Agent),
-		"Crew  " + m.crewLabel(r.Crew),
+		"Crew  " + m.crewLabel(r.Crew) + blueprintInfo,
 		"", field("Worktree", r.Worktree), field("Main repo", r.RepoPath), field("Remote", r.RemoteURL),
 		field("Created", r.CreatedAt.Local().Format("2006-01-02 15:04 MST")), field("Tabs", strings.Join(clients, ", ")),
 	}, "\n")

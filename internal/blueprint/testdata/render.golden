@@ -1,0 +1,9 @@
+api: FX cache (#412)
+feat/412-cache -> main
+/work trees/api/feat-412-cache
+FX & Banking | https://example.com/work | link
+Constraints: first line
+second line, x=y
+Unset: [] []
+Ticket present
+Literal: <no value> $(touch SHOULD_NOT_RUN) `printf x` "quotes"

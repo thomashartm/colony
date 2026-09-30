@@ -11,6 +11,7 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/thomashartm/colony/internal/agents"
+	"github.com/thomashartm/colony/internal/blueprint"
 	"github.com/thomashartm/colony/internal/config"
 	"github.com/thomashartm/colony/internal/crew"
 	"github.com/thomashartm/colony/internal/gitx"
@@ -20,13 +21,11 @@ import (
 )
 
 type SpawnOptions struct {
-	Repo, Branch, Agent, Ticket, Name, Crew, Color string
+	Repo, Branch, Agent, Ticket, Name, Crew, Color, Blueprint string
+	Vars                                                      []string
 }
 
 func Spawn(cfg config.Config, opts SpawnOptions, progress io.Writer) (Manifest, error) {
-	if _, err := agents.Binary(opts.Agent); err != nil {
-		return Manifest{}, err
-	}
 	for _, tool := range []string{"git", "tmux", "cp"} {
 		if _, err := exec.LookPath(tool); err != nil {
 			return Manifest{}, fmt.Errorf("%s is required: %w", tool, err)
@@ -37,8 +36,38 @@ func Spawn(cfg config.Config, opts SpawnOptions, progress io.Writer) (Manifest, 
 			return Manifest{}, fmt.Errorf("name, ticket and repo must not contain control characters")
 		}
 	}
-	repo, err := resolveRepo(cfg.ReposRoot, opts.Repo)
+	repo, err := ResolveRepo(cfg.ReposRoot, opts.Repo)
 	if err != nil {
+		return Manifest{}, err
+	}
+	vars, err := blueprint.Variables(opts.Vars)
+	if err != nil {
+		return Manifest{}, err
+	}
+	if opts.Blueprint == "" && len(opts.Vars) > 0 {
+		return Manifest{}, fmt.Errorf("--var requires --blueprint")
+	}
+	var bp blueprint.Blueprint
+	if opts.Blueprint != "" {
+		available, err := blueprint.Discover(repo, opts.Repo)
+		if err != nil {
+			return Manifest{}, err
+		}
+		bp, err = blueprint.Find(available, opts.Blueprint)
+		if err != nil {
+			return Manifest{}, err
+		}
+		if opts.Agent != "" && opts.Agent != bp.Agent && len(bp.Args) > 0 {
+			return Manifest{}, fmt.Errorf("blueprint %s args belong to %s; cannot use them with --agent %s", bp.Name, bp.Agent, opts.Agent)
+		}
+		if opts.Agent == "" {
+			opts.Agent = bp.Agent
+		}
+	}
+	if opts.Agent == "" {
+		opts.Agent = "claude"
+	}
+	if _, err := agents.Binary(opts.Agent); err != nil {
 		return Manifest{}, err
 	}
 	branchSlug := strings.ReplaceAll(opts.Branch, "/", "-")
@@ -89,13 +118,26 @@ func Spawn(cfg config.Config, opts SpawnOptions, progress io.Writer) (Manifest, 
 	if err != nil {
 		return Manifest{}, err
 	}
+	prompt := ""
+	if opts.Blueprint != "" {
+		c, _ := crew.Find(crews, opts.Crew)
+		prompt, err = bp.Render(blueprint.Data{Repo: opts.Repo, Branch: opts.Branch, Base: base, Ticket: opts.Ticket, Name: name, Worktree: path, Crew: blueprint.Crew{Title: c.Title, URL: c.URL, Kind: c.Kind}, Vars: vars})
+		if err != nil {
+			return Manifest{}, err
+		}
+	}
 	if err := worktree.Create(repo, opts.Branch, base, path, progress); err != nil {
 		return Manifest{}, err
 	}
 	m := Manifest{
 		Schema: 1, ID: id, Name: name, Repo: opts.Repo, RepoPath: repo,
 		Worktree: path, Branch: opts.Branch, Base: base, RemoteURL: remote,
-		Ticket: opts.Ticket, Agent: opts.Agent, Crew: opts.Crew, Color: opts.Color, CreatedAt: time.Now().UTC(),
+		Ticket: opts.Ticket, Agent: opts.Agent, Blueprint: opts.Blueprint, AgentArgs: bp.Args, Crew: opts.Crew, Color: opts.Color, CreatedAt: time.Now().UTC(),
+	}
+	if opts.Blueprint != "" {
+		if err := state.WriteAtomic(filepath.Join(dir, id+".prompt.md"), []byte(blueprint.PromptHeader+prompt)); err != nil {
+			return Manifest{}, fmt.Errorf("worktree retained at %s; prompt could not be saved: %w", path, err)
+		}
 	}
 	data, err := toml.Marshal(m)
 	if err == nil {
@@ -110,7 +152,7 @@ func Spawn(cfg config.Config, opts SpawnOptions, progress io.Writer) (Manifest, 
 	return m, applyAppearance(m, crews)
 }
 
-func resolveRepo(root, name string) (string, error) {
+func ResolveRepo(root, name string) (string, error) {
 	if name == "" || name == "." || name == ".." || filepath.Base(name) != name {
 		return "", fmt.Errorf("--repo must be a directory name directly under repos_root")
 	}

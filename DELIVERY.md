@@ -229,10 +229,49 @@ including crew and terminal tests on macOS/Linux and Go 1.22 on Linux.
 Deliberately left out: GitHub title fetching and crew suggestions (W9), PR table
 columns (W9), configurable styling, blueprints (W6) and native permission modes.
 
+## W6 — Blueprints
+
+Delivered global/repository blueprint discovery, TOML front matter, Go template
+rendering, spawn blueprint/variable flags, and list/show/validate commands.
+
+- Repository definitions override global names, then repo restrictions filter
+  the effective set. Duplicate names within one directory and malformed files
+  are errors. Schema defaults to 1; unknown front-matter fields are ignored.
+- Available data is Repo/Branch/Base/Ticket/Name/Worktree, Crew fields and Vars.
+  Missing variable keys render empty; variables are optional and repeated CLI
+  assignments use the last value. Template errors are caught before worktree
+  creation. The authoring validator renders with empty data.
+- CLI agent selection overrides the blueprint; otherwise use the blueprint's
+  agent, defaulting to Claude. Arguments belonging to another blueprint agent
+  cause a clear refusal. No permission-mode picker was added.
+- Prompt files carry a schema-1 Markdown comment and mode 0600. The comment is
+  stripped before delivery; the rendered body is passed byte-for-byte. A 64 KiB
+  limit keeps the single argument below platform limits. Manifests record the
+  blueprint and arguments; revive keeps arguments without replaying the prompt.
+- Verified installed CLI help: Claude 2.1.286 and Codex 0.159.2 accept positional
+  prompts, OpenCode 1.18.21 accepts --prompt. W6 brings only native initial prompt
+  delivery forward from W8, avoiding a fallback dependent on future idle hooks.
+  Version/contract evidence is in internal/agents/testdata/prompt-contracts.md.
+- Added a ready-to-copy plan-first example and blueprint name in TUI details.
+  Tests cover rendering goldens, missing variables, precedence/filtering, schema
+  validation, invalid-input refusal before worktree creation, and real tmux with
+  fake agents recording exact argv for all three agents. Multiline prompts,
+  leading hyphens and shell metacharacters remain literal; revive/archive tests
+  verify no replay and preserved prompt bytes. No live model calls were made.
+
+Local tests, vet, lint, all four static builds and GoReleaser snapshot packaging
+passed. The packaged example also passed CLI validation. Hosted CI and the
+release tag are pending.
+
+Deliberately left out: TUI spawn form and prompt editor (W7), Issue template data
+and issue fetching (W9), agent status/resume integration for Codex/OpenCode (W8),
+and native permission-mode selection ([#1](https://github.com/thomashartm/colony/issues/1),
+[#2](https://github.com/thomashartm/colony/issues/2)).
+
 ## Next checkpoint
 
-Stop after W5. Feedback focus: crew grouping/table density, colour readability,
-and whether manual crew assignment feels practical. W6 waits for user feedback.
+Stop after W6. Feedback focus: blueprint authoring, useful template inputs, and
+prompt/argument handoff in daily use. W7 waits for user feedback.
 
 Continue using the original [wt 1.2.0](reference/wt) and
 [wt-clean 1.0.0](reference/wt-clean) alongside colony until W10 delivers the full

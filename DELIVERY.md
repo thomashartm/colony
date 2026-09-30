@@ -145,7 +145,7 @@ reporting (W8), retire/revive (W4), crews, spawn forms and native permission mod
 ([#1](https://github.com/thomashartm/colony/issues/1),
 [#2](https://github.com/thomashartm/colony/issues/2)).
 
-## W4 — Finish and resume minions: implementation complete
+## W4 — Finish and resume minions: complete
 
 Delivered `retire`, `adopt`, `revive`, and the overview's x/r actions.
 
@@ -184,7 +184,9 @@ Delivered `retire`, `adopt`, `revive`, and the overview's x/r actions.
   and actual terminal confirmation/revive actions on isolated tmux servers.
 
 Local tests, vet, lint, all four static builds and snapshot packaging passed.
-Hosted CI and the v0.4.0 release checkpoint are pending validation.
+Implementation commit: `ac568bc`; release tag: `v0.4.0`. All nine
+[implementation CI jobs passed](https://github.com/thomashartm/colony/actions/runs/36774661364),
+including lifecycle and terminal tests on macOS/Linux and Go 1.22 on Linux.
 
 Deliberately left out: GitHub open-PR warnings (W9), configurable protected
 branches and batch cleanup (W10), restore-from-archive, automatic environment

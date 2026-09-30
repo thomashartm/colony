@@ -96,7 +96,7 @@ selection and other later-item features. Native Claude and Codex permission-mode
 requests remain tracked in [#1](https://github.com/thomashartm/colony/issues/1) and
 [#2](https://github.com/thomashartm/colony/issues/2).
 
-## W3 — Claude attention states: implementation complete
+## W3 — Claude attention states: complete
 
 Delivered Claude hook reporting, attention sections and details, monitor counts,
 new-attention markers and optional terminal bell (`monitor_bell = true`).
@@ -136,7 +136,9 @@ new-attention markers and optional terminal bell (`monitor_bell = true`).
   '^BenchmarkReportCLI$' -benchtime=300x`.
 
 Local tests, vet, lint, all four static builds and snapshot packaging passed.
-Hosted CI and the v0.3.0 release checkpoint are pending validation.
+Implementation commit: `a6dee0a`; release tag: `v0.3.0`. All nine
+[implementation CI jobs passed](https://github.com/thomashartm/colony/actions/runs/36742146219),
+including real terminal/report tests on macOS/Linux and Go 1.22 on Linux.
 
 Deliberately left out: event rotation and stale detection (W11), Codex/OpenCode
 reporting (W8), retire/revive (W4), crews, spawn forms and native permission modes

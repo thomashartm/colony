@@ -1,7 +1,7 @@
 # colony — Requirements
 
 Document schema: `1`  
-Status: W0 implementation available; see GitHub CI for release validation. W1–W11 pending.  
+Status: W0 and W1 implementations available; see DELIVERY.md and GitHub CI for validation. W2–W11 pending.
 Source: user specification, 2026-09-30.
 
 ## Delivery agreement: MVP mode
@@ -189,7 +189,7 @@ id = "412-fx-cache"
 name = "FX cache"
 repo = "aderis-api"
 repo_path = "/Users/thomas/projects/aderis-api"
-worktree = "/Users/thomas/worktrees/aderis-api/412-fx-cache"
+worktree = "/Users/thomas/worktrees/aderis-api/feat-412-fx-cache"
 branch = "feat/412-fx-cache"
 base = "main"
 remote_url = "git@github.com:AderisERP/aderis-api.git"
@@ -870,7 +870,7 @@ they do not authorize expanding an earlier work item.
 | --- | --- |
 | W0 (resolved) | Use literal item numbering: W0 → v0.0.0, W1 → v0.1.0. GitHub destination supplied by the user: https://github.com/thomashartm/colony. |
 | First affected writer | Define schema representation for prompts, logs, generated shell snippets and third-party settings. Preserve copied reference/artifact files unchanged; the literal “every file” rule needs an explicit boundary for these copies. |
-| W1 | Config's branch-based default path would yield `aderis-api/feat-412-fx-cache`; the manifest example uses `aderis-api/412-fx-cache`. Choose the canonical default. Also define behavior if repo-prefixed ids still collide or session-name normalization collides. |
+| W1 (resolved) | Use the branch-based default path, such as `aderis-api/feat-412-fx-cache`. Reserve normalized tmux session names as well as ids; prefix the repo on collision, then refuse if still occupied. |
 | W3 | Selected event detail is specified to reload only on selection change, but a selected minion can change status during polling. Decide when its event tail refreshes. |
 | W2 | Monitor selection requires client_activity, which is omitted from §9.4's sample client format. Include the needed data while preserving one client-list call per poll. |
 | W6 | The send-keys fallback waits for idle, but Codex/OpenCode reporting arrives in W8. Choose a working prompt handoff without a future dependency. |
@@ -879,5 +879,5 @@ they do not authorize expanding an earlier work item.
 | W10 | Env copying requires basename-only parity, while the example `config/*.local.yaml` contains a path. Choose whether to correct the example or explicitly change matching semantics. |
 | W10 | Define precedence when both legacy WT_* and corresponding COLONY_* variables are set. |
 
-All unimplemented work items remain pending. The first implementation checkpoint
-is W0; no later slice starts without feedback on the preceding one.
+All unimplemented work items remain pending. Delivery status and checkpoint
+notes are in DELIVERY.md; no later slice starts without feedback on the preceding one.

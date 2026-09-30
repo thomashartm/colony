@@ -47,5 +47,6 @@ func newRootCommand() *cobra.Command {
 			return err
 		},
 	})
+	root.AddCommand(spawnCommand(), listCommand(), connectCommand(true), connectCommand(false), execAgentCommand())
 	return root
 }

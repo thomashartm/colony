@@ -1,0 +1,10 @@
+.env = keep
+existing/graphify-out/nested/graphify-out/data = nested new artifact
+existing/graphify-out/old = keep artifact
+graphify-out/.env = inside artifact
+graphify-out/data = graph
+graphify-out/link -> data
+graphify-out/nested/graphify-out/data = nested graph
+nested/.env.local = nested
+nested/.env.production = executable env
+nested/graphify-out/index = nested artifact

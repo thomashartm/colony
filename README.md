@@ -6,13 +6,15 @@
 
 colony is a terminal tool for parallel AI coding sessions.
 
-Run `colony` to display the configured repository and worktree paths,
-`colony version` to print the version, or `colony --help` for available commands.
+Each minion gets its own git worktree, tmux session and coding agent.
+Use Claude Code, Codex or OpenCode, and switch between sessions from your terminal.
 
 ## Build and run
 
 Supports macOS and Linux on amd64 and arm64, with cgo disabled. Building requires
 Go 1.22 or newer on Linux; use Go 1.25.5 or newer on current macOS.
+Running minions requires git, tmux ≥ 3.2, the system `cp` command and your chosen
+agent CLI on PATH. Install and authenticate the agent before spawning a minion.
 
 ```sh
 make build
@@ -23,6 +25,48 @@ make build
 
 For a local install, run `go install ./cmd/colony` with your Go bin directory on
 PATH. Source builds report `dev`; snapshot binaries include the Git commit.
+
+## Start a minion
+
+With a main repository at `~/projects/api` and an `origin` remote:
+
+```sh
+colony spawn --repo api --branch feat/412-fx-cache --ticket 412 --name "FX cache"
+```
+
+This fetches `origin/main` (or `origin/master` when only a local master exists),
+creates and pushes the new branch, copies local artifacts, and starts Claude Code
+in tmux. It switches your current tmux client, or attaches this terminal when
+outside tmux. Detach with tmux's `Ctrl-b d`; the session keeps running.
+
+Choose another agent or leave it running in the background:
+
+```sh
+colony spawn --repo api --branch feat/cache-tests --agent codex --detach
+colony spawn --repo api --branch feat/cache-docs --agent opencode --detach
+colony ls
+colony attach 412-fx-cache
+colony switch feat-cache-tests
+```
+
+`--repo` is an exact directory name under `repos_root`. The branch must be new
+locally. Use letters, digits, slashes, dots, underscores and hyphens in branch
+names. Worktrees are created under
+`<worktrees_root>/<repo>/<branch-with-slashes-replaced-by-hyphens>`.
+
+Minion ids use the ticket and name when supplied, otherwise the branch with
+slashes replaced by hyphens. A conflicting id gets a repository prefix; the
+spawn output prints the actual id and attach command.
+
+The main checkout's files stay untouched. Local `.env` and `.env.*` files and
+`graphify-out` directories are copied recursively, preserving attributes and
+existing destination files. Searches exclude `.git` and `node_modules`.
+
+When the agent exits, its pane becomes a shell. `colony ls` reports **alive** while
+the tmux session exists and **dead** after it ends; this describes the session,
+not whether the agent is currently working. Manifests live in
+`${XDG_STATE_HOME:-~/.local/state}/colony/minions/`. If creation fails after a
+worktree has been made, colony reports the error and retains that worktree.
 
 ## Configuration
 
@@ -44,6 +88,7 @@ Unknown keys are ignored; missing keys, including schema, use defaults. Only
 schema 1 is supported.
 
 `colony version` and `--help` remain available even with invalid configuration.
+Running `colony` without arguments displays the configured roots.
 
 ## Development checks
 
@@ -64,5 +109,8 @@ metadata. The release configuration follows the upstream
 
 CI runs tests and vet on macOS/Linux, checks the Go 1.22 minimum on Linux, lints,
 cross-builds darwin/linux × amd64/arm64, and uploads snapshot archives. CI does
-not publish releases. The executable smoke test uses temporary HOME/config
-directories and verifies defaults, file overrides, help, version and errors.
+not publish releases. Tests require git, tmux, cp and bash. They use temporary
+HOME/config/state directories, fixture repositories with local bare remotes,
+fake agents and separate `tmux -L colony-test-<random>` servers. They never use
+your working repositories or active tmux server. Artifact-copy tests compare
+against the original wt script and a golden inventory.

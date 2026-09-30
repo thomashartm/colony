@@ -29,11 +29,38 @@ Local checks, hosted CI and tags are reported separately. A local pass does not
 establish a hosted CI result. Release numbering follows work-item numbering:
 W0 is `v0.0.0`, W1 is `v0.1.0`, and so on.
 
-## Next checkpoint — W1
+## W1 — First minion: implementation available
 
-Pending user direction. W1 introduces the first minion: worktree creation,
-artifact copying, agent startup in tmux, manifests, listing, attach and switch.
-The overview TUI follows in W2. Later items remain as specified in the requirements.
+Delivered new-branch worktree creation from main/master, immediate upstream push,
+artifact copying, schema-1 manifests and interactive agent startup in tmux.
+Commands: spawn, ls, attach and switch. Agent exit leaves a login shell.
+
+- Fixed defaults; exact repository directory names. No additional config settings.
+- Spawn attaches outside tmux and switches inside; `--detach` supports background
+  creation and integration tests.
+- Worktree paths follow the configured-root plus repository plus branch-slug rule.
+  Ticket-based ids do not change the directory naming rule.
+- Id allocation accounts for normalized tmux names. Existing identities get a
+  repository prefix; a second collision is refused. Simultaneous spawn commands
+  are serialized with an OS lock; a competing invocation asks the user to retry.
+- Tests exercise real git and isolated tmux servers with fake Claude, Codex and
+  OpenCode executables: startup, environment, no prompt arguments, upstream push,
+  main/master bases, shell fallback, switching, alive/dead state and preflight
+  refusals. Attach and outside-tmux switch argv are tested with a fake tmux.
+- Artifact-copy tests compare an explicit golden inventory and native attributes
+  against the unchanged wt function. Nested targets are excluded, and destination
+  symlink parents are refused to prevent copying outside the worktree.
+- Validation and release: see the CI run for tag `v0.1.0` when published.
+
+Deliberately left out: fuzzy repo selection, existing-branch creation, prompt
+passing, agent hooks/status, retire/revive, TUI, GitHub lookups and further config.
+W1 supports branch slugs containing ASCII letters/digits, dots, underscores and
+hyphens; broader name handling can follow actual usage.
+
+## Next checkpoint — W2
+
+Pending user feedback on W1. W2 adds the overview TUI, popup setup and thin monitor.
+Checkpoint focus: layout and density before adding more information.
 
 Continue using the original [wt 1.2.0](reference/wt) and
 [wt-clean 1.0.0](reference/wt-clean) alongside colony until W10 delivers the full

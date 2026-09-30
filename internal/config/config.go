@@ -11,7 +11,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
-// Config contains the settings available in W0.
+// Config contains the root paths used by colony.
 type Config struct {
 	Schema        int    `toml:"schema"`
 	ReposRoot     string `toml:"repos_root"`

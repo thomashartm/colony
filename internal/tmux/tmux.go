@@ -25,7 +25,9 @@ func run(args ...string) (string, error) {
 }
 
 func Sessions() ([]Session, error) {
-	out, err := run("list-sessions", "-F", "#{session_name}\t#{@colony_minion}\t#{@colony_monitor}")
+	// Older tmux releases replace tabs with underscores for non-UTF-8 clients.
+	// Force UTF-8 for machine-readable records, including outside tmux.
+	out, err := run("-u", "list-sessions", "-F", "#{session_name}\t#{@colony_minion}\t#{@colony_monitor}")
 	if err != nil {
 		if strings.Contains(out, "no server running on ") || strings.Contains(out, "no sessions") ||
 			(strings.Contains(out, "error connecting to ") && strings.Contains(out, "No such file or directory")) {
@@ -96,7 +98,7 @@ type Client struct {
 }
 
 func Clients() ([]Client, error) {
-	out, err := run("list-clients", "-F", "#{client_name}\t#{client_tty}\t#{client_session}\t#{client_activity}")
+	out, err := run("-u", "list-clients", "-F", "#{client_name}\t#{client_tty}\t#{client_session}\t#{client_activity}")
 	if err != nil {
 		if strings.Contains(out, "no server running on ") || strings.Contains(out, "no sessions") ||
 			(strings.Contains(out, "error connecting to ") && strings.Contains(out, "No such file or directory")) {

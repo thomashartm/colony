@@ -81,6 +81,10 @@ detail pane, stable selection across refreshes, and terminal-aware jumping.
   and alive-to-dead refresh on an isolated tmux server.
 - Local tests, vet, lint, darwin/linux × amd64/arm64 builds, and GoReleaser
   snapshot packaging passed. Hosted CI and the release tag are pending.
+- Linux compatibility testing found that older tmux versions sanitize tab
+  separators without UTF-8 mode. Session/client reads now explicitly use `-u`;
+  the standalone terminal test also runs with the C locale. Popup tests wait
+  for tmux to acknowledge the prefix key before sending h.
 
 Deliberately left out: attention states/hooks, spawn forms, crews, permission-mode
 selection and other later-item features. Native Claude and Codex permission-mode

@@ -11,6 +11,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/creack/pty"
 )
 
@@ -127,6 +128,12 @@ func TestOverviewAndMonitor(t *testing.T) {
 		t.Fatal("monitor took over its only client")
 	}
 	work := f.terminalClient("fixture")
+	defer func() {
+		if t.Failed() {
+			t.Logf("work terminal output:\n%s", ansi.Strip(work.text()))
+			t.Logf("tmux messages:\n%s", f.tmux("show-messages", "-t", f.clientName(work)))
+		}
+	}()
 	workName := f.clientName(work)
 	eventually(t, func() bool { return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_colony:"), workName) })
 	overview.send(t, "\r")
@@ -173,8 +180,14 @@ func TestOverviewAndMonitor(t *testing.T) {
 	writeFixture(t, filepath.Join(wrapperDir, "tmux"), "#!/bin/sh\nexec "+quoteShell(f.tmuxBin)+" -L "+quoteShell(f.socket)+" \"$@\"\n", 0o755)
 	t.Setenv("PATH", wrapperDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	cmd := exec.Command(bin)
-	cmd.Env = withoutTmux()
+	// Exercise older tmux's non-UTF-8 output path as well as a real attach.
+	cmd.Env = append(withoutTmux(), "LC_ALL=C", "LANG=C")
 	outside := startTerminal(t, cmd)
+	defer func() {
+		if t.Failed() {
+			t.Logf("outside terminal output:\n%s", ansi.Strip(outside.text()))
+		}
+	}()
 	eventually(t, func() bool { return strings.Contains(outside.text(), "Overview fixture") })
 	outside.send(t, "\r")
 	eventually(t, func() bool { return f.clientSession(f.clientName(outside)) == id })
@@ -206,7 +219,9 @@ func TestOverviewAndMonitor(t *testing.T) {
 	f.tmux("set-environment", "-t", "="+id, "PATH", filepath.Dir(bin)+string(os.PathListSeparator)+os.Getenv("PATH"))
 	f.tmux("set-environment", "-t", "=fixture", "PATH", filepath.Dir(bin)+string(os.PathListSeparator)+os.Getenv("PATH"))
 	f.tmux("switch-client", "-c", workName, "-t", "=fixture")
-	work.send(t, "\x02h")
+	work.send(t, "\x02")
+	eventually(t, func() bool { return f.tmux("display-message", "-p", "-c", workName, "#{client_prefix}") == "1" })
+	work.send(t, "h")
 	eventually(t, func() bool {
 		return strings.Contains(work.text(), "Overview fixture") && strings.Contains(work.text(), "pgup/pgdn")
 	})

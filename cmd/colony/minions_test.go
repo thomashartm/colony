@@ -153,6 +153,7 @@ func TestMinionLifecycle(t *testing.T) {
 		writeFixture(t, filepath.Join(home, "colony/minions/feat-example.v2.toml"), "schema = 1\nid = 'feat-example.v2'\n", 0o600)
 		fakeBin := filepath.Join(home, "bin")
 		writeFixture(t, filepath.Join(fakeBin, "tmux"), `#!/bin/sh
+if [ "$1" = -u ]; then shift; fi
 if [ "$1" = list-sessions ]; then
   printf 'feat-example_v2\tfeat-example.v2\n'
 else

@@ -60,7 +60,7 @@ passing, agent hooks/status, retire/revive, TUI, GitHub lookups and further conf
 W1 supports branch slugs containing ASCII letters/digits, dots, underscores and
 hyphens; broader name handling can follow actual usage.
 
-## W2 — Overview TUI: validation in progress
+## W2 — Overview TUI: complete
 
 Delivered the Bubble Tea overview with alive/dead sections, a scrollable manifest
 detail pane, stable selection across refreshes, and terminal-aware jumping.
@@ -79,8 +79,13 @@ detail pane, stable selection across refreshes, and terminal-aware jumping.
   targeting and pinning, and narrow layouts. Real pseudoterminal tests exercise
   normal and popup jumps, outside-tmux attach, monitor reuse, pinning, detach,
   and alive-to-dead refresh on an isolated tmux server.
+- Implementation: `9f5d5a6`, compatibility fix: `ec61c54`, final test adjustment:
+  `ba91a73`; release tag: `v0.2.0`.
 - Local tests, vet, lint, darwin/linux × amd64/arm64 builds, and GoReleaser
-  snapshot packaging passed. Hosted CI and the release tag are pending.
+  snapshot packaging passed. All nine
+  [implementation CI jobs passed](https://github.com/thomashartm/colony/actions/runs/36733809284),
+  including macOS, Linux and Go 1.22. The terminal integration also passed locally
+  on Linux arm64 with Go 1.22 and tmux 3.3a in a disposable container.
 - Linux compatibility testing found that older tmux versions sanitize tab
   separators without UTF-8 mode. Session/client reads now explicitly use `-u`;
   the standalone terminal test also runs with the C locale. Popup tests wait

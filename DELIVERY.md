@@ -193,7 +193,7 @@ branches and batch cleanup (W10), restore-from-archive, automatic environment
 injection into running agents, native Codex/OpenCode resume (W8), crews and
 permission-mode selection.
 
-## W5 — Crews and colours
+## W5 — Crews and colours: complete
 
 Delivered crew add/list/edit/remove/assign commands, spawn/adopt crew and colour
 flags, and the overview's crew browser and editor.
@@ -222,7 +222,9 @@ flags, and the overview's crew browser and editor.
   grouped selection, responsive layouts, terminal editing and monitor table jumps.
 
 Local tests, vet, lint, all four static builds and GoReleaser snapshot packaging
-passed. Hosted CI and the release tag are pending.
+passed. Implementation commit: `18a2faf`; release tag: `v0.5.0`. All nine
+[implementation CI jobs passed](https://github.com/thomashartm/colony/actions/runs/36778336786),
+including crew and terminal tests on macOS/Linux and Go 1.22 on Linux.
 
 Deliberately left out: GitHub title fetching and crew suggestions (W9), PR table
 columns (W9), configurable styling, blueprints (W6) and native permission modes.

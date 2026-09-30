@@ -1,0 +1,545 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# wt-clean - Interactive git worktree cleanup
+# A standalone, interactive batch version of `wt rm`. Does NOT modify `wt`.
+#
+# Lists every linked worktree, lets you tick the ones to remove, then for each
+# selected worktree: removes the worktree (force + rm -rf fallback) and deletes
+# its local branch. Protected branches are kept (only the worktree that has them
+# checked out goes); detached worktrees have no branch to delete.
+# Non-blocking: one failure never aborts the run.
+
+readonly SCRIPT_NAME="wt-clean"
+readonly VERSION="1.0.0"
+
+# Colors (match `wt`'s palette). ANSI-C quoting stores real ESC bytes so they
+# render correctly both via `echo -e`/`printf` and in plain `cat` heredocs.
+readonly RED=$'\033[0;31m'
+readonly GREEN=$'\033[0;32m'
+readonly YELLOW=$'\033[0;33m'
+readonly BLUE=$'\033[0;34m'
+readonly CYAN=$'\033[0;36m'
+readonly DIM=$'\033[2m'
+readonly NC=$'\033[0m'
+readonly BOLD=$'\033[1m'
+
+# --- Configuration --------------------------------------------------------
+# Per-tool config lives at (see ~/.config/bash-tools/README.md):
+#   ${XDG_CONFIG_HOME:-$HOME/.config}/bash-tools/wt-clean/config.json
+# Precedence: WT_CLEAN_PROTECTED env var > config.json > default.
+# Run `wt-clean init` to scaffold the config file from the defaults below.
+readonly CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/bash-tools/wt-clean"
+readonly CONFIG_FILE="${CONFIG_DIR}/config.json"
+
+# Branches that are never deleted (space-separated). load_config overlays
+# config.json and the env var; this default applies when neither is set.
+readonly DEFAULT_PROTECTED="main master develop"
+PROTECTED="$DEFAULT_PROTECTED"
+
+print_error()   { echo -e "${RED}error:${NC} $1" >&2; }
+print_success() { echo -e "${GREEN}✓${NC} $1"; }
+print_info()    { echo -e "${BLUE}→${NC} $1"; }
+print_warning() { echo -e "${YELLOW}!${NC} $1"; }
+
+have_jq() { command -v jq >/dev/null 2>&1; }
+
+# Resolve PROTECTED from config.json (if present) and WT_CLEAN_PROTECTED.
+# Unlike `wt`, a config that can't be applied is a hard error rather than
+# ignored: skipping it would silently stop protecting the branches it lists.
+load_config() {
+    if [[ -f "$CONFIG_FILE" ]]; then
+        if ! have_jq; then
+            print_error "jq is required to read ${CONFIG_FILE} (e.g. 'brew install jq')."
+            exit 1
+        fi
+        if ! jq empty "$CONFIG_FILE" >/dev/null 2>&1; then
+            print_error "Config file is not valid JSON: $CONFIG_FILE"
+            exit 1
+        fi
+        if jq -e 'has("protected_branches")' "$CONFIG_FILE" >/dev/null 2>&1; then
+            if ! jq -e '(.protected_branches | type) == "array"
+                        and (.protected_branches | length) > 0
+                        and all(.protected_branches[]; type == "string" and test("^\\S+$"))' \
+                    "$CONFIG_FILE" >/dev/null 2>&1; then
+                print_error "protected_branches must be a non-empty array of branch names: $CONFIG_FILE"
+                exit 1
+            fi
+            PROTECTED="$(jq -r '.protected_branches | join(" ")' "$CONFIG_FILE")"
+        fi
+    fi
+    if [[ -n "${WT_CLEAN_PROTECTED:-}" ]]; then
+        PROTECTED="$WT_CLEAN_PROTECTED"
+    fi
+}
+
+# `wt-clean init` — scaffold config.json from the defaults. Never clobbers an
+# existing file.
+cmd_init() {
+    if [[ -f "$CONFIG_FILE" ]]; then
+        print_warning "Config already exists: $CONFIG_FILE"
+        print_warning "Delete it first if you want to regenerate it from defaults."
+        return 0
+    fi
+    if ! have_jq; then
+        print_error "jq is required to scaffold config (e.g. 'brew install jq')."
+        exit 1
+    fi
+    mkdir -p "$CONFIG_DIR"
+
+    local protected_json
+    # shellcheck disable=SC2086  # word-split the space-separated default list
+    protected_json="$(printf '%s\n' $DEFAULT_PROTECTED | jq -R . | jq -s .)"
+    jq -n --argjson protected_branches "$protected_json" \
+        '{protected_branches: $protected_branches}' > "$CONFIG_FILE"
+
+    print_success "Scaffolded config at ${CONFIG_FILE}"
+    print_info "Edit protected_branches to list every branch that must never be deleted."
+}
+
+usage() {
+    cat <<EOF
+${BOLD}${SCRIPT_NAME}${NC} - Interactive git worktree cleanup v${VERSION}
+
+${BOLD}USAGE:${NC}
+    ${SCRIPT_NAME} [days]
+    ${SCRIPT_NAME} init
+
+${BOLD}ARGUMENTS:${NC}
+    days    Only list worktrees idle >= this many days (no recent commit).
+            Omit to list all linked worktrees.
+
+${BOLD}DESCRIPTION:${NC}
+    Interactive, batch version of 'wt rm'. Select worktrees with the arrow keys
+    and Space, confirm, then each is removed (worktree + local branch) one by one.
+
+    Every linked worktree is listed except the main one and the one you are in.
+    Locked worktrees are removed too.
+
+    Protected branches are never deleted: ${CYAN}${PROTECTED}${NC}
+    (see CONFIG below). A worktree that has one
+    checked out is listed as '<branch> (kept)': only the worktree is removed,
+    which frees the branch again. Detached worktrees have no branch to delete.
+
+    The remote branch (origin/<branch>) is left untouched.
+
+${BOLD}KEYS (selection):${NC}
+    ↑/↓ or k/j   move        Space   toggle        a   toggle all
+    Enter        confirm     q/Esc   quit (no changes)
+
+${BOLD}EXAMPLES:${NC}
+    ${SCRIPT_NAME}        Clean from all linked worktrees
+    ${SCRIPT_NAME} 14     Clean from worktrees idle >= 14 days
+    ${SCRIPT_NAME} init   Scaffold the config file
+
+${BOLD}CONFIG:${NC}
+    ${CONFIG_FILE}
+    Key: protected_branches (array, default: ${DEFAULT_PROTECTED}).
+    Precedence: WT_CLEAN_PROTECTED env var (space-separated) > config.json > default.
+    Run '${SCRIPT_NAME} init' to scaffold it. Needs jq when the file exists.
+EOF
+}
+
+ensure_git_repo() {
+    if ! git rev-parse --git-dir &>/dev/null; then
+        print_error "Not a git repository"
+        exit 1
+    fi
+}
+
+is_protected() {
+    local branch="$1" p
+    for p in $PROTECTED; do
+        [[ "$branch" == "$p" ]] && return 0
+    done
+    return 1
+}
+
+# Populated by collect_worktrees (parallel arrays).
+WT_PATHS=()
+WT_BRANCHES=()  # "" = detached HEAD
+WT_HEADS=()     # short commit sha of the worktree's HEAD
+WT_AGES=()      # idle days, integer
+
+# Human label for the branch column: the branch, "<branch> (kept)" for a
+# protected branch, or "(detached <sha>)".
+branch_label() {
+    local idx="$1" branch="${WT_BRANCHES[$1]}"
+    if [[ -z "$branch" ]]; then
+        echo "(detached ${WT_HEADS[$idx]})"
+    elif is_protected "$branch"; then
+        echo "${branch} (kept)"
+    else
+        echo "$branch"
+    fi
+}
+
+# Parse worktrees and filter out main/current/bare and (if a min age is given)
+# anything younger than that. Fills the WT_* arrays. Detached worktrees and
+# worktrees on a protected branch are listed; clean_one keeps their branch.
+collect_worktrees() {
+    local min_days="$1"
+    local now main_wt current_dir
+    now=$(date +%s)
+    main_wt=$(git worktree list --porcelain | grep -m1 '^worktree ' | cut -d' ' -f2-)
+    current_dir=$(pwd -P 2>/dev/null || pwd)
+
+    local path="" branch="" head="" bare=false
+    _maybe_add() {
+        [[ -z "$path" ]] && return 0
+        # Skip bare repo, main worktree, the worktree we're standing in. The
+        # "/"-boundary stops repo-feat-1 matching when standing in repo-feat-10.
+        if [[ "$bare" == true || "$path" == "$main_wt" \
+              || "$current_dir" == "$path" || "$current_dir" == "$path"/* ]]; then
+            return 0
+        fi
+
+        # Age = days since last commit on the branch.
+        local last_ts age_days
+        last_ts=$(git -C "$path" log -1 --format=%ct 2>/dev/null || echo "")
+        if [[ -n "$last_ts" ]]; then
+            age_days=$(( (now - last_ts) / 86400 ))
+        else
+            age_days=0
+        fi
+
+        if [[ "$min_days" -gt 0 && "$age_days" -lt "$min_days" ]]; then
+            return 0
+        fi
+
+        WT_PATHS+=("$path")
+        WT_BRANCHES+=("$branch")
+        WT_HEADS+=("${head:0:7}")
+        WT_AGES+=("$age_days")
+    }
+
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^worktree\ (.+)$ ]]; then
+            _maybe_add
+            path="${BASH_REMATCH[1]}"; branch=""; head=""; bare=false
+        elif [[ "$line" =~ ^HEAD\ ([0-9a-f]+)$ ]]; then
+            head="${BASH_REMATCH[1]}"
+        elif [[ "$line" =~ ^branch\ refs/heads/(.+)$ ]]; then
+            branch="${BASH_REMATCH[1]}"
+        elif [[ "$line" == "bare" ]]; then
+            bare=true
+        elif [[ "$line" == "detached" ]]; then
+            branch=""
+        fi
+    done < <(git worktree list --porcelain)
+    _maybe_add
+}
+
+# --- Interactive checkbox TUI ---------------------------------------------
+
+SELECTED=()  # parallel to WT_PATHS: "1"/"0"
+declare -a CHOSEN_IDX=()  # output: indices the user confirmed
+
+_ALT_ON=0   # whether the alternate screen is currently active
+
+_tui_restore() {
+    # Leave alternate screen + show cursor, then restore cooked terminal mode.
+    if [[ "$_ALT_ON" == "1" ]]; then
+        printf '\033[?25h\033[?1049l' >/dev/tty 2>/dev/null || true
+        _ALT_ON=0
+    fi
+    stty "${_saved_stty:-sane}" </dev/tty 2>/dev/null || stty sane 2>/dev/null || true
+}
+
+# Echo "rows cols" for the controlling terminal, with safe fallbacks.
+_term_size() {
+    local s
+    s=$(stty size </dev/tty 2>/dev/null || true)
+    [[ "$s" =~ ^[0-9]+\ [0-9]+$ ]] || s="24 80"
+    echo "$s"
+}
+
+# Render a scrolling viewport over the worktree list. Only the slice that fits
+# the terminal is drawn, anchored to a fixed alternate screen (no scrollback
+# pollution, no overflow), so the list is never duplicated and never snaps away.
+_tui_draw() {
+    local cursor="$1" n="${#WT_PATHS[@]}" i
+    local rows cols size
+    size=$(_term_size); rows=${size% *}; cols=${size#* }
+
+    # Chrome = header + scroll-up hint + scroll-down hint + blank + footer.
+    local page=$(( rows - 5 ))
+    (( page < 3 )) && page=3
+
+    # Scroll so the cursor stays inside the viewport [_top, _top+page).
+    (( cursor < _top )) && _top=$cursor
+    (( cursor >= _top + page )) && _top=$(( cursor - page + 1 ))
+    (( _top < 0 )) && _top=0
+    local end=$(( _top + page )); (( end > n )) && end=$n
+
+    # Column budget so every row is exactly one screen line (no wrapping, which
+    # would break the page math). name fixed, branch gets the remainder.
+    local name_w=34
+    local branch_w=$(( cols - (2 + 1 + 3 + 1 + name_w + 1 + 9 + 1) ))
+    (( branch_w < 8 )) && branch_w=8
+
+    local selcount=0
+    for ((i=0; i<n; i++)); do [[ "${SELECTED[$i]}" == "1" ]] && selcount=$((selcount+1)); done
+
+    local nl=$'\n' EOL=$'\033[K'
+    local out=$'\033[H'   # home
+    out+="${BOLD}Select worktrees to clean${NC}  ${DIM}↑/↓ move · Space pick · a all · g/G top/bottom · Enter ok · q quit${NC}${EOL}${nl}"
+
+    if (( _top > 0 )); then
+        out+="${DIM}  ▲ ${_top} more above${NC}${EOL}${nl}"
+    else
+        out+="${EOL}${nl}"
+    fi
+
+    for ((i=_top; i<end; i++)); do
+        local pointer="  " box="[ ]" name branch line
+        [[ "$i" == "$cursor" ]] && pointer="${GREEN}>${NC} "
+        [[ "${SELECTED[$i]}" == "1" ]] && box="${GREEN}[x]${NC}"
+        name=$(basename "${WT_PATHS[$i]}")
+        branch=$(branch_label "$i")
+        branch="${branch:0:branch_w}"
+        line=$(printf '%b %b %-*.*s %bidle %-4s%b %b%s%b' \
+            "$pointer" "$box" "$name_w" "$name_w" "$name" \
+            "$YELLOW" "${WT_AGES[$i]}d" "$NC" "$CYAN" "$branch" "$NC")
+        out+="${line}${EOL}${nl}"
+    done
+
+    if (( end < n )); then
+        out+="${DIM}  ▼ $(( n - end )) more below${NC}${EOL}${nl}"
+    else
+        out+="${EOL}${nl}"
+    fi
+
+    out+="${DIM}[$(( cursor + 1 ))/${n}]  ${selcount} selected · branches kept: ${PROTECTED}${NC}${EOL}${nl}"
+    out+=$'\033[J'   # clear anything below the footer
+    printf '%s' "$out" >/dev/tty
+}
+
+select_worktrees() {
+    local n="${#WT_PATHS[@]}" i cursor=0
+    SELECTED=()
+    for ((i=0; i<n; i++)); do SELECTED+=("0"); done
+    CHOSEN_IDX=()
+    _top=0
+
+    _saved_stty=$(stty -g </dev/tty 2>/dev/null || echo "sane")
+    trap '_tui_restore' EXIT INT TERM
+    stty -echo -icanon time 0 min 1 </dev/tty 2>/dev/null || true
+    printf '\033[?1049h\033[?25l' >/dev/tty 2>/dev/null || true  # alt screen + hide cursor
+    _ALT_ON=1
+
+    _tui_draw "$cursor"
+
+    local key rest
+    while true; do
+        IFS= read -rsn1 key </dev/tty || break
+        case "$key" in
+            $'\x1b')  # escape sequence (arrows) or bare Esc
+                # Arrow keys deliver "[A".."[D" right behind the ESC, so this read
+                # returns instantly. A lone Esc has nothing following and times out
+                # after ~1s -> quit (integer -t for bash 3.2 compatibility; 'q' is
+                # the instant quit key).
+                if IFS= read -rsn2 -t 1 rest </dev/tty && [[ -n "$rest" ]]; then
+                    case "$rest" in
+                        '[A') (( cursor > 0 )) && (( cursor-- )) ;;
+                        '[B') (( cursor < n-1 )) && (( cursor++ )) ;;
+                    esac
+                else
+                    CHOSEN_IDX=(); break  # bare Esc = quit
+                fi
+                ;;
+            k) (( cursor > 0 )) && (( cursor-- )) ;;
+            j) (( cursor < n-1 )) && (( cursor++ )) ;;
+            g) cursor=0 ;;
+            G) cursor=$(( n - 1 )) ;;
+            ' ')
+                if [[ "${SELECTED[$cursor]}" == "1" ]]; then SELECTED[cursor]="0"; else SELECTED[cursor]="1"; fi
+                ;;
+            a)
+                # Toggle all: if any unselected, select all; else clear all.
+                local any_off=0
+                for ((i=0; i<n; i++)); do [[ "${SELECTED[$i]}" == "0" ]] && any_off=1; done
+                for ((i=0; i<n; i++)); do SELECTED[i]="$any_off"; done
+                ;;
+            q|Q)
+                CHOSEN_IDX=(); break
+                ;;
+            '')  # Enter
+                CHOSEN_IDX=()
+                for ((i=0; i<n; i++)); do [[ "${SELECTED[$i]}" == "1" ]] && CHOSEN_IDX+=("$i"); done
+                break
+                ;;
+        esac
+        _tui_draw "$cursor"
+    done
+
+    _tui_restore
+    trap - EXIT INT TERM
+}
+
+# --- Confirmation & execution ---------------------------------------------
+
+confirm_selection() {
+    if [[ "${#CHOSEN_IDX[@]}" -eq 0 ]]; then
+        print_info "Nothing selected. Aborted."
+        return 1
+    fi
+
+    echo -e "${BOLD}The following will be removed (worktree + local branch):${NC}"
+    echo ""
+    local idx branch
+    for idx in "${CHOSEN_IDX[@]}"; do
+        branch="${WT_BRANCHES[$idx]}"
+        echo -e "  ${RED}✗${NC} ${BOLD}$(basename "${WT_PATHS[$idx]}")${NC}  ${CYAN}$(branch_label "$idx")${NC} ${DIM}(idle ${WT_AGES[$idx]}d)${NC}"
+        echo -e "      ${DIM}${WT_PATHS[$idx]}${NC}"
+        if [[ -z "$branch" ]]; then
+            echo -e "      ${DIM}detached HEAD: worktree only, no branch to delete${NC}"
+        elif is_protected "$branch"; then
+            echo -e "      ${YELLOW}protected: worktree only, branch ${branch} is kept${NC}"
+        fi
+    done
+    echo ""
+
+    local reply
+    read -r -p "Proceed? [y/N] " reply
+    if [[ ! "$reply" =~ ^[Yy]$ ]]; then
+        echo "Aborted."
+        return 1
+    fi
+    return 0
+}
+
+# Remove one worktree + its local branch. A protected branch is never deleted
+# and a detached worktree has none, so for those only the worktree goes.
+# Non-blocking: returns 1 on any failure but never exits the script.
+clean_one() {
+    local path="$1" branch="$2"
+    local ok=0
+
+    print_info "Removing worktree: ${BOLD}${path}${NC}"
+    # Double --force also removes locked worktrees; a single one refuses them.
+    if git worktree remove --force --force "$path" 2>/dev/null; then
+        print_success "  worktree removed"
+    else
+        print_warning "  git worktree remove failed; trying rm -rf fallback"
+    fi
+
+    # Guarantee the directory is gone (clean the parent folder).
+    if [[ -e "$path" ]]; then
+        if rm -rf "$path" 2>/dev/null; then
+            print_success "  directory deleted"
+        else
+            print_error "  could not delete directory: ${path}"
+            ok=1
+        fi
+    fi
+    # Drop any now-dangling administrative entry. prune skips locked entries, so
+    # unlock first (no-op when already gone or not locked).
+    git worktree unlock "$path" 2>/dev/null || true
+    git worktree prune 2>/dev/null || true
+
+    # The branch is only free again once git no longer lists the worktree.
+    if git worktree list --porcelain | grep -Fqx "worktree ${path}"; then
+        print_error "  git still lists the worktree: ${path}"
+        return 1
+    fi
+
+    if [[ -z "$branch" ]]; then
+        print_info "Detached HEAD: no local branch to delete"
+        return "$ok"
+    fi
+    if is_protected "$branch"; then
+        print_info "Keeping protected branch: ${CYAN}${branch}${NC}"
+        return "$ok"
+    fi
+
+    print_info "Deleting local branch: ${CYAN}${branch}${NC}"
+    if git branch -D "$branch" 2>/dev/null; then
+        print_success "  branch deleted"
+    else
+        print_error "  could not delete branch: ${branch}"
+        ok=1
+    fi
+
+    return "$ok"
+}
+
+run_cleanup() {
+    local idx cleaned=0 failed=0
+    local -a failures=()
+
+    echo ""
+    echo -e "${BOLD}Cleaning ${#CHOSEN_IDX[@]} worktree(s)...${NC}"
+    echo ""
+
+    for idx in "${CHOSEN_IDX[@]}"; do
+        echo -e "${DIM}────────────────────────────────────────${NC}"
+        if clean_one "${WT_PATHS[$idx]}" "${WT_BRANCHES[$idx]}"; then
+            cleaned=$((cleaned + 1))
+        else
+            failed=$((failed + 1))
+            failures+=("$(basename "${WT_PATHS[$idx]}") (${WT_BRANCHES[$idx]})")
+        fi
+        echo ""
+    done
+
+    echo -e "${DIM}────────────────────────────────────────${NC}"
+    if [[ "$failed" -eq 0 ]]; then
+        print_success "Done. ${cleaned} cleaned · 0 failed"
+    else
+        echo -e "${GREEN}✓${NC} ${cleaned} cleaned · ${RED}✗${NC} ${failed} failed"
+        local f
+        for f in "${failures[@]}"; do
+            echo -e "    ${RED}✗${NC} ${f}"
+        done
+    fi
+}
+
+main() {
+    local min_days=0
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -h|--help|help) load_config; usage; exit 0 ;;
+            -v|--version)   echo "${SCRIPT_NAME} v${VERSION}"; exit 0 ;;
+            init)           cmd_init; exit 0 ;;
+            -*) print_error "Unknown option: $1"; load_config; usage; exit 1 ;;
+            *)
+                if [[ "$1" =~ ^[0-9]+$ ]]; then
+                    min_days="$1"
+                else
+                    print_error "days must be a positive integer, got: $1"
+                    exit 1
+                fi
+                shift
+                ;;
+        esac
+    done
+
+    load_config
+    ensure_git_repo
+
+    if [[ "$min_days" -gt 0 ]]; then
+        print_info "Listing worktrees idle ≥ ${CYAN}${min_days}${NC} day(s)..."
+    else
+        print_info "Listing all linked worktrees..."
+    fi
+
+    collect_worktrees "$min_days"
+
+    if [[ "${#WT_PATHS[@]}" -eq 0 ]]; then
+        print_success "No worktrees to clean. Nothing to do."
+        exit 0
+    fi
+
+    select_worktrees
+
+    if confirm_selection; then
+        run_cleanup
+    fi
+}
+
+# Only run when executed directly, not when sourced (e.g. for tests).
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi

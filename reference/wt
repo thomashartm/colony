@@ -1,0 +1,721 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# wt - Git Worktree Manager
+# A simple CLI to create and manage git worktrees
+
+readonly SCRIPT_NAME="wt"
+readonly VERSION="1.2.0"
+
+# Colors for output
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[0;33m'
+readonly BLUE='\033[0;34m'
+readonly CYAN='\033[0;36m'
+readonly NC='\033[0m' # No Color
+readonly BOLD='\033[1m'
+
+# --- Configuration --------------------------------------------------------
+# Per-tool config lives at (see ~/.config/bash-tools/README.md):
+#   ${XDG_CONFIG_HOME:-$HOME/.config}/bash-tools/wt/config.json
+# Precedence for each setting: CLI flag > environment variable > config.json > default.
+# Run `wt init` to scaffold the config file from the defaults below.
+readonly CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/bash-tools/wt"
+readonly CONFIG_FILE="${CONFIG_DIR}/config.json"
+
+# Defaults — config.json overrides these; env vars / flags override config.
+CFG_BASE_BRANCH="main"
+CFG_WORKTREE_DIR=""                    # empty => sibling directory of the repo
+CFG_PREFIX=""                          # default prefix for worktree dir names
+CFG_ENV_GLOBS=( ".env" ".env.*" )      # gitignored files copied into new worktrees
+CFG_ARTIFACT_DIRS=( "graphify-out" )   # gitignored dirs copied into new worktrees
+
+print_error() {
+    echo -e "${RED}error:${NC} $1" >&2
+}
+
+print_success() {
+    echo -e "${GREEN}✓${NC} $1"
+}
+
+print_info() {
+    echo -e "${BLUE}→${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}!${NC} $1"
+}
+
+ensure_git_repo() {
+    if ! git rev-parse --git-dir &>/dev/null; then
+        print_error "Not a git repository"
+        exit 1
+    fi
+}
+
+have_jq() { command -v jq >/dev/null 2>&1; }
+
+# Expand a leading ~ / ~/ to $HOME; leave everything else untouched.
+expand_path() {
+    case "$1" in
+        "~")   printf '%s' "$HOME" ;;
+        "~/"*) printf '%s' "$HOME/${1#\~/}" ;;
+        *)     printf '%s' "$1" ;;
+    esac
+}
+
+# Overlay config.json (if present) onto the CFG_* defaults. Optional: no file
+# means defaults; jq absent means the file is ignored (worktree ops don't need
+# jq); present-but-invalid JSON is a hard error. All messages go to stderr so
+# `wt cd` output stays clean.
+load_config() {
+    [[ -f "$CONFIG_FILE" ]] || return 0
+    if ! have_jq; then
+        print_warning "jq not found — ignoring ${CONFIG_FILE}" >&2
+        return 0
+    fi
+    if ! jq empty "$CONFIG_FILE" >/dev/null 2>&1; then
+        print_error "Config file is not valid JSON: $CONFIG_FILE"
+        exit 1
+    fi
+
+    local val
+    val="$(jq -r '.base_branch  // empty' "$CONFIG_FILE")"; [[ -n "$val" ]] && CFG_BASE_BRANCH="$val"
+    val="$(jq -r '.worktree_dir // empty' "$CONFIG_FILE")"; [[ -n "$val" ]] && CFG_WORKTREE_DIR="$(expand_path "$val")"
+    val="$(jq -r '.prefix       // empty' "$CONFIG_FILE")"; [[ -n "$val" ]] && CFG_PREFIX="$val"
+
+    if jq -e '(.env_globs | type) == "array" and (.env_globs | length) > 0' "$CONFIG_FILE" >/dev/null 2>&1; then
+        CFG_ENV_GLOBS=()
+        while IFS= read -r line; do [[ -n "$line" ]] && CFG_ENV_GLOBS+=("$line"); done < <(jq -r '.env_globs[]' "$CONFIG_FILE")
+    fi
+    if jq -e '(.artifact_dirs | type) == "array" and (.artifact_dirs | length) > 0' "$CONFIG_FILE" >/dev/null 2>&1; then
+        CFG_ARTIFACT_DIRS=()
+        while IFS= read -r line; do [[ -n "$line" ]] && CFG_ARTIFACT_DIRS+=("$line"); done < <(jq -r '.artifact_dirs[]' "$CONFIG_FILE")
+    fi
+}
+
+# `wt init` — scaffold config.json from the defaults. Never clobbers an existing file.
+cmd_init() {
+    if [[ -f "$CONFIG_FILE" ]]; then
+        print_warning "Config already exists: $CONFIG_FILE"
+        print_warning "Delete it first if you want to regenerate it from defaults."
+        return 0
+    fi
+    if ! have_jq; then
+        print_error "jq is required to scaffold config (e.g. 'brew install jq')."
+        exit 1
+    fi
+    mkdir -p "$CONFIG_DIR"
+
+    local env_globs_json artifact_dirs_json
+    env_globs_json="$(printf '%s\n' "${CFG_ENV_GLOBS[@]}"    | jq -R . | jq -s .)"
+    artifact_dirs_json="$(printf '%s\n' "${CFG_ARTIFACT_DIRS[@]}" | jq -R . | jq -s .)"
+
+    jq -n \
+        --arg     base_branch   "$CFG_BASE_BRANCH" \
+        --arg     worktree_dir  "" \
+        --arg     prefix        "" \
+        --argjson env_globs     "$env_globs_json" \
+        --argjson artifact_dirs "$artifact_dirs_json" \
+        '{base_branch: $base_branch, worktree_dir: $worktree_dir, prefix: $prefix, env_globs: $env_globs, artifact_dirs: $artifact_dirs}' \
+        > "$CONFIG_FILE"
+
+    print_success "Scaffolded config at ${CONFIG_FILE}"
+    print_info "Edit it to set base branch, worktree dir, prefix, and artifacts to copy."
+    print_info "(empty worktree_dir => worktrees created as a sibling of the repo)"
+}
+
+get_repo_root() {
+    git rev-parse --show-toplevel 2>/dev/null || git rev-parse --git-common-dir | xargs dirname
+}
+
+get_main_worktree() {
+    git worktree list --porcelain | grep -m1 "^worktree " | cut -d' ' -f2-
+}
+
+# Resolve the base branch - checks for main, master, or custom
+resolve_base_branch() {
+    local requested_branch="$1"
+    
+    # If explicitly specified, verify it exists
+    if git show-ref --verify --quiet "refs/heads/$requested_branch" 2>/dev/null; then
+        echo "$requested_branch"
+        return 0
+    fi
+    
+    # Try common defaults
+    for branch in main master; do
+        if git show-ref --verify --quiet "refs/heads/$branch" 2>/dev/null; then
+            echo "$branch"
+            return 0
+        fi
+    done
+    
+    print_error "Could not find base branch '$requested_branch' or common defaults (main, master)"
+    exit 1
+}
+
+# Copy gitignored local artifacts (.env files, graphify-out dirs) from the
+# source checkout into a new worktree. These never come along via git, so a
+# fresh worktree would lack env config and force a costly graphify re-run.
+# Copy configured gitignored artifacts (CFG_ENV_GLOBS files, CFG_ARTIFACT_DIRS
+# dirs) from the source checkout into a new worktree. These never come along via
+# git, so a fresh worktree would lack env config and force a costly re-run.
+copy_local_artifacts() {
+    local src_root="$1"
+    local dest_root="$2"
+    local copied=0
+    local rel dest file dir g d
+
+    # Prune expression for the env-file search: .git, node_modules, and every
+    # configured artifact dir (no point scanning inside those for .env files).
+    local prune=( -name .git -o -name node_modules )
+    for d in "${CFG_ARTIFACT_DIRS[@]}"; do prune+=( -o -name "$d" ); done
+
+    # -name OR group built from the configured env-file globs.
+    local name_expr=() first=1
+    for g in "${CFG_ENV_GLOBS[@]}"; do
+        if [[ $first -eq 1 ]]; then name_expr+=( -name "$g" ); first=0
+        else name_expr+=( -o -name "$g" ); fi
+    done
+
+    # env files (.env, .env.local, .env.production, ...)
+    while IFS= read -r -d '' file; do
+        [[ "$file" == "$dest_root"/* ]] && continue
+        rel="${file#"$src_root"/}"
+        dest="${dest_root}/${rel}"
+        [[ -e "$dest" ]] && continue
+        mkdir -p "$(dirname "$dest")"
+        cp -p "$file" "$dest"
+        print_info "Copied ${CYAN}${rel}${NC}"
+        copied=$((copied + 1))
+    done < <(find "$src_root" \( "${prune[@]}" \) -prune \
+        -o -type f \( "${name_expr[@]}" \) -print0 2>/dev/null)
+
+    # artifact directories (e.g. graphify-out knowledge-graph cache)
+    for d in "${CFG_ARTIFACT_DIRS[@]}"; do
+        while IFS= read -r -d '' dir; do
+            [[ "$dir" == "$dest_root"/* ]] && continue
+            rel="${dir#"$src_root"/}"
+            dest="${dest_root}/${rel}"
+            [[ -e "$dest" ]] && continue
+            mkdir -p "$(dirname "$dest")"
+            cp -Rp "$dir" "$dest"
+            print_info "Copied ${CYAN}${rel}/${NC}"
+            copied=$((copied + 1))
+        done < <(find "$src_root" \( -name .git -o -name node_modules \) -prune \
+            -o -type d -name "$d" -print0 2>/dev/null)
+    done
+
+    if [[ $copied -gt 0 ]]; then
+        print_success "Cloned ${copied} local artifact(s) into worktree"
+    fi
+}
+
+usage() {
+    cat <<EOF
+${BOLD}${SCRIPT_NAME}${NC} - Git Worktree Manager v${VERSION}
+
+${BOLD}USAGE:${NC}
+    ${SCRIPT_NAME} <command> [options]
+
+${BOLD}COMMANDS:${NC}
+    ${CYAN}create${NC}, ${CYAN}c${NC} <branch-name>    Create a new worktree with a feature branch
+                              (also copies .env files and graphify-out/ dirs
+                              from the current checkout into the worktree)
+    ${CYAN}list${NC}, ${CYAN}ls${NC}                   List all worktrees
+    ${CYAN}rebase${NC}, ${CYAN}rb${NC} [worktree]      Fetch and rebase current or specified worktree
+    ${CYAN}remove${NC}, ${CYAN}rm${NC} <worktree>      Remove a worktree
+    ${CYAN}cd${NC} <worktree>              Print path to worktree (use with: cd \$(wt cd name))
+    ${CYAN}init${NC}                        Scaffold the config file from current defaults
+    ${CYAN}help${NC}, ${CYAN}h${NC}                    Show this help message
+
+${BOLD}OPTIONS:${NC}
+    -b, --base <branch>    Base branch to create from (default: main)
+    -d, --directory <dir>  Parent directory for worktrees (default: sibling to repo)
+    -p, --prefix <prefix>  Prefix for worktree directory name
+
+${BOLD}EXAMPLES:${NC}
+    ${SCRIPT_NAME} create feature/login      Create worktree with feature/login branch
+    ${SCRIPT_NAME} c -b develop hotfix/bug   Create from develop branch
+    ${SCRIPT_NAME} list                      Show all worktrees
+    ${SCRIPT_NAME} rebase                    Fetch and rebase current worktree
+    ${SCRIPT_NAME} rebase feature/login      Rebase specific worktree
+    ${SCRIPT_NAME} rm feature/login          Remove worktree
+
+${BOLD}ENVIRONMENT:${NC}
+    WT_BASE_BRANCH    Default base branch (default: main)
+    WT_WORKTREE_DIR   Default parent directory for worktrees
+
+${BOLD}CONFIG:${NC}
+    ${CONFIG_FILE}
+    Keys: base_branch, worktree_dir, prefix, env_globs, artifact_dirs.
+    Precedence: CLI flag > env var > config.json > default.
+    Run '${SCRIPT_NAME} init' to scaffold it. See ~/.config/bash-tools/README.md
+
+EOF
+}
+
+cmd_create() {
+    load_config
+    local branch_name=""
+    local base_branch="${WT_BASE_BRANCH:-$CFG_BASE_BRANCH}"
+    local worktree_dir="${WT_WORKTREE_DIR:-$CFG_WORKTREE_DIR}"
+    local prefix="$CFG_PREFIX"
+    
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -b|--base)
+                base_branch="$2"
+                shift 2
+                ;;
+            -d|--directory)
+                worktree_dir="$2"
+                shift 2
+                ;;
+            -p|--prefix)
+                prefix="$2"
+                shift 2
+                ;;
+            -*)
+                print_error "Unknown option: $1"
+                exit 1
+                ;;
+            *)
+                if [[ -z "$branch_name" ]]; then
+                    branch_name="$1"
+                else
+                    print_error "Unexpected argument: $1"
+                    exit 1
+                fi
+                shift
+                ;;
+        esac
+    done
+    
+    if [[ -z "$branch_name" ]]; then
+        print_error "Branch name required"
+        echo "Usage: ${SCRIPT_NAME} create <branch-name>"
+        exit 1
+    fi
+    
+    ensure_git_repo
+    
+    # Resolve the actual base branch
+    base_branch=$(resolve_base_branch "$base_branch")
+    print_info "Using base branch: ${CYAN}${base_branch}${NC}"
+    
+    # Get repo info
+    local repo_root
+    repo_root=$(get_repo_root)
+    local repo_name
+    repo_name=$(basename "$repo_root")
+    
+    # Determine worktree directory name (sanitize branch name for filesystem)
+    local dir_name
+    dir_name=$(echo "$branch_name" | tr '/' '-')
+    if [[ -n "$prefix" ]]; then
+        dir_name="${prefix}-${dir_name}"
+    fi
+    
+    # Determine parent directory for worktrees
+    if [[ -z "$worktree_dir" ]]; then
+        worktree_dir=$(dirname "$repo_root")
+    fi
+    
+    local worktree_path="${worktree_dir}/${repo_name}-${dir_name}"
+    
+    # Check if branch already exists
+    if git show-ref --verify --quiet "refs/heads/$branch_name"; then
+        print_warning "Branch '${branch_name}' already exists"
+        read -p "Create worktree from existing branch? [y/N] " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            exit 1
+        fi
+        
+        print_info "Creating worktree at ${CYAN}${worktree_path}${NC}"
+        git worktree add "$worktree_path" "$branch_name"
+    else
+        # Fetch latest from remote
+        print_info "Fetching latest changes..."
+        git fetch origin "$base_branch" 2>/dev/null || git fetch origin
+        
+        # Create worktree with new branch from base
+        print_info "Creating worktree at ${CYAN}${worktree_path}${NC}"
+        print_info "Creating branch ${CYAN}${branch_name}${NC} from ${CYAN}${base_branch}${NC}"
+        
+        git worktree add -b "$branch_name" "$worktree_path" "origin/${base_branch}"
+        
+        # Push the new branch to origin and set upstream tracking
+        # so it tracks origin/<branch_name> instead of origin/<base_branch>
+        print_info "Pushing branch and setting upstream to ${CYAN}origin/${branch_name}${NC}"
+        git -C "$worktree_path" push -u origin "$branch_name"
+    fi
+
+    # Bring over gitignored .env files and graphify-out caches from this checkout
+    copy_local_artifacts "$repo_root" "$worktree_path"
+
+    print_success "Worktree created successfully"
+    echo ""
+    echo -e "  ${BOLD}Path:${NC}   ${worktree_path}"
+    echo -e "  ${BOLD}Branch:${NC} ${branch_name}"
+    echo ""
+    echo -e "  ${CYAN}cd ${worktree_path}${NC}"
+}
+
+cmd_list() {
+    ensure_git_repo
+    
+    echo -e "${BOLD}Git Worktrees:${NC}"
+    echo ""
+    
+    local main_worktree
+    main_worktree=$(get_main_worktree)
+    
+    # Parse worktree list
+    local current_path=""
+    local current_branch=""
+    local current_head=""
+    local is_bare=false
+    
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^worktree\ (.+)$ ]]; then
+            # Print previous worktree if exists
+            if [[ -n "$current_path" ]]; then
+                print_worktree_entry "$current_path" "$current_branch" "$current_head" "$main_worktree" "$is_bare"
+            fi
+            current_path="${BASH_REMATCH[1]}"
+            current_branch=""
+            current_head=""
+            is_bare=false
+        elif [[ "$line" =~ ^HEAD\ (.+)$ ]]; then
+            current_head="${BASH_REMATCH[1]:0:8}"
+        elif [[ "$line" =~ ^branch\ refs/heads/(.+)$ ]]; then
+            current_branch="${BASH_REMATCH[1]}"
+        elif [[ "$line" == "bare" ]]; then
+            is_bare=true
+        elif [[ "$line" == "detached" ]]; then
+            current_branch="(detached)"
+        fi
+    done < <(git worktree list --porcelain)
+    
+    # Print last worktree
+    if [[ -n "$current_path" ]]; then
+        print_worktree_entry "$current_path" "$current_branch" "$current_head" "$main_worktree" "$is_bare"
+    fi
+    
+    echo ""
+}
+
+print_worktree_entry() {
+    local path="$1"
+    local branch="$2"
+    local head="$3"
+    local main_worktree="$4"
+    local is_bare="$5"
+    
+    local marker=""
+    local type_label=""
+    
+    if [[ "$is_bare" == "true" ]]; then
+        type_label="${YELLOW}(bare)${NC}"
+    elif [[ "$path" == "$main_worktree" ]]; then
+        type_label="${GREEN}(main)${NC}"
+    fi
+    
+    # Check if this is current directory
+    local current_dir
+    current_dir=$(pwd -P 2>/dev/null || pwd)
+    if [[ "$current_dir" == "$path"* ]]; then
+        marker="${GREEN}* ${NC}"
+    else
+        marker="  "
+    fi
+    
+    local branch_display
+    if [[ -n "$branch" ]]; then
+        branch_display="${CYAN}${branch}${NC}"
+    else
+        branch_display="${YELLOW}(no branch)${NC}"
+    fi
+    
+    echo -e "${marker}${BOLD}${path}${NC}"
+    echo -e "    Branch: ${branch_display}  ${type_label}"
+    echo -e "    HEAD:   ${head}"
+}
+
+cmd_rebase() {
+    load_config
+    local target_worktree=""
+    local base_branch="${WT_BASE_BRANCH:-$CFG_BASE_BRANCH}"
+    
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -b|--base)
+                base_branch="$2"
+                shift 2
+                ;;
+            -*)
+                print_error "Unknown option: $1"
+                exit 1
+                ;;
+            *)
+                target_worktree="$1"
+                shift
+                ;;
+        esac
+    done
+    
+    ensure_git_repo
+    
+    local worktree_path=""
+    
+    if [[ -n "$target_worktree" ]]; then
+        # Find worktree by branch name or path
+        worktree_path=$(find_worktree "$target_worktree")
+        if [[ -z "$worktree_path" ]]; then
+            print_error "Worktree not found: $target_worktree"
+            exit 1
+        fi
+    else
+        # Use current directory
+        worktree_path=$(pwd)
+    fi
+    
+    # Resolve base branch
+    base_branch=$(resolve_base_branch "$base_branch")
+    
+    print_info "Fetching latest changes..."
+    git fetch origin "$base_branch"
+    
+    print_info "Rebasing onto ${CYAN}origin/${base_branch}${NC}..."
+    
+    # Change to worktree and rebase
+    (
+        cd "$worktree_path"
+        local current_branch
+        current_branch=$(git branch --show-current)
+        print_info "Current branch: ${CYAN}${current_branch}${NC}"
+        
+        if git rebase "origin/${base_branch}"; then
+            print_success "Rebase completed successfully"
+        else
+            print_error "Rebase failed. Resolve conflicts and run 'git rebase --continue'"
+            exit 1
+        fi
+    )
+}
+
+find_worktree() {
+    local search="$1"
+    
+    # First try exact path match
+    if [[ -d "$search" ]]; then
+        echo "$search"
+        return 0
+    fi
+    
+    # Search by branch name
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^worktree\ (.+)$ ]]; then
+            local path="${BASH_REMATCH[1]}"
+            local branch=""
+            
+            # Read next lines for branch info
+            while IFS= read -r subline; do
+                if [[ "$subline" =~ ^branch\ refs/heads/(.+)$ ]]; then
+                    branch="${BASH_REMATCH[1]}"
+                    break
+                elif [[ -z "$subline" ]]; then
+                    break
+                fi
+            done
+            
+            # Check if branch matches search
+            if [[ "$branch" == "$search" ]] || [[ "$branch" == *"$search"* ]]; then
+                echo "$path"
+                return 0
+            fi
+            
+            # Check if path contains search term
+            if [[ "$path" == *"$search"* ]]; then
+                echo "$path"
+                return 0
+            fi
+        fi
+    done < <(git worktree list --porcelain)
+    
+    return 1
+}
+
+cmd_remove() {
+    local target=""
+    local force=false
+    
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -f|--force)
+                force=true
+                shift
+                ;;
+            -*)
+                print_error "Unknown option: $1"
+                exit 1
+                ;;
+            *)
+                target="$1"
+                shift
+                ;;
+        esac
+    done
+    
+    if [[ -z "$target" ]]; then
+        print_error "Worktree name or path required"
+        echo "Usage: ${SCRIPT_NAME} remove <worktree>"
+        exit 1
+    fi
+    
+    ensure_git_repo
+    
+    local worktree_path
+    worktree_path=$(find_worktree "$target")
+    
+    if [[ -z "$worktree_path" ]]; then
+        print_error "Worktree not found: $target"
+        exit 1
+    fi
+    
+    # Get branch name before removing
+    local branch_name=""
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^worktree\ ${worktree_path}$ ]]; then
+            while IFS= read -r subline; do
+                if [[ "$subline" =~ ^branch\ refs/heads/(.+)$ ]]; then
+                    branch_name="${BASH_REMATCH[1]}"
+                    break
+                elif [[ -z "$subline" ]]; then
+                    break
+                fi
+            done
+            break
+        fi
+    done < <(git worktree list --porcelain)
+    
+    print_warning "This will remove worktree at: ${worktree_path}"
+    if [[ -n "$branch_name" ]]; then
+        echo -e "  Branch: ${CYAN}${branch_name}${NC}"
+    fi
+    
+    read -p "Continue? [y/N] " -n 1 -r
+    echo
+    
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "Aborted."
+        exit 1
+    fi
+    
+    if [[ "$force" == true ]]; then
+        git worktree unlock "$worktree_path" 2>/dev/null || true
+        git worktree remove --force "$worktree_path"
+    else
+        local remove_output
+        if ! remove_output=$(git worktree remove "$worktree_path" 2>&1); then
+            echo "$remove_output" >&2
+            if [[ "$remove_output" == *"modified or untracked files"* ]]; then
+                print_warning "Worktree has uncommitted changes or untracked files."
+                read -p "Force delete and discard these changes? [y/N] " -n 1 -r
+                echo
+                if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                    echo "Aborted."
+                    exit 1
+                fi
+                git worktree remove --force "$worktree_path"
+            else
+                exit 1
+            fi
+        fi
+    fi
+
+    print_success "Worktree removed: ${worktree_path}"
+    
+    # Optionally delete the branch
+    if [[ -n "$branch_name" ]]; then
+        read -p "Also delete branch '${branch_name}'? [y/N] " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            git branch -d "$branch_name" 2>/dev/null || git branch -D "$branch_name"
+            print_success "Branch deleted: ${branch_name}"
+        fi
+    fi
+}
+
+cmd_cd() {
+    local target="$1"
+    
+    if [[ -z "$target" ]]; then
+        print_error "Worktree name or path required"
+        echo "Usage: cd \$(${SCRIPT_NAME} cd <worktree>)"
+        exit 1
+    fi
+    
+    ensure_git_repo
+    
+    local worktree_path
+    worktree_path=$(find_worktree "$target")
+    
+    if [[ -z "$worktree_path" ]]; then
+        print_error "Worktree not found: $target" >&2
+        exit 1
+    fi
+    
+    echo "$worktree_path"
+}
+
+# Main entry point
+main() {
+    if [[ $# -eq 0 ]]; then
+        usage
+        exit 0
+    fi
+    
+    local command="$1"
+    shift
+    
+    case "$command" in
+        create|c)
+            cmd_create "$@"
+            ;;
+        list|ls)
+            cmd_list "$@"
+            ;;
+        rebase|rb)
+            cmd_rebase "$@"
+            ;;
+        remove|rm)
+            cmd_remove "$@"
+            ;;
+        cd)
+            cmd_cd "$@"
+            ;;
+        init)
+            cmd_init "$@"
+            ;;
+        help|h|-h|--help)
+            usage
+            ;;
+        --version|-v)
+            echo "${SCRIPT_NAME} v${VERSION}"
+            ;;
+        *)
+            print_error "Unknown command: $command"
+            echo "Run '${SCRIPT_NAME} help' for usage"
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

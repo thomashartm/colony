@@ -11,6 +11,7 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/thomashartm/colony/internal/agents"
+	"github.com/thomashartm/colony/internal/crew"
 	"github.com/thomashartm/colony/internal/gitx"
 	"github.com/thomashartm/colony/internal/state"
 	"github.com/thomashartm/colony/internal/tmux"
@@ -253,10 +254,17 @@ func Revive(id string) error {
 	if _, err := agents.Binary(m.Agent); err != nil {
 		return err
 	}
-	return tmux.Revive(m.ID, m.Worktree, m.Ticket, m.Agent)
+	crews, err := crew.Load()
+	if err != nil {
+		return err
+	}
+	if err := tmux.Revive(m.ID, m.Worktree, m.Ticket, m.Agent); err != nil {
+		return err
+	}
+	return applyAppearance(m, crews)
 }
 
-type AdoptOptions struct{ Ticket, Name, Agent string }
+type AdoptOptions struct{ Ticket, Name, Agent, Crew, Color string }
 
 func Adopt(opts AdoptOptions) (Manifest, error) {
 	for _, v := range []string{opts.Name, opts.Ticket} {
@@ -322,6 +330,13 @@ func Adopt(opts AdoptOptions) (Manifest, error) {
 		return Manifest{}, err
 	}
 	defer func() { _ = lock.Close() }()
+	crews, err := crew.Load()
+	if err != nil {
+		return Manifest{}, err
+	}
+	if err := validateIdentity(opts.Crew, opts.Color, crews); err != nil {
+		return Manifest{}, err
+	}
 	manifests, err := loadAll(dir)
 	if err != nil {
 		return Manifest{}, err
@@ -368,7 +383,7 @@ func Adopt(opts AdoptOptions) (Manifest, error) {
 		return Manifest{}, err
 	}
 	remote, _ := gitx.Output(repo, "remote", "get-url", "origin")
-	m := Manifest{Schema: 1, ID: id, Name: name, Repo: repoName, RepoPath: repo, Worktree: path, Branch: branch, Base: base, RemoteURL: remote, Ticket: opts.Ticket, Agent: opts.Agent, CreatedAt: time.Now().UTC()}
+	m := Manifest{Schema: 1, ID: id, Name: name, Repo: repoName, RepoPath: repo, Worktree: path, Branch: branch, Base: base, RemoteURL: remote, Ticket: opts.Ticket, Agent: opts.Agent, Crew: opts.Crew, Color: opts.Color, CreatedAt: time.Now().UTC()}
 	data, err := toml.Marshal(m)
 	if err != nil {
 		return Manifest{}, err
@@ -379,5 +394,5 @@ func Adopt(opts AdoptOptions) (Manifest, error) {
 	if err := tmux.Adopt(session, id, m.Ticket, m.Agent); err != nil {
 		return m, fmt.Errorf("manifest retained for %s; tmux adoption incomplete: %w", id, err)
 	}
-	return m, nil
+	return m, applyAppearance(m, crews)
 }

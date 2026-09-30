@@ -25,6 +25,8 @@ type Manifest struct {
 	Base      string     `toml:"base"`
 	RemoteURL string     `toml:"remote_url"`
 	Ticket    string     `toml:"ticket,omitempty"`
+	Crew      string     `toml:"crew,omitempty"`
+	Color     string     `toml:"color,omitempty"`
 	Agent     string     `toml:"agent"`
 	CreatedAt time.Time  `toml:"created_at"`
 	RetiredAt *time.Time `toml:"retired_at,omitempty"`

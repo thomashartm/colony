@@ -13,12 +13,14 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/thomashartm/colony/internal/crew"
 	"github.com/thomashartm/colony/internal/minion"
 	"github.com/thomashartm/colony/internal/state"
 	"github.com/thomashartm/colony/internal/tmux"
 )
 
 type snapshot struct {
+	crews   []crew.Crew
 	rows    []minion.Row
 	clients []tmux.Client
 	err     error
@@ -30,6 +32,14 @@ type actionDone struct {
 }
 
 type Model struct {
+	crews                             []crew.Crew
+	group                             string
+	crewCursor, tableCursor           int
+	tableFocus, showHidden            bool
+	expanded                          map[string]bool
+	manager                           bool
+	managerCursor                     int
+	editor                            *identityEditor
 	rows                              []minion.Row
 	clients                           []tmux.Client
 	selected, width, height           int
@@ -68,6 +78,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.pollError = ""
 		id := m.selectedID()
+		crewKey := m.currentEntry().key()
 		old := make(map[string]minion.Row, len(m.rows))
 		for _, r := range m.rows {
 			old[r.ID] = r
@@ -84,15 +95,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		m.rows, m.clients, m.loaded = msg.rows, msg.clients, true
-		sort.SliceStable(m.rows, func(i, j int) bool {
-			if sectionOrder(m.rows[i]) != sectionOrder(m.rows[j]) {
-				return sectionOrder(m.rows[i]) < sectionOrder(m.rows[j])
-			}
-			if state.Attention(m.rows[i].CurrentStatus()) && m.rows[i].Since != m.rows[j].Since {
-				return m.rows[i].Since < m.rows[j].Since
-			}
-			return m.rows[i].ID < m.rows[j].ID
-		})
+		m.crews = msg.crews
+		m.sortRows()
 		for i, row := range m.rows {
 			if row.ID == id {
 				m.selected = i
@@ -100,6 +104,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		m.selected = max(0, min(m.selected, len(m.rows)-1))
+		if m.group == "crew" {
+			m.restoreCrewSelection(crewKey, id)
+		}
+		m.managerCursor = max(0, min(m.managerCursor, len(m.crews)-1))
 		m.updateDetail()
 		cmd := m.requestDetail(id != m.selectedID())
 		var bell tea.Cmd
@@ -118,6 +126,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		m.detail.Width, m.detail.Height = m.detailWidth(), max(1, m.height-5)
+		m.updateDetail()
+	case identitySaved:
+		crewKey, id := m.currentEntry().key(), m.selectedID()
+		m.busy = false
+		m.busyText = ""
+		if msg.err != nil {
+			if m.editor != nil {
+				m.editor.err = msg.err.Error()
+			}
+			m.message = msg.err.Error()
+		} else {
+			m.editor = nil
+			m.message = "Saved"
+		}
+		if msg.crews != nil || msg.err == nil {
+			m.crews = msg.crews
+		}
+		m.managerCursor = max(0, min(m.managerCursor, len(m.crews)-1))
+		m.restoreCrewSelection(crewKey, id)
 		m.updateDetail()
 	case retireChecked:
 		m.busy = false
@@ -150,13 +177,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		key := msg.String()
+		if m.editor != nil {
+			return m.updateEditor(msg)
+		}
+		if m.manager {
+			return m.updateManager(key)
+		}
 		if m.retiring != nil {
 			return m.updateRetire(key)
 		}
 		if m.picking {
 			return m.updatePicker(key)
 		}
+		if next, cmd, handled := m.groupingKey(key); handled {
+			return next, cmd
+		}
 		switch key {
+		case "G":
+			m.manager = true
+			m.managerCursor = 0
+			return m, nil
+		case "e":
+			return m.editMinion()
 		case "q", "ctrl+c":
 			if !m.monitor {
 				return m, tea.Quit
@@ -200,6 +242,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.requestDetail(true)
 		}
 	}
+	if m.editor != nil && !m.busy {
+		return m.updateEditor(msg)
+	}
 	return m, nil
 }
 
@@ -213,7 +258,7 @@ func (m *Model) requestDetail(force bool) tea.Cmd {
 		return nil
 	}
 	m.detailSeq++
-	return m.fetchDetail(m.rows[m.selected], m.detailSeq, force)
+	return m.fetchDetail(m.selectedRow(), m.detailSeq, force)
 }
 
 func (m *Model) selectRow(index int) {
@@ -225,6 +270,17 @@ func (m *Model) selectRow(index int) {
 	}
 }
 func (m Model) selectedID() string {
+	if m.group == "crew" {
+		e := m.currentEntry()
+		if m.tableFocus {
+			members := m.members(e.crew)
+			if m.tableCursor >= 0 && m.tableCursor < len(members) {
+				return members[m.tableCursor].ID
+			}
+			return ""
+		}
+		return e.id
+	}
 	if m.selected < 0 || m.selected >= len(m.rows) {
 		return ""
 	}
@@ -267,7 +323,7 @@ func (m Model) jump() (tea.Model, tea.Cmd) {
 	if id == "" {
 		return m, nil
 	}
-	if !m.rows[m.selected].Alive {
+	if !m.selectedRow().Alive {
 		m.message = "This minion is dead; its tmux session is not running."
 		return m, nil
 	}
@@ -353,7 +409,7 @@ func (m *Model) updateDetail() {
 		m.detail.SetContent("Select a minion to see its details.")
 		return
 	}
-	r := m.rows[m.selected]
+	r := m.selectedRow()
 	status := r.CurrentStatus()
 	var clients []string
 	for _, c := range m.clients {
@@ -362,8 +418,9 @@ func (m *Model) updateDetail() {
 		}
 	}
 	body := strings.Join([]string{
-		clean(r.Name), "", field("ID", r.ID), field("Status", status+" · "+since(r)), field("Ticket", r.Ticket),
-		field("Repo", r.Repo), field("Branch", r.Branch), field("Base", r.Base), field("Agent", r.Agent),
+		colored("▌ "+clean(r.Name), minion.Color(r.Manifest, m.crews)), "", field("ID", r.ID), field("Status", status+" · "+since(r)), field("Ticket", r.Ticket),
+		field("Repo", r.Repo), field("Branch", r.Branch), field("Base", r.Base), field("Agent", r.Agent) + " · " + coloredBadge(r.Agent),
+		"Crew  " + m.crewLabel(r.Crew),
 		"", field("Worktree", r.Worktree), field("Main repo", r.RepoPath), field("Remote", r.RemoteURL),
 		field("Created", r.CreatedAt.Local().Format("2006-01-02 15:04 MST")), field("Tabs", strings.Join(clients, ", ")),
 	}, "\n")
@@ -422,11 +479,20 @@ func (m Model) View() string {
 	height, width := max(1, m.height-5), m.listWidth()
 	list := m.listView(height, width)
 	right := m.detail.View()
+	if m.group == "crew" && m.currentEntry().id == "" {
+		right = m.crewTable(height, m.detailWidth())
+	}
 	if m.picking {
 		right = m.pickerView(height)
 	}
 	if m.retiring != nil {
 		right = m.retireView(height)
+	}
+	if m.manager {
+		right = m.managerView(height)
+	}
+	if m.editor != nil {
+		right = m.editorView(height)
 	}
 	border := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("8"))
 	left := border.Width(width).Height(height).Render(list)
@@ -444,9 +510,15 @@ func (m Model) View() string {
 	if !m.loaded && message == "" {
 		message = "Loading…"
 	}
-	keys := " ↑↓/jk select  enter jump  x retire  r revive  pgup/pgdn detail  q quit"
+	keys := " ↑↓/jk select  enter jump  x retire  r revive  e edit  g group  G crews  pgup/pgdn detail  q quit"
 	if m.monitor {
-		keys = " ↑↓/jk select  enter jump  x retire  r revive  T pin  q detach"
+		keys = " ↑↓/jk select  enter jump  x retire  r revive  e edit  g group  G crews  T pin  q detach"
+	}
+	if m.group == "crew" {
+		keys = " tab members  →/space expand  ← collapse  H hidden  g group  G crews  q quit"
+		if m.tableFocus {
+			keys = " ↑↓/jk member  enter jump  x retire  r revive  e edit  esc list"
+		}
 	}
 	if m.picking {
 		keys = " ↑↓/jk select work tab  enter pin  esc cancel"
@@ -454,9 +526,22 @@ func (m Model) View() string {
 	if m.retiring != nil {
 		keys = " y/enter confirm  f force  k keep branch  esc cancel"
 	}
+	if m.manager {
+		keys = " a add  e edit  c colour  x delete  esc back"
+	}
+	if m.editor != nil {
+		keys = " tab field  ctrl+s save  esc cancel"
+		if m.editor.kind == "delete" {
+			keys = " y delete  f force unassign  esc cancel"
+		}
+	}
+	header += "  [" + m.groupName() + "]"
 	return fit(header, m.width) + "\n" + lipgloss.JoinHorizontal(lipgloss.Top, left, detail) + "\n" + fit(clean(message), m.width) + "\n" + fit(keys, m.width)
 }
 func (m Model) listView(height, width int) string {
+	if m.group == "crew" {
+		return m.crewList(height, width)
+	}
 	if len(m.rows) == 0 {
 		return "No minions yet.\n\ncolony spawn --help"
 	}
@@ -465,21 +550,14 @@ func (m Model) listView(height, width int) string {
 	last := ""
 	for i, r := range m.rows {
 		group := section(r)
+		if m.group == "repo" {
+			group = clean(r.Repo)
+		}
 		if group != last {
 			lines = append(lines, group)
 			last = group
 		}
-		icon, color := statusIcon(r.CurrentStatus())
-		name := r.Name
-		if name == "" {
-			name = r.ID
-		}
-		if r.Ticket != "" {
-			name = r.Ticket + " · " + name
-		}
-		age := since(r)
-		label := fit(clean(name), max(1, width-lipgloss.Width(icon)-len(age)-4))
-		line := " " + lipgloss.NewStyle().Foreground(color).Render(icon) + " " + label + " " + age
+		line := m.minionLine(r, width)
 		style := lipgloss.NewStyle()
 		if i == m.selected {
 			style = style.Reverse(true)

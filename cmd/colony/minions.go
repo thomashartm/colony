@@ -42,6 +42,8 @@ func spawnCommand() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&opts.Repo, "repo", "", "Main repository directory name under repos_root (required)")
 	cmd.Flags().StringVar(&opts.Branch, "branch", "", "New branch name (required)")
+	cmd.Flags().StringVar(&opts.Crew, "crew", "", "Crew id")
+	cmd.Flags().StringVar(&opts.Color, "color", "", "Colour override (otherwise inherit crew colour)")
 	cmd.Flags().StringVar(&opts.Agent, "agent", "claude", "Agent: claude, codex or opencode")
 	cmd.Flags().StringVar(&opts.Ticket, "ticket", "", "Ticket identifier")
 	cmd.Flags().StringVar(&opts.Name, "name", "", "Display name (defaults to the branch's last component)")

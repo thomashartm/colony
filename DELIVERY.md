@@ -193,11 +193,44 @@ branches and batch cleanup (W10), restore-from-archive, automatic environment
 injection into running agents, native Codex/OpenCode resume (W8), crews and
 permission-mode selection.
 
+## W5 — Crews and colours
+
+Delivered crew add/list/edit/remove/assign commands, spawn/adopt crew and colour
+flags, and the overview's crew browser and editor.
+
+- Crews live in schema-1 TOML, written atomically under the shared lifecycle
+  lock. IDs use title slugs with collision suffixes; new crews take the next
+  unused palette colour. URL shape determines text/issue/project/link kind.
+- Minion colour resolves from its override, then crew, then a stable id hash.
+  Live sessions receive crew title, colour and emoji options, contrasting tmux
+  status bars and emoji titles. Crew edits update all live members immediately;
+  revive restores the same styling. User titles are escaped as literal tmux text.
+- Agent badges and the eight-colour palette are fixed. Status icon colours stay
+  independent of identity bars. No configuration settings were added: tmux
+  colour/title switches and badge customization remain deferred.
+- g cycles attention/crew/repo grouping. Crew rows are collapsed, with status
+  counts and clickable titles; Tab focuses the member table. Selection survives
+  status changes and polling. Members support the existing jump/retire/revive
+  actions and e editing. Right/Space expands, Left collapses, H shows inactive
+  crews. Narrow tables drop SINCE and then BRANCH; the PR column awaits W9.
+- G manages crews: add/edit, cycle colour, delete with explicit force-unassign.
+  e edits minion name/ticket/crew/override. Forms use Tab, Ctrl-s save and Esc.
+  Removal counts live and dead references; force retains individual overrides.
+  Archived manifests keep their historical crew ids.
+- Tests cover URL kinds, palette resolution, schema/defaults, id collisions,
+  real tmux recolouring, override retention, force-unassign, adopt/revive styling,
+  grouped selection, responsive layouts, terminal editing and monitor table jumps.
+
+Local tests, vet, lint, all four static builds and GoReleaser snapshot packaging
+passed. Hosted CI and the release tag are pending.
+
+Deliberately left out: GitHub title fetching and crew suggestions (W9), PR table
+columns (W9), configurable styling, blueprints (W6) and native permission modes.
+
 ## Next checkpoint
 
-Stop after W4. Feedback focus: retirement checks and confirmation, adoption of
-existing sessions, and whether Claude resume works well in daily use. W5 waits
-for user feedback.
+Stop after W5. Feedback focus: crew grouping/table density, colour readability,
+and whether manual crew assignment feels practical. W6 waits for user feedback.
 
 Continue using the original [wt 1.2.0](reference/wt) and
 [wt-clean 1.0.0](reference/wt-clean) alongside colony until W10 delivers the full

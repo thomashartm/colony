@@ -41,7 +41,7 @@ func (m Model) beginRevive() (tea.Model, tea.Cmd) {
 	if id == "" {
 		return m, nil
 	}
-	if m.rows[m.selected].Alive {
+	if m.selectedRow().Alive {
 		m.message = "Revive requires a dead minion; this session is still alive."
 		return m, nil
 	}

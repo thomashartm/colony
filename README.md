@@ -126,6 +126,44 @@ new tmux session detached; it does not restore retired minions or deleted
 worktrees. An agent that exited into a shell still has a live tmux session;
 restart it in that shell, or close that session before using revive.
 
+## Crews and colours
+
+Group minions around a package of work:
+
+```sh
+colony crew add --title "FX & Banking" --color blue
+colony crew assign 412-fx-cache fx-banking
+colony crew list
+colony crew edit fx-banking --title "Banking" --color purple
+```
+
+A crew can have an optional `--url` link. Titles are entered manually; colony
+makes no network request. New ids use the title's slug, with a numeric suffix
+when needed. Without `--color`, a crew takes the next unused palette colour.
+
+Use `--crew <id>` on spawn or adopt. A minion inherits its crew's colour unless
+it has a `--color` override; unassigned minions get a stable colour from their id.
+The palette is **red, orange, yellow, green, blue, purple, brown, grey**.
+The overview uses a colour bar for identity and separate status icons. Agent
+badges are **CC** (orange), **CX** (green), and **OC** (purple).
+
+Crew edits immediately update live minions' tmux status bars and emoji titles,
+while preserving individual colour overrides. In the overview, **e** edits a
+minion's name, ticket, crew and colour. Clear its colour to restore inheritance.
+For older sessions, assigning a crew or saving an edit also applies the styling.
+
+```sh
+colony crew assign 412-fx-cache none
+colony crew rm fx-banking
+colony crew rm fx-banking --force
+colony crew list --json
+```
+
+Removal refuses crews referenced by live or dead minions. `--force` unassigns
+those minions; their worktrees and sessions remain. Archived manifests retain
+their historical crew id. Crews are stored in
+`${XDG_STATE_HOME:-~/.local/state}/colony/crews.toml`.
+
 ## Configuration
 
 Reads `${XDG_CONFIG_HOME:-~/.config}/colony/config.toml`. Missing files/settings
@@ -164,7 +202,17 @@ It refreshes every second, including details for the selected minion.
 | Page Up / Page Down | Scroll the details |
 | x | Retire: inspect checks, then confirm; f toggles force, k keeps the branch, Esc cancels |
 | r | Revive a dead minion |
+| g | Cycle attention, crew and repository grouping |
+| e | Edit the selected minion; Tab changes fields, Ctrl-s saves, Esc cancels |
+| G | Crew manager: a adds, e edits, c cycles colour, x deletes |
 | q | Close the overview |
+
+In crew grouping, each collapsed row shows a crew and its status counts. Select
+it to see a member table, then **Tab** into the table and use **↑/↓** to choose a
+minion. **Enter**, **e**, **x** and **r** act on that member; **Esc** returns to
+the crew list. **→** or **Space** expands a crew in the list; **←** collapses it.
+**H** shows crews with no live minions. Unassigned minions appear under **No crew**.
+Crew titles with links are clickable in terminals that support hyperlinks.
 
 The overview needs a terminal at least 60 columns wide and 10 rows high.
 Use `colony ls` for plain text output.

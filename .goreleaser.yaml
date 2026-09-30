@@ -21,6 +21,6 @@ archives:
 checksum:
   name_template: checksums.txt
 snapshot:
-  version_template: "0.4.0-dev-{{ .ShortCommit }}"
+  version_template: "0.5.0-dev-{{ .ShortCommit }}"
 changelog:
   disable: true

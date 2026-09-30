@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/term"
+	"github.com/thomashartm/colony/internal/crew"
 	"github.com/thomashartm/colony/internal/minion"
 	"github.com/thomashartm/colony/internal/state"
 	"github.com/thomashartm/colony/internal/tmux"
@@ -45,7 +46,11 @@ func Run(monitor bool, client string, bell bool) error {
 		if err != nil {
 			return snapshot{err: err}
 		}
-		return snapshot{rows: minion.Join(manifests, sessions), clients: clients}
+		crews, err := crew.Load()
+		if err != nil {
+			return snapshot{err: err}
+		}
+		return snapshot{rows: minion.Join(manifests, sessions), clients: clients, crews: crews}
 	}
 	m := newModel(monitor, inside, client, poll)
 	m.bell = bell

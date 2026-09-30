@@ -97,6 +97,8 @@ func TestOverviewAndMonitor(t *testing.T) {
 	f := newMinionFixture(t, bin, "main")
 	f.colony("spawn", "--repo", "api", "--branch", "feat/overview", "--name", "Overview fixture", "--detach")
 	id := "feat-overview"
+	f.colony("crew", "add", "--title", "Overview crew", "--color", "blue")
+	f.colony("crew", "assign", id, "overview-crew")
 
 	// A normal in-tmux TUI switches its own client and restores the pane on exit.
 	f.tmux("new-session", "-d", "-s", "overview", "/bin/sh")
@@ -119,6 +121,10 @@ func TestOverviewAndMonitor(t *testing.T) {
 	monitorPID := f.tmux("display-message", "-p", "-t", "=_colony:", "#{pane_pid}")
 	eventually(t, func() bool {
 		return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_colony:"), "colony monitor")
+	})
+	overview.send(t, "g\t")
+	eventually(t, func() bool {
+		return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_colony:"), "MINION")
 	})
 	overview.send(t, "\r")
 	eventually(t, func() bool {
@@ -221,11 +227,14 @@ func TestOverviewAndMonitor(t *testing.T) {
 	f.tmux("set-environment", "-t", "="+id, "PATH", filepath.Dir(bin)+string(os.PathListSeparator)+os.Getenv("PATH"))
 	f.tmux("set-environment", "-t", "=fixture", "PATH", filepath.Dir(bin)+string(os.PathListSeparator)+os.Getenv("PATH"))
 	f.tmux("switch-client", "-c", workName, "-t", "=fixture")
+	popupOffset := len(work.text())
 	work.send(t, "\x02")
 	eventually(t, func() bool { return f.tmux("display-message", "-p", "-c", workName, "#{client_prefix}") == "1" })
 	work.send(t, "h")
 	eventually(t, func() bool {
-		return strings.Contains(work.text(), "Overview fixture") && strings.Contains(work.text(), "pgup/pgdn")
+		// Titles already contain the name; wait for a loaded popup row.
+		view := ansi.Strip(work.text()[popupOffset:])
+		return strings.Contains(view, "ID  feat-overview") && strings.Contains(view, "pgup/pgdn")
 	})
 	work.send(t, "\r")
 	eventually(t, func() bool { return f.clientSession(workName) == id })

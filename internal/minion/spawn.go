@@ -12,6 +12,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/thomashartm/colony/internal/agents"
 	"github.com/thomashartm/colony/internal/config"
+	"github.com/thomashartm/colony/internal/crew"
 	"github.com/thomashartm/colony/internal/gitx"
 	"github.com/thomashartm/colony/internal/state"
 	"github.com/thomashartm/colony/internal/tmux"
@@ -19,7 +20,7 @@ import (
 )
 
 type SpawnOptions struct {
-	Repo, Branch, Agent, Ticket, Name string
+	Repo, Branch, Agent, Ticket, Name, Crew, Color string
 }
 
 func Spawn(cfg config.Config, opts SpawnOptions, progress io.Writer) (Manifest, error) {
@@ -69,6 +70,13 @@ func Spawn(cfg config.Config, opts SpawnOptions, progress io.Writer) (Manifest, 
 		return Manifest{}, err
 	}
 	defer func() { _ = lock.Close() }()
+	crews, err := crew.Load()
+	if err != nil {
+		return Manifest{}, err
+	}
+	if err := validateIdentity(opts.Crew, opts.Color, crews); err != nil {
+		return Manifest{}, err
+	}
 	manifests, err := loadAll(dir)
 	if err != nil {
 		return Manifest{}, err
@@ -87,7 +95,7 @@ func Spawn(cfg config.Config, opts SpawnOptions, progress io.Writer) (Manifest, 
 	m := Manifest{
 		Schema: 1, ID: id, Name: name, Repo: opts.Repo, RepoPath: repo,
 		Worktree: path, Branch: opts.Branch, Base: base, RemoteURL: remote,
-		Ticket: opts.Ticket, Agent: opts.Agent, CreatedAt: time.Now().UTC(),
+		Ticket: opts.Ticket, Agent: opts.Agent, Crew: opts.Crew, Color: opts.Color, CreatedAt: time.Now().UTC(),
 	}
 	data, err := toml.Marshal(m)
 	if err == nil {
@@ -99,7 +107,7 @@ func Spawn(cfg config.Config, opts SpawnOptions, progress io.Writer) (Manifest, 
 	if err := tmux.Start(id, path, opts.Ticket, opts.Agent); err != nil {
 		return Manifest{}, fmt.Errorf("worktree and manifest retained for %s; tmux startup failed: %w", id, err)
 	}
-	return m, nil
+	return m, applyAppearance(m, crews)
 }
 
 func resolveRepo(root, name string) (string, error) {

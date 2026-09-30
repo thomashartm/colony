@@ -40,6 +40,8 @@ func adoptCommand() *cobra.Command {
 		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Adopted %s. Session: %s\nFor reporting in the current shell, run:\nexport COLONY_MINION=%s\nThen restart %s. New panes inherit the minion id.\n", m.ID, tmux.SessionName(m.ID), m.ID, m.Agent)
 		return err
 	}}
+	cmd.Flags().StringVar(&opts.Crew, "crew", "", "Crew id")
+	cmd.Flags().StringVar(&opts.Color, "color", "", "Colour override (otherwise inherit crew colour)")
 	cmd.Flags().StringVar(&opts.Agent, "agent", "claude", "Agent: claude, codex or opencode")
 	cmd.Flags().StringVar(&opts.Ticket, "ticket", "", "Ticket identifier")
 	cmd.Flags().StringVar(&opts.Name, "name", "", "Display name (defaults to branch name)")

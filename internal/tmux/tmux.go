@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"syscall"
 )
@@ -12,6 +13,7 @@ import (
 type Session struct {
 	Name     string
 	MinionID string
+	Monitor  bool
 }
 
 func run(args ...string) (string, error) {
@@ -23,7 +25,7 @@ func run(args ...string) (string, error) {
 }
 
 func Sessions() ([]Session, error) {
-	out, err := run("list-sessions", "-F", "#{session_name}\t#{@colony_minion}")
+	out, err := run("list-sessions", "-F", "#{session_name}\t#{@colony_minion}\t#{@colony_monitor}")
 	if err != nil {
 		if strings.Contains(out, "no server running on ") || strings.Contains(out, "no sessions") ||
 			(strings.Contains(out, "error connecting to ") && strings.Contains(out, "No such file or directory")) {
@@ -33,11 +35,11 @@ func Sessions() ([]Session, error) {
 	}
 	var sessions []Session
 	for _, line := range strings.Split(strings.TrimSuffix(out, "\n"), "\n") {
-		fields := strings.SplitN(line, "\t", 2)
-		if len(fields) != 2 {
+		fields := strings.Split(line, "\t")
+		if len(fields) < 2 {
 			return nil, fmt.Errorf("unexpected tmux session record %q", line)
 		}
-		sessions = append(sessions, Session{Name: fields[0], MinionID: fields[1]})
+		sessions = append(sessions, Session{Name: fields[0], MinionID: fields[1], Monitor: len(fields) > 2 && fields[2] == "1"})
 	}
 	return sessions, nil
 }
@@ -82,4 +84,85 @@ func Attach(id string) error {
 		return err
 	}
 	return syscall.Exec(bin, []string{"tmux", "attach-session", "-t", "=" + SessionName(id)}, os.Environ())
+}
+
+const MonitorSession = "_colony"
+
+type Client struct {
+	Name     string
+	TTY      string
+	Session  string
+	Activity int64
+}
+
+func Clients() ([]Client, error) {
+	out, err := run("list-clients", "-F", "#{client_name}\t#{client_tty}\t#{client_session}\t#{client_activity}")
+	if err != nil {
+		if strings.Contains(out, "no server running on ") || strings.Contains(out, "no sessions") ||
+			(strings.Contains(out, "error connecting to ") && strings.Contains(out, "No such file or directory")) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var clients []Client
+	for _, line := range strings.Split(strings.TrimSuffix(out, "\n"), "\n") {
+		if line == "" {
+			continue
+		}
+		fields := strings.Split(line, "\t")
+		if len(fields) != 4 {
+			return nil, fmt.Errorf("unexpected tmux client record %q", line)
+		}
+		activity, err := strconv.ParseInt(fields[3], 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid tmux client activity: %w", err)
+		}
+		clients = append(clients, Client{Name: fields[0], TTY: fields[1], Session: fields[2], Activity: activity})
+	}
+	return clients, nil
+}
+
+func CurrentClient() (string, error) {
+	out, err := run("display-message", "-p", "#{client_name}")
+	return strings.TrimSpace(out), err
+}
+
+func SwitchClient(client, id string) error {
+	if client == "" {
+		return fmt.Errorf("no tmux client available; open a tab and run colony attach <id>")
+	}
+	_, err := run("switch-client", "-c", client, "-t", "="+SessionName(id))
+	return err
+}
+
+func DetachClient(client string) error {
+	_, err := run("detach-client", "-t", client)
+	return err
+}
+
+// EnsureMonitor creates a persistent overview on this tmux server.
+func EnsureMonitor() error {
+	sessions, err := Sessions()
+	if err != nil {
+		return err
+	}
+	for _, session := range sessions {
+		if session.Name == MonitorSession {
+			if !session.Monitor || session.MinionID != "" {
+				return fmt.Errorf("tmux session %s already exists and is not a colony monitor", MonitorSession)
+			}
+			return nil
+		}
+	}
+	self, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	args := []string{"new-session", "-d", "-s", MonitorSession}
+	for _, key := range []string{"PATH", "HOME", "XDG_STATE_HOME", "XDG_CONFIG_HOME", "SHELL"} {
+		args = append(args, "-e", key+"="+os.Getenv(key))
+	}
+	args = append(args, self, "--monitor", ";", "set-option", "-t", "="+MonitorSession+":", "@colony_monitor", "1")
+	_, err = run(args...)
+	return err
 }

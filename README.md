@@ -88,7 +88,54 @@ Unknown keys are ignored; missing keys, including schema, use defaults. Only
 schema 1 is supported.
 
 `colony version` and `--help` remain available even with invalid configuration.
-Running `colony` without arguments displays the configured roots.
+`colony config` displays the configured roots.
+
+## Session overview
+
+Run `colony` to browse your minions in a terminal overview. The left list shows
+alive and dead sessions; the right pane shows the selected minion's repository,
+branch, agent, worktree and attached terminals. It refreshes every second.
+
+| Key | Action |
+| --- | --- |
+| ↑/↓ or j/k | Select a minion |
+| Enter | Switch this tmux client, or attach from outside tmux |
+| Page Up / Page Down | Scroll the details |
+| q | Close the overview |
+
+The overview needs a terminal at least 60 columns wide and 10 rows high.
+Use `colony ls` for plain text output.
+
+### Popup
+
+With colony on PATH, run:
+
+```sh
+colony init
+```
+
+This creates missing configuration files and prints a `source-file` line for
+your `~/.tmux.conf`. Add the line and reload your tmux configuration, then press
+your tmux prefix followed by **h** to open the overview in a popup. The default
+prefix is Ctrl-b. Existing config files are preserved.
+
+### Persistent monitor
+
+Open a separate terminal tab or window and run:
+
+```sh
+colony monitor
+```
+
+The monitor runs in the `_colony` tmux session. **Enter switches another work
+tab**, keeping the monitor visible. It chooses the most recently active tmux
+client outside the monitor. Press **T** to pin a work tab, or select **Automatic**
+to follow activity again. If there is no work tab, open another terminal and run
+`colony attach <id>`.
+
+In the monitor, **q** detaches the terminal and leaves the overview running.
+Closing the terminal also leaves it running; `colony monitor` reconnects to it.
+The `_colony` session does not appear in the minion list.
 
 ## Development checks
 

@@ -26,7 +26,7 @@ func TestBinarySmoke(t *testing.T) {
 		out, err := exec.Command(bin, args...).CombinedOutput()
 		return string(out), err
 	}
-	out, err := run()
+	out, err := run("config")
 	if err != nil || !strings.Contains(out, "repos_root: "+filepath.Join(home, "projects")) ||
 		!strings.Contains(out, "worktrees_root: "+filepath.Join(home, "worktrees")) {
 		t.Fatalf("defaults: %v\n%s", err, out)
@@ -38,7 +38,7 @@ func TestBinarySmoke(t *testing.T) {
 	if err := os.WriteFile(path, []byte("schema = 1\nrepos_root = '~/my repos'\nworktrees_root = '/tmp/my trees'\nfuture_setting = true\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	out, err = run()
+	out, err = run("config")
 	want := "colony smoke\nrepos_root: " + filepath.Join(home, "my repos") + "\nworktrees_root: /tmp/my trees\n"
 	if err != nil || out != want {
 		t.Fatalf("config: %v\ngot %q\nwant %q", err, out, want)
@@ -50,7 +50,7 @@ func TestBinarySmoke(t *testing.T) {
 	if err := os.WriteFile(path, []byte("schema = ["), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	out, err = run()
+	out, err = run("config")
 	if err == nil || !strings.Contains(out, "parse config") {
 		t.Fatalf("bad config must fail: %v\n%s", err, out)
 	}

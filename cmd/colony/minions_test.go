@@ -193,6 +193,7 @@ func newMinionFixture(t *testing.T, bin, base string) *minionFixture {
 	for key, value := range map[string]string{
 		"HOME": root, "XDG_CONFIG_HOME": filepath.Join(root, "config"), "XDG_STATE_HOME": f.state,
 		"TMUX": "", "TMUX_PANE": "", "SHELL": "/bin/sh", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1",
+		"HISTFILE":        "/dev/null",
 		"GIT_AUTHOR_NAME": "Colony Test", "GIT_AUTHOR_EMAIL": "colony@example.invalid", "GIT_COMMITTER_NAME": "Colony Test", "GIT_COMMITTER_EMAIL": "colony@example.invalid",
 		"GIT_DIR": "", "GIT_WORK_TREE": "", "GIT_INDEX_FILE": "",
 	} {

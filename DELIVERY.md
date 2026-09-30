@@ -60,10 +60,37 @@ passing, agent hooks/status, retire/revive, TUI, GitHub lookups and further conf
 W1 supports branch slugs containing ASCII letters/digits, dots, underscores and
 hyphens; broader name handling can follow actual usage.
 
-## Next checkpoint — W2
+## W2 — Overview TUI: validation in progress
 
-Pending user feedback on W1. W2 adds the overview TUI, popup setup and thin monitor.
-Checkpoint focus: layout and density before adding more information.
+Delivered the Bubble Tea overview with alive/dead sections, a scrollable manifest
+detail pane, stable selection across refreshes, and terminal-aware jumping.
+
+- Polls sessions and clients once each per second. Manifest parsing is cached
+  by modification time and size. Client activity supports automatic work-tab
+  selection; action-time checks catch disconnected or repurposed clients.
+- `colony init` scaffolds the current three-key config and popup binding, without
+  overwriting either file. Generated tmux config carries a schema comment.
+- `colony monitor` creates or reconnects to `_colony`. Enter targets another
+  client; T pins a work tab or restores automatic selection. q detaches the
+  monitor client, keeping the overview alive. A missing work tab gets a hint.
+- `colony config` retains the former no-argument config display now that the root
+  command opens the TUI. The overview needs at least a 60 × 10 terminal.
+- Model tests cover selection, ordering, removals, dead-session refusal, monitor
+  targeting and pinning, and narrow layouts. Real pseudoterminal tests exercise
+  normal and popup jumps, outside-tmux attach, monitor reuse, pinning, detach,
+  and alive-to-dead refresh on an isolated tmux server.
+- Local tests, vet, lint, darwin/linux × amd64/arm64 builds, and GoReleaser
+  snapshot packaging passed. Hosted CI and the release tag are pending.
+
+Deliberately left out: attention states/hooks, spawn forms, crews, permission-mode
+selection and other later-item features. Native Claude and Codex permission-mode
+requests remain tracked in [#1](https://github.com/thomashartm/colony/issues/1) and
+[#2](https://github.com/thomashartm/colony/issues/2).
+
+## Next checkpoint
+
+Stop after W2. Feedback focus: overview layout and density, and whether automatic
+work-tab selection or pinning suits daily use. W3 remains pending user feedback.
 
 Continue using the original [wt 1.2.0](reference/wt) and
 [wt-clean 1.0.0](reference/wt-clean) alongside colony until W10 delivers the full

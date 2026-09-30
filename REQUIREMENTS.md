@@ -1,7 +1,7 @@
 # colony — Requirements
 
 Document schema: `1`  
-Status: W0 and W1 implementations available; see DELIVERY.md and GitHub CI for validation. W2–W11 pending.
+Status: W0–W2 implementations available; see DELIVERY.md and GitHub CI for validation. W3–W11 pending.
 Source: user specification, 2026-09-30.
 
 ## Delivery agreement: MVP mode
@@ -872,7 +872,7 @@ they do not authorize expanding an earlier work item.
 | First affected writer | Define schema representation for prompts, logs, generated shell snippets and third-party settings. Preserve copied reference/artifact files unchanged; the literal “every file” rule needs an explicit boundary for these copies. |
 | W1 (resolved) | Use the branch-based default path, such as `aderis-api/feat-412-fx-cache`. Reserve normalized tmux session names as well as ids; prefix the repo on collision, then refuse if still occupied. |
 | W3 | Selected event detail is specified to reload only on selection change, but a selected minion can change status during polling. Decide when its event tail refreshes. |
-| W2 | Monitor selection requires client_activity, which is omitted from §9.4's sample client format. Include the needed data while preserving one client-list call per poll. |
+| W2 (resolved) | Each poll reads client_name, client_tty, client_session and client_activity in one client-list call. Monitor jumps recheck clients before switching. T pins a client in memory; q detaches the monitor while keeping its TUI running. The popup binding uses run-shell to expand the originating client before display-popup runs. |
 | W6 | The send-keys fallback waits for idle, but Codex/OpenCode reporting arrives in W8. Choose a working prompt handoff without a future dependency. |
 | W9 | R and Shift+R are ordinarily the same uppercase terminal key. Choose distinguishable selected/all refresh bindings. |
 | W10 | Legacy wt worktree_dir means a root directory; colony worktree_dir is a relative template. Specify import mapping, consistent with WT_WORKTREE_DIR → worktrees_root. |

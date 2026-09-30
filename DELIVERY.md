@@ -229,7 +229,7 @@ including crew and terminal tests on macOS/Linux and Go 1.22 on Linux.
 Deliberately left out: GitHub title fetching and crew suggestions (W9), PR table
 columns (W9), configurable styling, blueprints (W6) and native permission modes.
 
-## W6 — Blueprints
+## W6 — Blueprints: complete
 
 Delivered global/repository blueprint discovery, TOML front matter, Go template
 rendering, spawn blueprint/variable flags, and list/show/validate commands.
@@ -260,8 +260,10 @@ rendering, spawn blueprint/variable flags, and list/show/validate commands.
   verify no replay and preserved prompt bytes. No live model calls were made.
 
 Local tests, vet, lint, all four static builds and GoReleaser snapshot packaging
-passed. The packaged example also passed CLI validation. Hosted CI and the
-release tag are pending.
+passed. The packaged example also passed CLI validation. Implementation commit:
+`815e318`; release tag: `v0.6.0`. All nine
+[implementation CI jobs passed](https://github.com/thomashartm/colony/actions/runs/36781525991),
+including blueprint handoff and lifecycle tests on macOS/Linux and Go 1.22.
 
 Deliberately left out: TUI spawn form and prompt editor (W7), Issue template data
 and issue fetching (W9), agent status/resume integration for Codex/OpenCode (W8),

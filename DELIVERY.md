@@ -29,7 +29,7 @@ Local checks, hosted CI and tags are reported separately. A local pass does not
 establish a hosted CI result. Release numbering follows work-item numbering:
 W0 is `v0.0.0`, W1 is `v0.1.0`, and so on.
 
-## W1 — First minion: implementation available
+## W1 — First minion: complete
 
 Delivered new-branch worktree creation from main/master, immediate upstream push,
 artifact copying, schema-1 manifests and interactive agent startup in tmux.
@@ -50,7 +50,10 @@ Commands: spawn, ls, attach and switch. Agent exit leaves a login shell.
 - Artifact-copy tests compare an explicit golden inventory and native attributes
   against the unchanged wt function. Nested targets are excluded, and destination
   symlink parents are refused to prevent copying outside the worktree.
-- Validation and release: see the CI run for tag `v0.1.0` when published.
+- Implementation commit: `46b45a6`; release tag: `v0.1.0`.
+- Local tests, vet, lint, all four builds and snapshot packaging passed.
+  All nine [implementation CI jobs passed](https://github.com/thomashartm/colony/actions/runs/36716731133),
+  including the lifecycle tests on macOS/Linux and the Go 1.22 check on Linux.
 
 Deliberately left out: fuzzy repo selection, existing-branch creation, prompt
 passing, agent hooks/status, retire/revive, TUI, GitHub lookups and further config.

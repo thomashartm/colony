@@ -20,7 +20,7 @@ func MinionsDir() (string, error) {
 	return filepath.Abs(filepath.Join(root, "colony", "minions"))
 }
 
-// LockSpawn serializes manifest identity allocation across simultaneous spawns.
+// LockSpawn serializes minion lifecycle changes and identity allocation.
 // The OS releases the lock even when a process crashes.
 func LockSpawn(dir string) (*os.File, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -32,7 +32,7 @@ func LockSpawn(dir string) (*os.File, error) {
 	}
 	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		_ = f.Close()
-		return nil, fmt.Errorf("another spawn is in progress; retry when it finishes: %w", err)
+		return nil, fmt.Errorf("another minion lifecycle command is in progress; retry when it finishes: %w", err)
 	}
 	if _, err := f.WriteAt([]byte("schema = 1\n"), 0); err != nil {
 		_ = f.Close()

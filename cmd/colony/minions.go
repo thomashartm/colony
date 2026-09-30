@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -107,7 +108,8 @@ func jump(id string) error {
 }
 
 func execAgentCommand() *cobra.Command {
-	return &cobra.Command{
+	var resume bool
+	cmd := &cobra.Command{
 		Use: "exec-agent <id>", Short: "Start the agent recorded in a minion manifest", Hidden: true,
 		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
@@ -125,7 +127,16 @@ func execAgentCommand() *cobra.Command {
 			if err := os.Setenv("COLONY_MINION", m.ID); err != nil {
 				return err
 			}
-			return agents.Exec(m.Agent)
+			sessionID := ""
+			if resume && m.Agent == "claude" {
+				sessionID, err = state.LatestSessionID(filepath.Join(dir, m.ID+".events.jsonl"), m.Agent)
+				if err != nil {
+					return err
+				}
+			}
+			return agents.Exec(m.Agent, sessionID)
 		},
 	}
+	cmd.Flags().BoolVar(&resume, "resume", false, "Resume the latest recorded Claude session")
+	return cmd
 }

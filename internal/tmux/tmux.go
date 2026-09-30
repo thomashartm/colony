@@ -64,6 +64,14 @@ func SessionName(id string) string {
 const StatusLeft = "#{?#{@colony_minion},#{@colony_status} #{@colony_ticket} ,}"
 
 func Start(id, worktree, ticket, agent string) error {
+	return start(id, worktree, ticket, agent, false)
+}
+
+func Revive(id, worktree, ticket, agent string) error {
+	return start(id, worktree, ticket, agent, true)
+}
+
+func start(id, worktree, ticket, agent string, resume bool) error {
 	self, err := os.Executable()
 	if err != nil {
 		return err
@@ -80,7 +88,11 @@ func Start(id, worktree, ticket, agent string) error {
 	}
 	// Multiple shell-command arguments bypass tmux's shell-string interpretation.
 	// User-controlled values are positional arguments, never interpolated code.
-	args = append(args, "/bin/sh", "-c", `"$1" exec-agent "$2"; exec "$3" -l`, "colony", self, id, shell)
+	command := `"$1" exec-agent "$2"; exec "$3" -l`
+	if resume {
+		command = `"$1" exec-agent "$2" --resume; exec "$3" -l`
+	}
+	args = append(args, "/bin/sh", "-c", command, "colony", self, id, shell)
 	now := strconv.FormatInt(time.Now().Unix(), 10)
 	for _, option := range [][2]string{{"@colony_minion", id}, {"@colony_ticket", ticket}, {"@colony_agent", agent}, {"@colony_status", "starting"}, {"@colony_since", now}, {"@colony_seen", now}} {
 		args = append(args, ";", "set-option", "-t", "="+name+":", option[0], option[1])

@@ -46,6 +46,8 @@ type Model struct {
 	event                             state.Event
 	gitDetail                         string
 	alert, bell                       bool
+	retiring                          *retireDialog
+	busyText                          string
 }
 
 func newModel(monitor, inside bool, client string, poll tea.Cmd) Model {
@@ -117,6 +119,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 		m.detail.Width, m.detail.Height = m.detailWidth(), max(1, m.height-5)
 		m.updateDetail()
+	case retireChecked:
+		m.busy = false
+		m.busyText = ""
+		if m.retiring != nil && m.retiring.id == msg.id {
+			m.retiring.check = msg.check
+			m.retiring.err = msg.err
+			m.retiring.loaded = true
+		}
+	case lifecycleDone:
+		m.busy = false
+		m.busyText = ""
+		m.retiring = nil
+		if msg.err != nil {
+			m.message = msg.err.Error()
+		} else {
+			m.message = msg.action + " " + msg.id
+		}
 	case actionDone:
 		m.busy = false
 		m.message = ""
@@ -131,6 +150,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		key := msg.String()
+		if m.retiring != nil {
+			return m.updateRetire(key)
+		}
 		if m.picking {
 			return m.updatePicker(key)
 		}
@@ -156,6 +178,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.selectRow(max(0, m.selected-1))
 		case "pgdown", "pgup":
 			m.detail, _ = m.detail.Update(msg)
+		case "x":
+			return m.beginRetire()
+		case "r":
+			return m.beginRevive()
 		case "T":
 			if m.monitor {
 				m.choices, m.choice, m.picking = workClients(m.clients), 0, true
@@ -399,6 +425,9 @@ func (m Model) View() string {
 	if m.picking {
 		right = m.pickerView(height)
 	}
+	if m.retiring != nil {
+		right = m.retireView(height)
+	}
 	border := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("8"))
 	left := border.Width(width).Height(height).Render(list)
 	detail := border.Width(m.detailWidth()).Height(height).Render(right)
@@ -408,16 +437,22 @@ func (m Model) View() string {
 	}
 	if m.busy {
 		message = "Switching…"
+		if m.busyText != "" {
+			message = m.busyText
+		}
 	}
 	if !m.loaded && message == "" {
 		message = "Loading…"
 	}
-	keys := " ↑↓/jk select  enter jump  pgup/pgdn scroll detail  q quit"
+	keys := " ↑↓/jk select  enter jump  x retire  r revive  pgup/pgdn detail  q quit"
 	if m.monitor {
-		keys = " ↑↓/jk select  enter jump in work tab  T pin tab  q detach"
+		keys = " ↑↓/jk select  enter jump  x retire  r revive  T pin  q detach"
 	}
 	if m.picking {
 		keys = " ↑↓/jk select work tab  enter pin  esc cancel"
+	}
+	if m.retiring != nil {
+		keys = " y/enter confirm  f force  k keep branch  esc cancel"
 	}
 	return fit(header, m.width) + "\n" + lipgloss.JoinHorizontal(lipgloss.Top, left, detail) + "\n" + fit(clean(message), m.width) + "\n" + fit(keys, m.width)
 }

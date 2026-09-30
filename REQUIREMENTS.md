@@ -1,7 +1,7 @@
 # colony — Requirements
 
 Document schema: `1`  
-Status: W0–W3 implementations available; see DELIVERY.md and GitHub CI for validation. W4–W11 pending.
+Status: W0–W4 implementations available; see DELIVERY.md and GitHub CI for validation. W5–W11 pending.
 Source: user specification, 2026-09-30.
 
 ## Delivery agreement: MVP mode
@@ -881,6 +881,9 @@ they do not authorize expanding an earlier work item.
 | W1 (resolved) | Use the branch-based default path, such as `aderis-api/feat-412-fx-cache`. Reserve normalized tmux session names as well as ids; prefix the repo on collision, then refuse if still occupied. |
 | W3 (resolved) | Tail-read events on selection change and when the selected log mtime or size changes during polling. Ready commit/diff data refreshes with those events. This keeps selected details live without reading whole logs. |
 | W2 (resolved) | Each poll reads client_name, client_tty, client_session and client_activity in one client-list call. Monitor jumps recheck clients before switching. T pins a client in memory; q detaches the monitor while keeping its TUI running. The popup binding uses run-shell to expand the originating client before display-popup runs. |
+| W4 (resolved) | Adopt manages linked worktrees only, renames the session to its minion id, and sets the session environment. Existing processes require the printed COLONY_MINION export and an agent restart. Detached worktrees use a detached-<sha8> id when no ticket is given. |
+| W4 (resolved) | Refuse retiring the caller's own tmux session, since killing its pane would interrupt cleanup. Use the monitor, another session or an outside terminal. Force overrides dirty/unpushed checks, never worktree ownership checks. |
+| W4 (resolved) | Revive is detached and applies only to active dead manifests with an existing linked worktree. Archived minions stay retired. Archive filename collisions receive a UTC timestamp suffix, preserving previous history. Protected branches remain hard-coded main/master/develop until W10. |
 | W6 | The send-keys fallback waits for idle, but Codex/OpenCode reporting arrives in W8. Choose a working prompt handoff without a future dependency. |
 | W9 | R and Shift+R are ordinarily the same uppercase terminal key. Choose distinguishable selected/all refresh bindings. |
 | W10 | Legacy wt worktree_dir means a root directory; colony worktree_dir is a relative template. Specify import mapping, consistent with WT_WORKTREE_DIR → worktrees_root. |

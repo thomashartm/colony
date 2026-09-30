@@ -21,11 +21,15 @@ func Binary(name string) (string, error) {
 	return bin, nil
 }
 
-// Exec starts an interactive agent without a prompt or permission overrides.
-func Exec(name string) error {
+// Exec starts or resumes an interactive agent without a prompt or permission overrides.
+func Exec(name, sessionID string) error {
 	bin, err := Binary(name)
 	if err != nil {
 		return err
 	}
-	return syscall.Exec(bin, []string{name}, os.Environ())
+	argv := []string{name}
+	if name == "claude" && sessionID != "" {
+		argv = append(argv, "--resume="+sessionID)
+	}
+	return syscall.Exec(bin, argv, os.Environ())
 }

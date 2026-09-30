@@ -15,18 +15,19 @@ import (
 )
 
 type Manifest struct {
-	Schema    int       `toml:"schema"`
-	ID        string    `toml:"id"`
-	Name      string    `toml:"name"`
-	Repo      string    `toml:"repo"`
-	RepoPath  string    `toml:"repo_path"`
-	Worktree  string    `toml:"worktree"`
-	Branch    string    `toml:"branch"`
-	Base      string    `toml:"base"`
-	RemoteURL string    `toml:"remote_url"`
-	Ticket    string    `toml:"ticket,omitempty"`
-	Agent     string    `toml:"agent"`
-	CreatedAt time.Time `toml:"created_at"`
+	Schema    int        `toml:"schema"`
+	ID        string     `toml:"id"`
+	Name      string     `toml:"name"`
+	Repo      string     `toml:"repo"`
+	RepoPath  string     `toml:"repo_path"`
+	Worktree  string     `toml:"worktree"`
+	Branch    string     `toml:"branch"`
+	Base      string     `toml:"base"`
+	RemoteURL string     `toml:"remote_url"`
+	Ticket    string     `toml:"ticket,omitempty"`
+	Agent     string     `toml:"agent"`
+	CreatedAt time.Time  `toml:"created_at"`
+	RetiredAt *time.Time `toml:"retired_at,omitempty"`
 }
 
 var validID = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)

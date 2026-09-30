@@ -1,6 +1,7 @@
 package state
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -162,4 +163,33 @@ func TranscriptMessage(path string) (string, error) {
 		}
 	}
 	return "", nil
+}
+
+// LatestSessionID scans on explicit revive only; hooks and TUI reads remain bounded.
+func LatestSessionID(path, agent string) (string, error) {
+	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK, 0)
+	if os.IsNotExist(err) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = f.Close() }()
+	info, err := f.Stat()
+	if err != nil {
+		return "", err
+	}
+	if !info.Mode().IsRegular() {
+		return "", fmt.Errorf("event log is not a regular file")
+	}
+	scan := bufio.NewScanner(f)
+	scan.Buffer(make([]byte, 4096), 64*1024)
+	id := ""
+	for scan.Scan() {
+		var e Event
+		if json.Unmarshal(scan.Bytes(), &e) == nil && e.Agent == agent && e.AgentSessionID != "" {
+			id = e.AgentSessionID
+		}
+	}
+	return id, scan.Err()
 }

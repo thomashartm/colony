@@ -145,10 +145,57 @@ reporting (W8), retire/revive (W4), crews, spawn forms and native permission mod
 ([#1](https://github.com/thomashartm/colony/issues/1),
 [#2](https://github.com/thomashartm/colony/issues/2)).
 
+## W4 — Finish and resume minions: implementation complete
+
+Delivered `retire`, `adopt`, `revive`, and the overview's x/r actions.
+
+- Retirement refuses dirty/untracked or unpushed work, using the base branch
+  when no upstream exists. Force explicitly skips these checks; ownership and
+  main-worktree checks always apply. Normal retirement checks again after
+  stopping the agent in case work changed during shutdown.
+- Ports wt-clean's double-force removal, directory fallback, unlock/prune,
+  registration verification and local branch deletion. Main/master/develop and
+  all remote branches are retained; CLI/TUI can retain other local branches.
+  Cleanup failures retain the active manifest and allow retry after a worktree
+  has already been removed.
+- Retirement archives all existing state files with retired_at. Archive copies
+  are written before active files move; earlier retirements of a reused id get
+  preserved through a timestamp suffix. Lifecycle changes share the existing
+  OS lock with spawn.
+- Adopt derives state from a linked worktree, including detached HEAD, and
+  renames/registers its current session. It never adopts a main checkout or a
+  worktree already managed by another minion. Session environment changes apply
+  to new processes; the CLI explains how to export the id and restart an existing
+  agent for reporting.
+- Revive recreates only a missing session in an existing worktree and leaves it
+  detached. Claude uses its latest recorded session id; empty history and the
+  other agents start fresh, without a prompt. The installed Claude Code 2.1.286
+  help confirms --resume accepts a session id. The integration test verifies the
+  argument through a fake agent, including history beyond a single tail window.
+- x opens a retirement dialog with dirty/ahead counts, explicit force and
+  keep-branch toggles, confirm and cancel. r revives dead minions. Both operations
+  run outside the UI update loop and report errors in the overview.
+- Current-session retirement is refused because killing the caller's pane could
+  interrupt cleanup. The monitor, another session and outside terminals support
+  retirement. This is an explicit MVP boundary, documented in the README.
+- Tests cover refusal and force, archive content/timestamps/collisions, local and
+  remote branch retention, locked worktrees, fallback cleanup and retry, changed
+  worktree ownership, main checkout protection, adoption, resume/fresh starts,
+  and actual terminal confirmation/revive actions on isolated tmux servers.
+
+Local tests, vet, lint, all four static builds and snapshot packaging passed.
+Hosted CI and the v0.4.0 release checkpoint are pending validation.
+
+Deliberately left out: GitHub open-PR warnings (W9), configurable protected
+branches and batch cleanup (W10), restore-from-archive, automatic environment
+injection into running agents, native Codex/OpenCode resume (W8), crews and
+permission-mode selection.
+
 ## Next checkpoint
 
-Stop after W3. Feedback focus: whether attention ordering, question/permission
-context and monitor alerts fit daily Claude use. W4 waits for user feedback.
+Stop after W4. Feedback focus: retirement checks and confirmation, adoption of
+existing sessions, and whether Claude resume works well in daily use. W5 waits
+for user feedback.
 
 Continue using the original [wt 1.2.0](reference/wt) and
 [wt-clean 1.0.0](reference/wt-clean) alongside colony until W10 delivers the full

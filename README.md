@@ -76,6 +76,56 @@ status is **ended** while the shell session remains alive. Manifests live in
 `${XDG_STATE_HOME:-~/.local/state}/colony/minions/`. If creation fails after a
 worktree has been made, colony reports the error and retains that worktree.
 
+## Finish, adopt and resume
+
+Retire a minion from the monitor, another tmux session, or outside tmux:
+
+```sh
+colony retire 412-fx-cache
+colony retire 412-fx-cache --keep-branch
+```
+
+Retirement refuses uncommitted/untracked files and commits ahead of the local
+upstream reference. Without an upstream, it checks commits beyond the base
+branch. `--force` explicitly discards that work. Colony kills the tmux session,
+removes the worktree, and deletes its local branch unless `--keep-branch` is set
+or the branch is `main`, `master` or `develop`. Remote branches are kept.
+
+The manifest, event log and any prompt move to `minions/archive/`, with a
+retirement timestamp. Reused ids get a timestamp suffix in the archive. If
+cleanup fails, the active manifest is retained so you can correct the reported
+problem and retry. A main checkout or a worktree whose branch has changed is
+refused even with `--force`.
+
+Colony refuses to retire the session running the command or popup: killing that
+pane would interrupt cleanup. Use the monitor or another terminal instead.
+
+To bring an existing worktree session into colony, run from that linked
+worktree inside tmux:
+
+```sh
+colony adopt --agent claude --ticket 412 --name "FX cache"
+```
+
+This records its Git state and renames the current tmux session to the minion id.
+Main checkouts cannot be adopted. Existing processes keep their environment;
+run the printed `export COLONY_MINION=...` command in your current shell and
+restart the agent to enable reporting. New panes inherit the id automatically.
+Retirement manages the whole adopted tmux session, including its other panes.
+
+To restart a **dead** minion whose worktree still exists:
+
+```sh
+colony revive 412-fx-cache
+colony attach 412-fx-cache
+```
+
+Claude resumes the latest session id recorded in its event log. Without a
+recorded id, it starts fresh. Codex and OpenCode start fresh. Revive leaves the
+new tmux session detached; it does not restore retired minions or deleted
+worktrees. An agent that exited into a shell still has a live tmux session;
+restart it in that shell, or close that session before using revive.
+
 ## Configuration
 
 Reads `${XDG_CONFIG_HOME:-~/.config}/colony/config.toml`. Missing files/settings
@@ -112,6 +162,8 @@ It refreshes every second, including details for the selected minion.
 | ↑/↓ or j/k | Select a minion |
 | Enter | Switch this tmux client, or attach from outside tmux |
 | Page Up / Page Down | Scroll the details |
+| x | Retire: inspect checks, then confirm; f toggles force, k keeps the branch, Esc cancels |
+| r | Revive a dead minion |
 | q | Close the overview |
 
 The overview needs a terminal at least 60 columns wide and 10 rows high.

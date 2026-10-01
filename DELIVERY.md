@@ -711,5 +711,4 @@ and blueprint paths retain their current locations.
 Validation passed: full Go suite, vet, lint, four cross-builds and whitespace
 checks. Tests cover defaults, legacy settings and comments, concurrent first
 loads, unchanged modification times, invalid-file preservation and CLI loading
-from the new location. Repaired worktree metadata after the main checkout was
-renamed from projects/colony to projects/motley by the other session.
+from the new location.

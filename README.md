@@ -110,7 +110,33 @@ In crew view, the first **→** expands a crew; the next enters its member table
 **←/Esc** returns to the list, where **←** collapses the crew. **Tab** also enters
 the table; **H** shows inactive crews. In the crew manager, **→** opens its actions.
 
-**Ctrl-b h** opens the popup. For a persistent overview in a separate tab, run
+### Inside an agent's tmux session
+
+With the default tmux prefix, press **Ctrl-b**, release both keys, then press
+the next key. Use your own prefix if you changed it.
+
+- **Details:** **Ctrl-b h** opens Motley. Select a member with **↑/↓**, then
+  **→** focuses its details. Scroll with **↑/↓** or **Page Up/Page Down**;
+  **←/Esc** returns to the list.
+- **Back to the agent:** **q** closes the popup. **Enter** switches to the
+  selected member instead.
+- **Other tmux windows/panes:** **Ctrl-b w** opens the window picker;
+  **Ctrl-b n/p** selects the next/previous window; **Ctrl-b arrow** selects a pane.
+- **Scrollback:** **Ctrl-b [**, then arrows or **Page Up/Page Down**;
+  **q** leaves scrollback.
+- **Detach:** **Ctrl-b d** returns to your shell and keeps the agent running.
+
+### Open the agent in another Ghostty tab
+
+1. Press **Cmd-T** in Ghostty on macOS to open a tab (default shortcut).
+2. Run `mtly ls` to find the member ID, then `mtly attach <id>` in that tab.
+   This attaches to the existing session; it does not start another agent.
+3. To move rather than share the view, detach the original tab with **Ctrl-b d**.
+
+Motley's **t** sends a member to an already attached work tab; it does not create
+a Ghostty tab. Ghostty shortcuts are [configurable](https://ghostty.org/docs/config/keybind).
+
+For a persistent overview in a separate tab, run
 `mtly monitor`: **Enter** switches another work tab, **T** chooses that tab, and
 **q** detaches the monitor. After upgrading, restart it with
 `tmux kill-session -t _motley`, then `mtly monitor`.

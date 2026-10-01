@@ -560,3 +560,12 @@ implementation. The user requested committing and pushing this checkpoint,
 including the pending Codex/OpenCode integrations, installer checklist/history,
 roadmap tracking, uninstall script and release updater. Hosted CI and release
 publication are separate from the local validation above.
+
+### Agent navigation guide — 2026-10-01
+
+Added a short README guide for the tmux prefix, Motley popup/details, returning
+to an agent, window/pane navigation, scrollback and detach. Documented opening a
+Ghostty tab and attaching an existing member, including how to move the view and
+the distinction between creating a terminal tab and sending to an attached tab.
+Checked commands against the CLI, popup binding and TUI handlers; checked tmux
+bindings and Ghostty's installed default keybindings. Documentation only.

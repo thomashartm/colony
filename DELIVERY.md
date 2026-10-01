@@ -709,8 +709,7 @@ so no file is written to the worktree.
 macOS confinement was checked with real Claude (haiku, `-p`) in a linked
 worktree under `$HOME`, and confirmed on disk: worktree writes and `git commit`
 succeeded; writes to `$HOME`, the main checkout, `.git/hooks` and `.git/config`
-were denied. Linux was not verified with real Claude: no credentials were
-available to the Linux container.
+were denied. Linux verification with real Claude is deferred to #26.
 
 Validation: preset/conflict unit tests, TUI mode-step tests, real-tmux tests
 with a fake Claude recording argv/CWD (spawn, revive, blueprint combination,

@@ -201,6 +201,7 @@ crew = "fx-banking"                   # optional crew id
 color = "blue"                        # optional override
 agent = "claude"
 agent_args = ["--permission-mode", "plan"]
+# mode = "sandbox"                    # optional Claude preset; its args are in agent_args
 blueprint = "feature-plan-first"
 created_at = 2026-09-30T10:12:00Z
 # retired_at = 2026-10-02T16:00:00Z    # archive only
@@ -331,6 +332,7 @@ Derived, never persisted: `dead` when a manifest exists without a tmux session;
 ```text
 motley spawn --repo <r> [--ticket <t>] [--branch <b>] [--base <b>]
   [--name <n>] [--crew <id>] [--color <c>] [--blueprint <bp>] [--agent <a>]
+  [--mode <claude-permission-preset>]
   [--var k=v]... [--existing] [--no-gh] [--switch|--attach|--detach]
 ```
 

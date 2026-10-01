@@ -685,3 +685,34 @@ Details. The real-tmux shortcut test now exercises m in both directions with
 custom/default prefixes and preserves the user's m binding outside Motley.
 
 Validation: binding parser and real-tmux shortcut integration tests passed.
+
+### Claude permission modes (#1) — 2026-10-01
+
+`motley spawn --mode <preset>` and a Permission mode step in the spawn form
+(after Blueprint, Claude only) select manual, acceptEdits, plan, auto, dontAsk,
+bypassPermissions or sandbox. Omitting the mode keeps today's bare `claude`, so
+Claude's configured default still applies; there is no CLI menu or TTY
+requirement. Presets are hard-coded argv in `internal/agents/modes.go`, resolved
+in Prepare before any worktree, branch or manifest exists. Unknown presets, a
+non-Claude agent, or a blueprint that already sets the same option (or
+`--dangerously-skip-permissions`) are refused. The manifest records `mode` and the
+resolved `agent_args`; revive reapplies them. Old manifests are unchanged.
+
+Verified against Claude Code 2.1.286: `--permission-mode` lists manual (the
+issue's "default" is now a hidden alias, so Motley does not offer it). The
+script's sandbox block was not ported: `mode: autoAllow` is not a setting, and
+`denyWrite ["~/"]` would override the worktree under `~/worktrees`. The sandbox
+preset is `--permission-mode acceptEdits --settings
+'{"sandbox":{"enabled":true,"failIfUnavailable":true,"autoAllowBashIfSandboxed":true}}'`,
+so no file is written to the worktree.
+
+macOS confinement was checked with real Claude (haiku, `-p`) in a linked
+worktree under `$HOME`, and confirmed on disk: worktree writes and `git commit`
+succeeded; writes to `$HOME`, the main checkout, `.git/hooks` and `.git/config`
+were denied. Linux verification with real Claude is deferred to #26.
+
+Validation: preset/conflict unit tests, TUI mode-step tests, real-tmux tests
+with a fake Claude recording argv/CWD (spawn, revive, blueprint combination,
+refusals leave no worktree/branch/manifest), the terminal spawn-form test,
+full suite on macOS, cmd/motley ×2 on an Ubuntu 24.04/tmux 3.4 replica,
+golangci-lint v2.14.0 (0 issues), vet, gofmt and four cross-builds.

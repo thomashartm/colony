@@ -74,7 +74,7 @@ func (m Model) footerGroups() (full, compact []string) {
 			return []string{"[Spawn] Nav: ↑↓ select · type to filter", "Act: enter next · esc cancel"}, []string{"[Spawn] ↑↓ select", "enter next · esc cancel"}
 		case identityStep, varsStep:
 			return []string{"[Spawn] Nav: ↑↓/tab field · ←→ cursor", "Act: enter next · esc cancel"}, []string{"[Spawn] ↑↓ field", "enter next · esc cancel"}
-		case agentStep, blueprintStep:
+		case agentStep, blueprintStep, modeStep:
 			return []string{"[Spawn] Nav: ↑↓/jk select", "Act: enter next · esc cancel"}, []string{"[Spawn] ↑↓ select", "enter next · esc cancel"}
 		case previewStep:
 			return []string{"[Preview] Nav: ←→ action · ↑↓ scroll", "Act: enter choose · e edit · esc cancel"}, []string{"[Preview] ←→ action", "enter choose · esc cancel"}

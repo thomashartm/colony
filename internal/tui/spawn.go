@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/thomashartm/motley/internal/agents"
 	"github.com/thomashartm/motley/internal/blueprint"
 	"github.com/thomashartm/motley/internal/config"
 	"github.com/thomashartm/motley/internal/member"
@@ -20,6 +21,7 @@ const (
 	identityStep
 	agentStep
 	blueprintStep
+	modeStep
 	varsStep
 	previewStep
 	launchStep
@@ -295,10 +297,13 @@ func (m Model) updateSpawn(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-		if f.step == agentStep || f.step == blueprintStep {
+		if f.step == agentStep || f.step == blueprintStep || f.step == modeStep {
 			size := 3
-			if f.step == blueprintStep {
+			switch f.step {
+			case blueprintStep:
 				size = len(f.blueprints) + 1
+			case modeStep:
+				size = len(agents.Modes(f.opts.Agent)) + 1
 			}
 			switch k {
 			case "j", "down":
@@ -326,10 +331,23 @@ func (m Model) updateSpawn(msg tea.Msg) (tea.Model, tea.Cmd) {
 						return spawnLoaded{forBlueprint: true, blueprints: filtered, err: err}
 					}
 				}
-				if f.choice > 0 {
-					b := f.blueprints[f.choice-1]
-					f.opts.Blueprint = b.Name
-					f.vars = b.Vars
+				if f.step == modeStep {
+					f.opts.Mode = ""
+					if f.choice > 0 {
+						f.opts.Mode = agents.Modes(f.opts.Agent)[f.choice-1].Name
+					}
+				} else {
+					var args []string
+					if f.choice > 0 {
+						b := f.blueprints[f.choice-1]
+						f.opts.Blueprint, f.vars, args = b.Name, b.Vars, b.Args
+					}
+					// A blueprint that already decides permissions skips the mode choice.
+					if len(agents.Modes(f.opts.Agent)) > 0 && agents.ConflictingArg(args, []string{"--permission-mode"}) == "" {
+						f.step = modeStep
+						f.choice = 0
+						return m, nil
+					}
 				}
 				if len(f.vars) > 0 {
 					f.fields = inputs(make([]string, len(f.vars))...)
@@ -422,7 +440,7 @@ func (m Model) editPrompt() tea.Cmd {
 func (m Model) spawnView(height int) string {
 	f := m.spawn
 	width := m.detailWidth()
-	titles := []string{"Repository — type to filter", "Ticket and name", "Agent", "Blueprint", "Variables", "Prompt preview", "Launching"}
+	titles := []string{"Repository — type to filter", "Ticket and name", "Agent", "Blueprint", "Permission mode", "Variables", "Prompt preview", "Launching"}
 	lines := []string{"Spawn · " + titles[f.step]}
 	switch f.step {
 	case repoStep:
@@ -453,12 +471,18 @@ func (m Model) spawnView(height int) string {
 			}
 			lines = append(lines, prefix+clean(labels[i]), v.View())
 		}
-	case agentStep, blueprintStep:
+	case agentStep, blueprintStep, modeStep:
 		labels := []string{"claude", "codex", "opencode"}
-		if f.step == blueprintStep {
+		switch f.step {
+		case blueprintStep:
 			labels = []string{"none"}
 			for _, b := range f.blueprints {
 				labels = append(labels, b.Name+" — "+b.Description)
+			}
+		case modeStep:
+			labels = []string{"default from " + f.opts.Agent + " settings"}
+			for _, mode := range agents.Modes(f.opts.Agent) {
+				labels = append(labels, mode.Name+" — "+mode.Summary)
 			}
 		}
 		start := max(0, f.choice-max(1, height-3)+1)
@@ -470,7 +494,11 @@ func (m Model) spawnView(height int) string {
 			lines = append(lines, prefix+clean(labels[i]))
 		}
 	case previewStep:
-		lines = append(lines, f.plan.Manifest.Repo+" @ "+f.plan.Manifest.Branch+" · "+f.plan.Manifest.Agent)
+		summary := f.plan.Manifest.Repo + " @ " + f.plan.Manifest.Branch + " · " + f.plan.Manifest.Agent
+		if f.plan.Manifest.Mode != "" {
+			summary += " · " + f.plan.Manifest.Mode
+		}
+		lines = append(lines, summary)
 		lines = append(lines, "> "+[]string{"Launch", "Edit prompt", "Cancel"}[f.previewAction]+"  ←/→")
 		v := f.preview
 		v.Width = width

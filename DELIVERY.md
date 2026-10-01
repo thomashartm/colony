@@ -560,3 +560,16 @@ implementation. The user requested committing and pushing this checkpoint,
 including the pending Codex/OpenCode integrations, installer checklist/history,
 roadmap tracking, uninstall script and release updater. Hosted CI and release
 publication are separate from the local validation above.
+
+### #15 follow-up — Grouped footer — 2026-10-01
+
+- Grouped footer shortcuts by navigation, actions, view and session operations.
+  Whole groups wrap into at most two reserved rows; small terminals use compact
+  navigation and confirm/back controls. Extra actions stay in the Actions menu.
+- Accounted for footer height in panels and prompt scrolling, retaining the
+  60×10 minimum. Footer text leaves room before the terminal's right edge.
+- Added resize checks for every footer context, from 60×10 to 160×30, including
+  whole-view bounds and essential controls. Existing navigation bindings remain.
+
+Validation results are recorded on the follow-up PR. This is a footer correction
+only; the next delivery item waits for feedback.

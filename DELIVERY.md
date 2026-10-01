@@ -387,3 +387,12 @@ archive contents were checked for stale product and member terminology.
 
 This successful local full gate supersedes the earlier local tmux blocker.
 Hosted CI, W7 publication and the next release remain pending.
+
+### README logo — 2026-10-01
+
+Added the supplied Motley logo to the README and release archives, preserving
+the original image. Checked that the repository asset matches the supplied file
+and that all four snapshot archives contain the exact logo and README reference.
+GoReleaser snapshot packaging passed. The logo and naming commits are ready
+for the user-requested push to `origin/main`; hosted CI and release publication
+remain separate checks.

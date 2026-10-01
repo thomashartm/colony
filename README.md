@@ -1,5 +1,9 @@
 # motley
 
+<p align="center">
+  <img src="motley-logo.png" alt="Motley logo: a crew of robot musicians connected to a terminal" width="320">
+</p>
+
 motley is a terminal tool for parallel AI coding sessions.
 
 Each member gets its own git worktree, tmux session and coding agent.

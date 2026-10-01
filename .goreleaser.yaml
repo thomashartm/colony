@@ -27,6 +27,7 @@ archives:
     files:
       - LICENSE
       - README.md
+      - motley-logo.png
       - config.example.toml
       - examples/blueprints/*.md
 checksum:

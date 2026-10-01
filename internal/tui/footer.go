@@ -24,6 +24,14 @@ func (m Model) contentHeight() int { return max(1, m.height-4-m.footerRows()) }
 // variant retains navigation and confirm/back controls instead of cutting off keys.
 func (m Model) footer() string {
 	rows := m.footerRows()
+	if m.terminating != nil {
+		lines := make([]string, rows)
+		if rows > 1 {
+			lines[0] = "[Terminate] ↑↓ choose · enter select · esc cancel"
+		}
+		lines[rows-1] = m.terminateButtons()
+		return strings.Join(lines, "\n")
+	}
 	buttons := m.navigationAvailable()
 	if buttons {
 		rows--

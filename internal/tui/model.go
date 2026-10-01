@@ -71,6 +71,7 @@ type Model struct {
 	gitDetail                         string
 	alert, bell                       bool
 	retiring                          *retireDialog
+	terminating                       *terminateDialog
 	busyText                          string
 }
 
@@ -200,6 +201,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.retiring.loaded = true
 		}
 	case lifecycleDone:
+		m.terminating = nil
 		m.busy = false
 		m.busyText = ""
 		m.retiring = nil
@@ -208,6 +210,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.message = msg.action + " " + msg.id
 		}
+		return m, m.poll
 	case actionDone:
 		m.busy = false
 		m.message = ""
@@ -233,6 +236,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.manager {
 			return m.updateManager(key)
+		}
+		if m.terminating != nil {
+			return m.updateTerminate(key)
 		}
 		if m.retiring != nil {
 			return m.updateRetire(key)
@@ -295,6 +301,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.selectRow(max(0, m.selected-1))
 		case "pgdown", "pgup":
 			m.detail, _ = m.detail.Update(msg)
+		case "X":
+			return m.beginTerminate()
 		case "x":
 			return m.beginRetire()
 		case "r":
@@ -601,6 +609,9 @@ func (m Model) View() string {
 	if m.picking {
 		right = m.pickerView(height)
 	}
+	if m.terminating != nil {
+		right = m.terminateView(height)
+	}
 	if m.retiring != nil {
 		right = m.retireView(height)
 	}
@@ -615,7 +626,7 @@ func (m Model) View() string {
 	}
 	border := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("8"))
 	leftBorder, rightBorder := border, border
-	if m.panel == listPanel && m.editor == nil && !m.manager && m.spawn == nil && m.retiring == nil && !m.picking {
+	if m.panel == listPanel && m.editor == nil && !m.manager && m.spawn == nil && m.retiring == nil && m.terminating == nil && !m.picking {
 		leftBorder = leftBorder.BorderForeground(lipgloss.Color("6"))
 	} else {
 		rightBorder = rightBorder.BorderForeground(lipgloss.Color("6"))

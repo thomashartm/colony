@@ -113,9 +113,9 @@ func TestOverviewAndMonitor(t *testing.T) {
 	overview.send(t, "\r")
 	eventually(t, func() bool { return f.clientSession(overviewName) == id })
 
-	// Start the persistent monitor from this work tab; the process stays running
+	// Running bare motley inside an agent must open the independent monitor; the process stays running
 	// when the client detaches, and running motley monitor reuses the same session.
-	f.tmux("send-keys", "-t", "="+id+":", "-l", quoteShell(bin)+" monitor")
+	f.tmux("send-keys", "-t", "="+id+":", "-l", quoteShell(bin))
 	f.tmux("send-keys", "-t", "="+id+":", "Enter")
 	eventually(t, func() bool { return f.clientSession(overviewName) == "_motley" })
 	monitorPane := f.tmux("display-message", "-p", "-t", "=_motley:", "#{pane_id}")

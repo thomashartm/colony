@@ -21,7 +21,7 @@ func (m Model) actions() []navigationAction {
 	}
 	actions = append(actions, navigationAction{"Manage crews", "G"}, navigationAction{"Spawn member", "s"})
 	if m.selectedID() != "" {
-		actions = append(actions, navigationAction{"Reply", "i"}, navigationAction{"Send to work tab", "t"}, navigationAction{"Retire member", "x"}, navigationAction{"Revive member", "r"})
+		actions = append(actions, navigationAction{"Reply", "i"}, navigationAction{"Send to work tab", "t"}, navigationAction{"Terminate agent (X)", "X"}, navigationAction{"Retire member + worktree (x)", "x"}, navigationAction{"Revive member", "r"})
 	}
 	actions = append(actions, navigationAction{"Change grouping", "g"}, navigationAction{"Filter members", "/"})
 	if m.group == "crew" {
@@ -101,7 +101,11 @@ func (m Model) navigationKey(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 func (m Model) actionsView(height int) string {
 	actions := m.actions()
 	cursor := max(0, min(m.actionCursor, len(actions)-1))
-	lines := []string{"Actions / settings"}
+	title := "Actions / settings"
+	if id := m.selectedID(); id != "" {
+		title = "Actions: " + clean(id)
+	}
+	lines := []string{fit(title, m.detailWidth())}
 	start := max(0, cursor-max(1, height-1)+1)
 	for i := start; i < len(actions) && len(lines) < height; i++ {
 		lines = append(lines, control(actions[i].label, i == cursor))

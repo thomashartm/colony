@@ -21,6 +21,30 @@ func Run(monitor bool, client string, bell bool) error {
 	if monitor && !inside {
 		return fmt.Errorf("use motley monitor to open the monitor session")
 	}
+	// An overview inside a managed agent would kill itself when retiring that
+	// member. Always run that overview in the independent monitor session.
+	if inside && client == "" {
+		session, err := tmux.CurrentSession()
+		if err != nil {
+			return err
+		}
+		sessions, err := tmux.Sessions()
+		if err != nil {
+			return err
+		}
+		for _, s := range sessions {
+			if s.Name == session && s.MemberID != "" && !s.Monitor {
+				origin, err := tmux.CurrentClient()
+				if err != nil {
+					return err
+				}
+				if err := tmux.EnsureMonitor(); err != nil {
+					return err
+				}
+				return tmux.SwitchClient(origin, tmux.MonitorSession)
+			}
+		}
+	}
 	if inside && !monitor && client == "" {
 		var err error
 		client, err = tmux.CurrentClient()

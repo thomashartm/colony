@@ -23,6 +23,7 @@ func TestFooterFitsEveryContextAfterResize(t *testing.T) {
 		"reply":        func(m *Model) { m.editor = newEditor("reply", "waiting", []string{"Reply"}, []string{"Hello"}) },
 		"crews":        func(m *Model) { m.manager = true },
 		"crew actions": func(m *Model) { m.manager = true; m.managerActions = true },
+		"terminate":    func(m *Model) { m.terminating = &terminateDialog{id: "waiting"} },
 		"retire":       func(m *Model) { m.retiring = &retireDialog{id: "waiting", loaded: true} },
 		"pin":          func(m *Model) { m.picking = true },
 		"send":         func(m *Model) { m.picking = true; m.pickMode = "send" },

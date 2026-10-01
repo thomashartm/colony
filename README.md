@@ -106,13 +106,15 @@ only the buttons are shown while navigating the overview.
 | g | Group by attention, crew or repository |
 | e | Edit member details |
 | G | Manage crews |
+| X | Terminate session (keep work) |
 | x / r | Retire / revive |
 | Page Up / Page Down | Scroll details |
 | q | Close |
 
 Press **→** twice from the list to open **Actions**, then **↑/↓** and **Enter**
-to edit a member, manage crews or spawn. Editors use **↑/↓** to move through
-fields, **Save** and **Cancel**; **Enter** activates and **Esc** cancels. **←/→**
+to run an action on the selected member. **Terminate agent** stops its session
+and keeps the worktree, branch and history; **Revive** restarts it.
+Editors use **↑/↓** to move through fields, **Save** and **Cancel**; **Enter** activates and **Esc** cancels. **←/→**
 move the text cursor while editing. **Tab/Shift-Tab** and **Ctrl-s** still work.
 
 In crew view, the first **→** expands a crew; the next enters its member table.
@@ -193,8 +195,9 @@ mtly retire 412-fx-cache --keep-branch # retain the local branch
 mtly revive 412-fx-cache               # restart a dead session, then attach
 ```
 
-Retire from another session or the monitor. It refuses unsaved or unpushed work;
-`--force` discards that work. Remote branches remain. Revive requires the
+Opening `mtly` inside an agent returns to the independent monitor. Select a
+member → **Actions** → **Retire member + worktree** to remove it. Retirement
+refuses unsaved or unpushed work; the **Force** toggle (CLI: `--force`) discards it. Remote branches remain. Revive requires the
 worktree to exist and cannot restore retired members. Claude resumes its last
 recorded session, as do Codex and OpenCode when reporting captured a session id.
 Without a recorded id, the agent starts fresh. If the agent exited but its tmux

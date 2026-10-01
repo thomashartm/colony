@@ -644,3 +644,22 @@ Validation passed: full Go suite, vet, lint, four platform builds and whitespace
 checks. Real tmux tests cover opening with Enter and clicking Open agent, then
 clicking Back to monitor, with no separate work tab. Tests also retain the
 separate/pinned work-tab behavior and guard ambiguous monitor clients.
+
+### Selected member control and independent monitor — 2026-10-01
+
+The Actions panel names its selected member. Terminate agent (X) confirms the
+target and stops its owned tmux session while keeping the worktree, branch and
+history for Revive. Confirmation supports mouse clicks and arrow keys. Retire's
+confirmation, Force, Keep branch and Cancel controls also accept mouse clicks.
+Lifecycle completion refreshes the member list immediately.
+
+Running bare Motley inside an agent now switches to the independent monitor,
+preventing the self-retirement refusal caused by an overview running inside its
+target session. Ownership checks and explicit force for discarding work remain.
+
+Validation passed: full Go suite, vet, lint, four cross-builds and whitespace
+checks. A real tmux regression starts the overview inside its target agent,
+terminates it without losing dirty files, revives it, then force-retires it
+while the monitor stays alive. UI tests cover mouse targeting, confirmation,
+cancellation, changed row order and resized footers. Other session's checkout
+was left untouched.

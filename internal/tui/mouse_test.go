@@ -84,3 +84,28 @@ func TestMouseCrewAndScrolling(t *testing.T) {
 		t.Fatal("wheel over list did not select member")
 	}
 }
+
+func TestMouseUsesMergedFooterBounds(t *testing.T) {
+	for _, height := range []int{10, 12, 20} {
+		m := update(newModel(false, false, "", nil), tea.WindowSizeMsg{Width: 80, Height: height})
+		m = update(m, snapshot{rows: []member.Row{row("alpha", true), row("beta", true)}})
+		lines := strings.Split(m.View(), "\n")
+		if lines[height-1] != navigationBar {
+			t.Fatal("navigation not on last row")
+		}
+		m = click(m, strings.Index(navigationBar, "[Actions]")+1, height-1)
+		if m.panel != actionsPanel {
+			t.Fatal("visible Actions button missed")
+		}
+		// The border and grouped hint rows must never scroll/select an action.
+		before := m.actionCursor
+		m = update(m, tea.MouseMsg{X: m.listWidth() + 4, Y: 2 + m.contentHeight(), Button: tea.MouseButtonWheelDown})
+		if m.actionCursor != before {
+			t.Fatal("footer wheel moved selection")
+		}
+		m = click(m, m.listWidth()+4, 2+m.contentHeight())
+		if m.editor != nil || m.manager || m.actionCursor != before {
+			t.Fatal("footer click activated a hidden action")
+		}
+	}
+}

@@ -605,3 +605,24 @@ Installed `local-76fc7f4` with `install.sh --local` (all checklist steps passed)
 closed the old popup and switched the existing client to `_motley`. Readback
 confirmed the full monitor, clickable navigation, enabled mouse support and
 preserved `feat-cleanup-tasks` session. The updated PR's hosted checks are pending.
+
+### #15 follow-up — Grouped footer — 2026-10-01
+
+- Grouped footer shortcuts by navigation, actions, view and session operations.
+  Whole groups wrap into at most two reserved rows; small terminals use compact
+  navigation and confirm/back controls. Extra actions stay in the Actions menu.
+- Accounted for footer height in panels and prompt scrolling, retaining the
+  60×10 minimum. Footer text leaves room before the terminal's right edge.
+- Added resize checks for every footer context, from 60×10 to 160×30, including
+  whole-view bounds and essential controls. Existing navigation bindings remain.
+
+Validation results are recorded on the follow-up PR. This is a footer correction
+only; the next delivery item waits for feedback.
+
+### PR #18 merge with grouped footer — 2026-10-01
+
+Preserved both delivery histories and combined clickable navigation with the
+grouped footer. Navigation buttons occupy the last reserved footer row; short
+terminals show compact hints or just the buttons. Mouse hit testing uses the
+same content height as rendering, so footer clicks cannot select hidden rows.
+Validation results are recorded on PR #18.

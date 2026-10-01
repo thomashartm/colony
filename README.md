@@ -85,6 +85,11 @@ the background. Claude is the default agent. Local `.env`, `.env.*` and
 
 ## Overview
 
+The footer groups controls by purpose and fits them into up to two rows. Small
+windows show essential controls; use **→** to reach the full Actions menu.
+Clickable navigation buttons have their own bottom row; at minimum height,
+only the buttons are shown while navigating the overview.
+
 | Key | Action |
 | --- | --- |
 | ↑/↓ or j/k | Select a member, option or field |

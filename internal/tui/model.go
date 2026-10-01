@@ -162,10 +162,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		m.detail.Width, m.detail.Height = m.detailWidth(), max(1, m.height-5)
+		m.detail.Width, m.detail.Height = m.detailWidth(), m.contentHeight()
 		if m.spawn != nil && m.spawn.step == previewStep {
 			m.spawn.preview.Width = m.detailWidth()
-			m.spawn.preview.Height = max(1, m.height-9)
+			m.spawn.preview.Height = max(1, m.contentHeight()-4)
 			m.spawn.preview.SetContent(ansi.Hardwrap(multiline(m.spawn.plan.Prompt), m.detailWidth(), true))
 		}
 		m.updateDetail()
@@ -566,7 +566,7 @@ func (m Model) View() string {
 			header += "  no work tab"
 		}
 	}
-	height, width := max(1, m.height-5), m.listWidth()
+	height, width := m.contentHeight(), m.listWidth()
 	list := m.listView(height, width)
 	right := m.detail.View()
 	if m.group == "crew" && m.currentEntry().id == "" {
@@ -612,68 +612,14 @@ func (m Model) View() string {
 	if !m.loaded && message == "" {
 		message = "Loading…"
 	}
-	keys := " ↑↓/jk  enter jump  s spawn  i reply  t tab  / filter  g group  G crews  e edit  pgup/pgdn  x/r  q quit"
-	if m.monitor {
-		keys = " ↑↓/jk  enter jump  s spawn  i reply  t tab  / filter  g group  G crews  e edit  T pin  x/r  q detach"
-	}
-	if m.group == "crew" {
-		keys = " tab members  →/space expand  ← collapse  H hidden  g group  G crews  q quit"
-		if m.tableFocus {
-			keys = " ↑↓/jk member  enter jump  x retire  r revive  e edit  esc list"
-		}
-	}
-	if m.panel == listPanel {
-		if m.group == "crew" {
-			keys = " [List] → expand/details  ← collapse  tab members  H hidden  g group  G crews  q quit"
-		} else {
-			keys = " [List] → details  " + strings.TrimSpace(keys)
-		}
-	}
-	if m.panel == detailPanel || m.tableFocus {
-		keys = " [Details] ← back  → actions  ↑↓ scroll/select  enter jump"
-	}
-	if m.panel == actionsPanel {
-		keys = " [Actions] ↑↓ choose  enter open  ←/esc details"
-	}
-	if m.picking {
-		keys = " ↑↓/jk select work tab  enter pin  esc cancel"
-	}
-	if m.retiring != nil {
-		keys = " ↑↓ choice  enter toggle/confirm  f force  k keep  esc cancel"
-	}
-	if m.manager {
-		keys = " ↑↓ crew  enter edit/add  → actions  a add  e edit  esc back"
-		if m.managerActions {
-			keys = " ↑↓ action  enter choose  ←/esc crews"
-		}
-	}
-	if m.editor != nil {
-		keys = " ↑↓/tab field/action  enter next/choose  ctrl+s save  esc cancel"
-		if m.editor.kind == "delete" {
-			keys = " ↑↓ choice  enter toggle/confirm  y delete  f force  esc cancel"
-		}
-	}
 	if m.query.Value() != "" {
 		header += "  /" + m.query.Value()
 	}
 	if m.searching {
 		message = m.query.View()
-		keys = " type to filter  enter keep  esc clear"
-	}
-	if m.spawn != nil {
-		keys = m.spawnKeys()
-	}
-	if m.editor != nil && m.editor.kind == "reply" {
-		keys = " enter send  esc cancel"
-	}
-	if m.picking && m.pickMode == "send" {
-		keys = " ↑↓/jk choose tab  enter send  esc cancel"
-	}
-	if m.navigationAvailable() {
-		keys = navigationBar + " " + strings.TrimSpace(keys)
 	}
 	header += "  [" + m.groupName() + "]"
-	return fit(header, m.width) + "\n" + lipgloss.JoinHorizontal(lipgloss.Top, left, detail) + "\n" + fit(clean(message), m.width) + "\n" + fit(keys, m.width)
+	return fit(header, m.width) + "\n" + lipgloss.JoinHorizontal(lipgloss.Top, left, detail) + "\n" + fit(clean(message), m.width) + "\n" + m.footer()
 }
 func (m Model) listView(height, width int) string {
 	if m.group == "crew" {

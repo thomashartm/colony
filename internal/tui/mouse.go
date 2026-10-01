@@ -17,7 +17,7 @@ func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if msg.Button == tea.MouseButtonWheelUp || msg.Button == tea.MouseButtonWheelDown {
-		if msg.Y < 2 || msg.Y >= m.height-3 {
+		if msg.Y < 2 || msg.Y >= 2+m.contentHeight() {
 			return m, nil
 		}
 		if msg.X > m.listWidth()+2 && m.group == "crew" && m.currentEntry().id == "" && m.panel != actionsPanel {
@@ -62,7 +62,7 @@ func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	}
-	height := max(1, m.height-5)
+	height := m.contentHeight()
 	y := msg.Y - 2 // header and top border
 	if y < 0 || y >= height {
 		return m, nil

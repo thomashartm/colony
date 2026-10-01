@@ -171,7 +171,7 @@ func (m Model) spawnMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		f.plan = msg.plan
 		f.step = previewStep
-		f.preview = viewport.New(m.detailWidth(), max(1, m.height-9))
+		f.preview = viewport.New(m.detailWidth(), max(1, m.contentHeight()-4))
 		f.preview.SetContent(ansi.Hardwrap(multiline(msg.plan.Prompt), m.detailWidth(), true))
 		f.err = ""
 	case promptEdited:
@@ -488,18 +488,4 @@ func (m Model) spawnView(height int) string {
 		lines[i] = fit(lines[i], width)
 	}
 	return strings.Join(lines[:min(len(lines), height)], "\n")
-}
-func (m Model) spawnKeys() string {
-	switch m.spawn.step {
-	case repoStep:
-		return " type filter  ↑↓ select  enter next  esc cancel"
-	case identityStep, varsStep:
-		return " ↑↓/tab field  enter next  esc cancel"
-	case agentStep, blueprintStep:
-		return " ↑↓/jk select  enter next  esc cancel"
-	case previewStep:
-		return " ←/→ action  enter choose  ↑↓ scroll  e edit  esc cancel"
-	default:
-		return " Spawning…"
-	}
 }

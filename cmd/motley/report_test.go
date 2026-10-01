@@ -103,8 +103,13 @@ func TestClaudeReportingEndToEnd(t *testing.T) {
 	event(`{"hook_event_name":"Stop","session_id":"session-1","last_assistant_message":"Fixture implementation finished"}`, "ready", 8)
 	eventually(t, func() bool {
 		out := terminal.text()
-		return strings.Contains(out, "Fixture implementation finished") && strings.Contains(out, "change.txt") && strings.Contains(out, "NEW ATTENTION") && strings.Count(out, "\a") > bells
+		return strings.Contains(out, "Fixture implementation finished") && strings.Contains(out, "NEW ATTENTION") && strings.Count(out, "\a") > bells
 	})
+	// The footer reserves two rows. Long macOS fixture paths can put the diff
+	// below the viewport; scroll to inspect it rather than requiring it above the fold.
+	terminal.send(t, "\x1b[6~") // Page Down
+	eventually(t, func() bool { return strings.Contains(terminal.text(), "change.txt") })
+	terminal.send(t, "\x1b[5~") // Page Up
 	event(`{"hook_event_name":"Stop","session_id":"session-1","last_assistant_message":"Updated final response"}`, "ready", 9)
 	eventually(t, func() bool { return strings.Contains(terminal.text(), "Updated final response") })
 	if !strings.Contains(f.motley("ls"), "ready") {

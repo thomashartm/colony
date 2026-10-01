@@ -49,11 +49,13 @@ func InspectRetire(id string) (RetireCheck, error) {
 }
 func inspectRetire(m Manifest, checkChanges bool) (RetireCheck, error) {
 	c := RetireCheck{Manifest: m}
-	if !filepath.IsAbs(m.Worktree) || !filepath.IsAbs(m.RepoPath) {
+	if m.ClaudeSession == "" && (!filepath.IsAbs(m.Worktree) || !filepath.IsAbs(m.RepoPath)) {
 		return c, fmt.Errorf("manifest worktree and repo paths must be absolute")
 	}
-	if _, err := worktree.Linked(m.RepoPath, m.Worktree, m.Branch); err != nil {
-		return c, err
+	if m.ClaudeSession == "" {
+		if _, err := worktree.Linked(m.RepoPath, m.Worktree, m.Branch); err != nil {
+			return c, err
+		}
 	}
 	// Killing the caller's pane would interrupt cleanup halfway through.
 	if os.Getenv("TMUX") != "" && os.Getenv("TMUX_PANE") != "" {
@@ -65,7 +67,7 @@ func inspectRetire(m Manifest, checkChanges bool) (RetireCheck, error) {
 			return c, fmt.Errorf("open motley monitor to retire %s; this overview is inside the target session (or use another tmux session)", m.ID)
 		}
 	}
-	if !checkChanges {
+	if m.ClaudeSession != "" || !checkChanges {
 		return c, nil
 	}
 	exists := false
@@ -127,6 +129,27 @@ func Retire(id string, force, keepBranch bool) error {
 	m, err := Load(dir, id)
 	if err != nil {
 		return err
+	}
+	if m.ClaudeSession != "" {
+		if _, err := inspectRetire(m, false); err != nil {
+			return err
+		}
+		live, err := importedLive(m)
+		if err != nil {
+			return err
+		}
+		if live {
+			if err := tmux.Kill(id); err != nil {
+				return err
+			}
+		}
+		if err := stopExternal(m); err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Join(dir, "archive"), 0700); err != nil {
+			return err
+		}
+		return archive(dir, m)
 	}
 	check, err := inspectRetire(m, !force)
 	if err != nil {
@@ -218,7 +241,7 @@ func archive(dir string, m Manifest) error {
 	return nil
 }
 
-// Terminate stops only the owned tmux session. Files, branch and history remain
+// Terminate stops the owned tmux session or the imported Claude process. Files, branch and history remain
 // available for inspection or revival, including uncommitted work.
 func Terminate(id string) error {
 	dir, err := state.MembersDir()
@@ -230,6 +253,19 @@ func Terminate(id string) error {
 		return err
 	}
 	defer func() { _ = lock.Close() }()
+	m, err := Load(dir, id)
+	if err != nil {
+		return err
+	}
+	if m.ClaudeSession != "" {
+		live, err := importedLive(m)
+		if err != nil {
+			return err
+		}
+		if !live {
+			return stopExternal(m)
+		}
+	}
 	if err := RequireLive(id); err != nil {
 		return err
 	}
@@ -268,12 +304,22 @@ func Revive(id string) error {
 			return fmt.Errorf("member %s is already alive or its session name is occupied", id)
 		}
 	}
-	registered, err := worktree.Linked(m.RepoPath, m.Worktree, m.Branch)
-	if err != nil {
-		return err
-	}
-	if !registered {
-		return fmt.Errorf("worktree for %s is missing; revive does not recreate worktrees", id)
+	if m.ClaudeSession != "" {
+		external, err := externalSession(m)
+		if err != nil {
+			return err
+		}
+		if external != nil {
+			return fmt.Errorf("the Claude session is still running in its original terminal; open or terminate it first")
+		}
+	} else {
+		registered, err := worktree.Linked(m.RepoPath, m.Worktree, m.Branch)
+		if err != nil {
+			return err
+		}
+		if !registered {
+			return fmt.Errorf("worktree for %s is missing; revive does not recreate worktrees", id)
+		}
 	}
 	if info, err := os.Stat(m.Worktree); err != nil || !info.IsDir() {
 		return fmt.Errorf("worktree for %s is unavailable", id)

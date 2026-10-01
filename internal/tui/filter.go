@@ -68,6 +68,10 @@ func (m Model) beginReply() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	r := m.selectedRow()
+	if r.External {
+		m.message = "Open agent (o) to reply in its original terminal."
+		return m, nil
+	}
 	if !r.Alive || r.CurrentStatus() == "ended" {
 		m.message = "Agent is unavailable; jump to the member instead."
 		return m, nil
@@ -83,6 +87,10 @@ func (m Model) beginReply() (tea.Model, tea.Cmd) {
 func (m Model) beginSend() (tea.Model, tea.Cmd) {
 	if m.selectedID() == "" || !m.selectedRow().Alive {
 		m.message = "Select a live member first."
+		return m, nil
+	}
+	if m.selectedRow().External {
+		m.message = "This session is in its original terminal; Open agent (o) focuses it."
 		return m, nil
 	}
 	m.pickMode = "send"

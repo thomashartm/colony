@@ -9,7 +9,7 @@ import (
 const navigationBar = "[o Open agent] [1 List] [2 Details] [3 Actions] [q Close]"
 
 func (m Model) navigationAvailable() bool {
-	return !m.busy && !m.searching && m.spawn == nil && m.editor == nil && !m.manager && m.retiring == nil && m.terminating == nil && !m.picking
+	return !m.busy && !m.searching && m.spawn == nil && m.editor == nil && !m.manager && m.retiring == nil && m.terminating == nil && m.importing == nil && !m.picking
 }
 
 func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
@@ -24,14 +24,26 @@ func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	}
 	if m.retiring != nil && !m.busy && m.width >= 60 && m.height >= 10 && msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress && msg.X > m.listWidth()+2 && msg.X < m.width-1 {
 		lines := strings.Split(m.retireView(m.contentHeight()), "\n")
-		// The four choices follow the wrapped explanation in the right panel.
-		first := len(lines) - 4
+		// Choices follow the wrapped explanation in the right panel.
+		count := len(m.retireChoices())
+		first := len(lines) - count
 		index := msg.Y - 2 - first
-		if first >= 1 && index >= 0 && index < 4 {
+		if first >= 1 && index >= 0 && index < count {
 			dialog := *m.retiring
 			dialog.focus = index
 			m.retiring = &dialog
 			return m.updateRetire("enter")
+		}
+		return m, nil
+	}
+	if m.importing != nil && !m.busy && m.width >= 60 && m.height >= 10 && msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress && msg.X > m.listWidth()+2 && msg.X < m.width-1 {
+		y := msg.Y - 3
+		index := m.importStart(m.contentHeight()) + y/2
+		if y >= 0 && msg.Y < 2+m.contentHeight() && index < len(m.importing.sessions) {
+			d := *m.importing
+			d.cursor = index
+			m.importing = &d
+			return m.updateImport("enter")
 		}
 		return m, nil
 	}

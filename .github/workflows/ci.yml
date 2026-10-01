@@ -32,7 +32,12 @@ jobs:
         if: runner.os == 'macOS'
         run: command -v tmux || brew install tmux
       - run: go mod download
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
       - run: bash scripts/test-install.sh
+      - run: python3 scripts/test-uninstall.py
+      - run: node --test integrations/opencode/plugin.test.mjs
       - run: go test ./...
       - run: go vet ./...
 

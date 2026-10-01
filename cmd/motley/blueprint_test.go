@@ -55,6 +55,9 @@ func TestBlueprintSpawnAndResume(t *testing.T) {
 		want := fmt.Sprintf("--literal prompt\napi | %s | %s | main\nFX Banking https://example.com/work link\n%s\n%s\n[]\n", name, branch, m.Worktree, constraint)
 		eventually(t, func() bool { _, err := os.Stat(filepath.Join(f.home, "prompt-"+id+".args")); return err == nil })
 		expected := []string{"--model", "fixture-model", "--", want}
+		if agent == "codex" {
+			expected = []string{"--model", "fixture-model", "--no-daemon", "--", want}
+		}
 		if agent == "opencode" {
 			expected = []string{"--model", "fixture-model", "--prompt=" + want}
 		}
@@ -85,8 +88,13 @@ func TestBlueprintSpawnAndResume(t *testing.T) {
 		f.motley("revive", id)
 		eventually(t, func() bool { _, err := os.Stat(receipt); return err == nil })
 		resume := []string{"--model", "fixture-model"}
-		if agent == "claude" {
+		switch agent {
+		case "claude":
 			resume = append(resume, "--resume="+sessionID)
+		case "codex":
+			resume = append(append([]string{"resume"}, resume...), "--no-daemon", "--", sessionID)
+		case "opencode":
+			resume = append(resume, "--session="+sessionID)
 		}
 		if got := read(id); !reflect.DeepEqual(got, resume) {
 			t.Fatalf("resume %s: %q want %q", agent, got, resume)
@@ -103,7 +111,7 @@ func TestBlueprintSpawnAndResume(t *testing.T) {
 		t.Fatal(m.Agent)
 	}
 	eventually(t, func() bool { _, err := os.Stat(filepath.Join(f.home, "prompt-feat-override.args")); return err == nil })
-	if got := read("feat-override"); !reflect.DeepEqual(got, []string{"--", "Repository\n"}) {
+	if got := read("feat-override"); !reflect.DeepEqual(got, []string{"--no-daemon", "--", "Repository\n"}) {
 		t.Fatal(got)
 	}
 }

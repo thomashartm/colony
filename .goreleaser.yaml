@@ -27,12 +27,13 @@ archives:
     files:
       - LICENSE
       - README.md
+      - uninstall.sh
       - motley-logo.png
       - config.example.toml
       - examples/blueprints/*.md
 checksum:
   name_template: checksums.txt
 snapshot:
-  version_template: "0.7.0-dev-{{ .ShortCommit }}"
+  version_template: "0.8.0-dev-{{ .ShortCommit }}"
 changelog:
   disable: true

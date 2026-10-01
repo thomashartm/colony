@@ -3,7 +3,8 @@
 # Download/build motley and configure it for the current user.
 set -euo pipefail
 
-fail() { printf 'motley installer: %s\n' "$*" >&2; exit 1; }
+failure_message=''
+fail() { failure_message=$*; printf 'motley installer: %s\n' "$*" >&2; exit 1; }
 say() { printf '\n%s\n' "$*"; }
 
 local_source=false
@@ -16,6 +17,44 @@ case "${1:-}" in
   *) fail "Unknown option: $1" ;;
 esac
 [ "$#" -le 1 ] || fail 'Too many arguments'
+
+history_dir="$HOME/.motley/install-history"
+if ! install_log=$(
+  umask 077
+  mkdir -p -- "$history_dir" || exit 1
+  mktemp "$history_dir/$(date -u +%Y%m%dT%H%M%SZ).log.XXXXXX"
+); then
+  printf '• ❌ Cannot create install history in %s\n' "$history_dir" >&2
+  exit 1
+fi
+
+# Keep the terminal for checklist lines; all command output goes to the log.
+exec 3>&1
+exec >> "$install_log" 2>&1
+check() {
+  printf '• %s %s\n' "$1" "$2" >&3
+  printf '• %s %s\n' "$1" "$2"
+}
+task_tmp=''
+staged_binary=''
+step='Check prerequisites'
+finish() {
+  local result=$?
+  trap - EXIT
+  set +e
+  if [ -n "$task_tmp" ]; then rm -rf -- "$task_tmp"; fi
+  if [ -n "$staged_binary" ]; then rm -f -- "$staged_binary"; fi
+  if [ "$result" -ne 0 ]; then
+    check '❌' "${failure_message:-$step failed (exit $result)}"
+  fi
+  printf 'Finished: %s; exit %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$result"
+  printf '• History: %s\n' "$install_log" >&3
+  exit "$result"
+}
+trap finish EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+printf 'Motley installer — schema = 1\nStarted: %s\nLocal source: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$local_source"
 
 case "$(uname -s)/$(uname -m)" in
   Darwin/arm64|Darwin/x86_64|Linux/aarch64|Linux/arm64|Linux/x86_64) ;;
@@ -76,16 +115,10 @@ if [[ "$go_version" =~ go([0-9]+)\.([0-9]+) ]]; then
 else
   fail "Cannot read Go version: $go_version"
 fi
+check '✅' 'Prerequisites'
 
+step='Prepare source'
 task_tmp=$(mktemp -d "${TMPDIR:-/tmp}/motley-install.XXXXXX")
-staged_binary=''
-cleanup() {
-  rm -rf -- "$task_tmp"
-  if [ -n "$staged_binary" ]; then rm -f -- "$staged_binary"; fi
-}
-trap cleanup EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
 
 if "$local_source"; then
   source_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
@@ -100,12 +133,14 @@ revision=$(git -C "$source_dir" rev-parse --short HEAD)
 version="main-$revision"
 if "$local_source"; then version="local-$revision"; fi
 say "Building motley ${version}…"
+step='Build motley'
 (
   cd -- "$source_dir"
   CGO_ENABLED=0 GOTOOLCHAIN=go1.25.5 GOWORK=off go build -buildvcs=false -trimpath \
     -ldflags "-s -w -X main.version=$version" -o "$task_tmp/motley" ./cmd/motley
 )
 
+step='Install commands'
 bin_dir="$HOME/.local/bin"
 mkdir -p -- "$bin_dir"
 [ ! -d "$bin_dir/mtly" ] || fail "$bin_dir/mtly is a directory; cannot install the short command"
@@ -117,6 +152,9 @@ mv -f -- "$staged_binary" "$bin_dir/motley"
 staged_binary=''
 ln -sfn motley "$bin_dir/mtly"
 export PATH="$bin_dir:$PATH"
+installed_version=$("$bin_dir/motley" version)
+printf '%s\nInstalled: %s/motley (also available as mtly)\n' "$installed_version" "$bin_dir"
+check '✅' "$installed_version — motley / mtly"
 
 append_setting() {
   local file=$1 line=$2
@@ -131,6 +169,7 @@ append_setting() {
 }
 
 say 'Configuring PATH and tmux…'
+step='Configure PATH and tmux'
 # Expand these variables when a future shell reads its startup file.
 # shellcheck disable=SC2016
 case "${SHELL##*/}" in
@@ -147,7 +186,7 @@ case "${SHELL##*/}" in
       'fish_add_path --prepend --move "$HOME/.local/bin"' ;;
 esac
 
-"$bin_dir/motley" init >/dev/null
+"$bin_dir/motley" init
 config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/motley"
 config_dir=$(cd -- "$config_dir" && pwd)
 # Quote paths as tmux single-quoted strings, including spaces and apostrophes.
@@ -161,11 +200,25 @@ if tmux list-sessions >/dev/null 2>&1; then
   tmux set-environment -g PATH "$PATH"
   tmux source-file "$config_dir/motley.tmux.conf"
 fi
-if command -v claude >/dev/null 2>&1; then
-  "$bin_dir/motley" hooks install claude
-fi
+check '✅' 'PATH and tmux'
+step='Install agent hooks'
+for agent in claude codex opencode; do
+  if command -v "$agent" >/dev/null 2>&1; then
+    if "$bin_dir/motley" hooks install "$agent"; then
+      if [ "$agent" = codex ]; then
+        check '✅' 'codex hooks — restart Codex; /hooks to review and trust'
+      else
+        check '✅' "$agent hooks — restart $agent"
+      fi
+    else
+      printf 'Motley is installed, but %s reporting needs attention; retry: motley hooks install %s\n' "$agent" "$agent" >&2
+      check '❌' "$agent hooks — retry: mtly hooks install $agent"
+    fi
+  else
+    printf 'Skipping %s hooks: agent is not installed.\n' "$agent"
+  fi
+done
 
-"$bin_dir/motley" version
-printf '\nInstalled: %s/motley (also available as mtly)\nOpen a new terminal and run motley or mtly. No manual PATH or config edits are needed.\n' "$bin_dir"
-printf 'To run immediately in this terminal: "%s/motley"\n' "$bin_dir"
-printf 'Restart existing Claude sessions to load hooks; rerun this installer after installing Claude.\n'
+printf 'Open a new terminal and run motley or mtly.\nTo run immediately: "%s/motley"\n' "$bin_dir"
+printf 'Restart agents to load hooks; in Codex, use /hooks to review and trust Motley hooks.\n'
+printf '• Run: mtly (new terminal)\n' >&3

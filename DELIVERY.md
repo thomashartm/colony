@@ -270,7 +270,13 @@ and issue fetching (W9), agent status/resume integration for Codex/OpenCode (W8)
 and native permission-mode selection ([#1](https://github.com/thomashartm/motley/issues/1),
 [#2](https://github.com/thomashartm/motley/issues/2)).
 
-## W7 — Spawn and steer: implementation in progress
+## W7 — Spawn and steer: implemented (Done)
+
+Current status, 2026-10-01: implemented in `513be9a` and pushed to main.
+The full local gate and [hosted CI](https://github.com/thomashartm/motley/actions/runs/36834127856)
+passed. The roadmap ticket is Done based on implementation, as requested;
+the `v0.7.0` release tag remains a separate delivery step. Earlier implementation
+and validation notes below record the original checkpoint history.
 
 Implemented the TUI spawn form, reply input, work-tab picker, filtering, and
 `motley tabs` / `motley send`.
@@ -429,3 +435,128 @@ tests also passed after the final crew focus/footer adjustment.
 for code commit `d3fe63f`, including Linux/macOS tests and release snapshots.
 [PR #17](https://github.com/thomashartm/motley/pull/17) is ready for review.
 Stop after this ticket for navigation feedback.
+
+## Roadmap tickets — 2026-10-01
+
+Created and read back one GitHub issue for every W0–W11 item. Done means
+implemented: W0–W7 are closed with the completed reason; W8–W11 remain open.
+W7 is implemented and CI-green; its release tag is tracked separately.
+
+| Item | Ticket | Status |
+| --- | --- | --- |
+| W0 — Shell | [#3](https://github.com/thomashartm/motley/issues/3) | Done |
+| W1 — First member, end to end | [#4](https://github.com/thomashartm/motley/issues/4) | Done |
+| W2 — Overview TUI v0 | [#5](https://github.com/thomashartm/motley/issues/5) | Done |
+| W3 — Attention states for Claude Code | [#6](https://github.com/thomashartm/motley/issues/6) | Done |
+| W4 — Finish and resume members | [#7](https://github.com/thomashartm/motley/issues/7) | Done |
+| W5 — Crews and colors | [#8](https://github.com/thomashartm/motley/issues/8) | Done |
+| W6 — Blueprints | [#9](https://github.com/thomashartm/motley/issues/9) | Done |
+| W7 — Spawn and steer from the TUI | [#10](https://github.com/thomashartm/motley/issues/10) | Done |
+| W8 — Codex and OpenCode | [#11](https://github.com/thomashartm/motley/issues/11) | Open |
+| W9 — GitHub on demand and links | [#12](https://github.com/thomashartm/motley/issues/12) | Open |
+| W10 — Full worktree tooling; retire wt and wt-clean | [#13](https://github.com/thomashartm/motley/issues/13) | Open |
+| W11 — Pop out and hardening | [#14](https://github.com/thomashartm/motley/issues/14) | Open |
+
+Existing permission-mode tickets #1 and #2 remain open and separate.
+Each roadmap ticket includes scope, acceptance criteria, and either completion
+evidence or the remaining implementation work.
+
+## W8 — Codex and OpenCode: implementation in progress
+
+Implemented locally for roadmap ticket #11:
+
+- Codex native hook parsing and idempotent `hooks install codex`, with backups
+  and preservation of existing hooks/config. Installed CLI 0.159.2 reports native
+  hooks enabled; Motley uses those instead of legacy notify or screen heuristics.
+  The user must review/trust the hooks in Codex's `/hooks` UI. Explicitly disabled
+  hooks and approval policies are preserved. Codex runs with `--no-daemon` so each
+  member's reporting environment belongs to its own process.
+- OpenCode plugin installation and event mapping, verified against CLI 1.18.21,
+  its embedded event definitions and official plugin documentation. Plugin
+  callbacks return immediately; bounded background reporting is serialized,
+  excludes child sessions, preserves pending approvals across busy events, and
+  supplies the last assistant text excerpt at idle. Reporter errors are contained.
+- Native resume for Codex and OpenCode using the latest recorded session id,
+  preserving stored options and never replaying the initial prompt. Fresh start
+  remains the fallback when no id was recorded.
+- The installer configures all installed agents; CLI help and concise README
+  usage cover reporting and resume. No new runtime dependency for Motley itself;
+  Node 24 runs the OpenCode plugin test in development and CI.
+
+Validation passed: internal Go package tests, CLI smoke/non-terminal checks,
+real process replacement into fake Codex/OpenCode executables (prompt, fresh
+start and resume), plugin subprocess/ordering/child-session tests, installer
+tests, ShellCheck, vet, lint, four static platform builds and snapshot packaging.
+The installed Codex binary's feature detection and both hook installers were
+also exercised in a disposable home, without touching actual agent settings.
+
+The full `go test ./...` run remains blocked at isolated tmux fixture startup
+in this session, including the new native-reporting integration tests. Payload
+fixtures are synthetic contract examples; live agent-turn recordings, real
+tmux reporting/resume acceptance and hosted CI remain outstanding. No model
+calls, hook-trust changes, commits, pushes or release tags were made in this run.
+Git/gh network access is unavailable and Git metadata is read-only here.
+
+See `internal/agents/testdata/w8-contracts.md` for version evidence, sources and
+fixture provenance. Preview: `./bin/mtly` (`0.8.0-dev`). W8 is not yet released or
+marked Done; finish its remaining validation and publication before W9.
+Deferred: legacy Codex notify/capture compatibility and permission-mode selectors
+(the existing separate tickets #1 and #2).
+
+### Installer checklist and history — 2026-10-01
+
+Installer terminal output now consists of concise bullets with green success
+and red failure marks. Full command stdout/stderr, hook backup paths, restart
+instructions and exit status are saved in a private timestamped log under
+`~/.motley/install-history/`; the checklist prints the log path. Repeat runs
+keep separate logs. Build failures retain their exit code and leave installed
+files intact; individual hook failures remain nonfatal and show a red mark.
+Codex still requires restart and explicit hook review/trust.
+
+Installer tests passed for bash/zsh/fish, repeat installs, output separation,
+history preservation, build failure, prerequisite refusal, hook failure and
+download mode. ShellCheck and diff whitespace checks passed. Other in-progress
+agent integration changes were preserved; no commit or push was performed.
+
+Created and verified [#16 — Add an uninstall script](https://github.com/thomashartm/motley/issues/16)
+as Open. It covers installation/integration removal, preserved user work and
+settings, repeat runs, concise status output and detailed history. The uninstall
+script itself is not implemented in this checkpoint.
+
+
+### Uninstall and release updates — 2026-10-01
+
+Implemented #16 as `uninstall.sh`, a standalone Bash/Python 3 script. It removes
+installed Motley commands and owned agent hooks/plugins, disconnects tmux popup
+includes, and preserves user settings, shared shell PATH, saved state, worktrees,
+branches and running sessions. File identity is checked before any removal;
+modified plugins, unrelated binaries/aliases and invalid settings are refused.
+Changed settings and removed plugins receive exact backups. Checklist output and
+private timestamped logs mirror installation, under `~/.motley/uninstall-history`.
+Repeat/partial installs are handled without deleting unrelated files. The script
+is included in all four release archives; uninstall tests run in Make and CI.
+
+Added `motley update` / `mtly update`, with `--check` for discovery only. The
+command uses `gh` against `thomashartm/motley`, selects the current OS/architecture
+archive from the latest published release, verifies SHA-256 against checksums.txt,
+and stages both commands in their installation directory. It verifies Motley
+binary identity/platform, preserves an existing mtly symlink, refuses unrelated
+files, skips current/newer stable versions and rolls back earlier replacements
+if a later rename fails. Update and uninstall share an installation lock.
+Configuration, worktrees and running sessions are not changed. Full update
+details are logged under `~/.motley/update-history`.
+
+Validation: full local `make check` passed (installer, uninstall, plugin, all Go
+and real-tmux tests, vet, lint, four platform builds). After adding the shared
+uninstall lock, all ten uninstall tests and focused update tests passed again.
+ShellCheck, build, diff checks and GoReleaser snapshot passed; archive readback
+verified both commands and the exact uninstall script on all four platforms.
+Tests cover mixed user hooks, shell configuration preservation, invalid/replaced
+files, repeat runs, concurrent operations, checksums and failed-update rollback.
+A live read-only `mtly update --check` confirmed there are currently no published
+GitHub releases; real release installation remains pending the first publication.
+No actual user installation was removed or updated. #16 is Done based on
+implementation. The user requested committing and pushing this checkpoint,
+including the pending Codex/OpenCode integrations, installer checklist/history,
+roadmap tracking, uninstall script and release updater. Hosted CI and release
+publication are separate from the local validation above.

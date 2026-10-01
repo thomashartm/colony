@@ -10,6 +10,8 @@ build:
 
 test:
 	bash scripts/test-install.sh
+	python3 scripts/test-uninstall.py
+	node --test integrations/opencode/plugin.test.mjs
 	go test ./...
 
 vet:

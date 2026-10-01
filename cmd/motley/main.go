@@ -61,7 +61,7 @@ func newRootCommand() *cobra.Command {
 			return err
 		},
 	})
-	root.AddCommand(tabsCommand(), sendCommand(), blueprintCommand(), crewCommand(), retireCommand(), reviveCommand(), adoptCommand(), spawnCommand(), listCommand(), connectCommand(true), connectCommand(false), execAgentCommand(), reportCommand(), hooksCommand())
+	root.AddCommand(updateCommand(), tabsCommand(), sendCommand(), blueprintCommand(), crewCommand(), retireCommand(), reviveCommand(), adoptCommand(), spawnCommand(), listCommand(), connectCommand(true), connectCommand(false), execAgentCommand(), reportCommand(), hooksCommand())
 	root.AddCommand(&cobra.Command{
 		Use: "config", Short: "Show the configured repository and worktree roots", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -80,7 +80,7 @@ func newRootCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Existing files are preserved. Add this line to ~/.tmux.conf and reload tmux configuration:\nsource-file %q\n\nEnable Claude status reporting: motley hooks install claude\n", path)
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Existing files are preserved. Add this line to ~/.tmux.conf and reload tmux configuration:\nsource-file %q\n\nEnable agent reporting: motley hooks install <claude|codex|opencode>\n", path)
 			return err
 		},
 	})

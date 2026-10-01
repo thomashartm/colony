@@ -22,7 +22,7 @@ func retireCommand() *cobra.Command {
 	return cmd
 }
 func reviveCommand() *cobra.Command {
-	return &cobra.Command{Use: "revive <id>", Short: "Restart a dead member in its existing worktree", Long: "Recreate a missing tmux session. Claude resumes its latest recorded session;\nwithout a recorded session, or for other agents, start fresh without a prompt.\nArchived members are retired and cannot be revived.", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+	return &cobra.Command{Use: "revive <id>", Short: "Restart a dead member in its existing worktree", Long: "Recreate a missing tmux session and resume the agent's latest recorded session.\nWithout a recorded session, start fresh without a prompt.\nArchived members are retired and cannot be revived.", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		if err := member.Revive(args[0]); err != nil {
 			return err
 		}

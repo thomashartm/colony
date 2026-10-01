@@ -92,7 +92,7 @@ func TestFinishAndResume(t *testing.T) {
 		}
 		f.refused("revive", id)
 	})
-	t.Run("Claude resume and fresh other agents", func(t *testing.T) {
+	t.Run("native resume and fresh starts for all agents", func(t *testing.T) {
 		f := newMemberFixture(t, bin, "main")
 		for _, agent := range []string{"claude", "codex", "opencode"} {
 			id := "feat-" + agent
@@ -118,8 +118,12 @@ func TestFinishAndResume(t *testing.T) {
 				if string(got) != "1\n--resume="+sessionID+"\n" {
 					t.Fatalf("Claude resume argv: %q", got)
 				}
-			} else if strings.TrimSpace(string(got)) != "0" {
-				t.Fatalf("%s must start fresh: %q", agent, got)
+			} else if agent == "codex" {
+				if string(got) != "4\nresume\n--no-daemon\n--\n"+sessionID+"\n" {
+					t.Fatalf("Codex resume argv: %q", got)
+				}
+			} else if string(got) != "1\n--session="+sessionID+"\n" {
+				t.Fatalf("OpenCode resume argv: %q", got)
 			}
 			assertListState(t, f.motley("ls"), id, "alive")
 			if after := f.manifest(id); after.CreatedAt != m.CreatedAt {
@@ -133,7 +137,11 @@ func TestFinishAndResume(t *testing.T) {
 				t.Fatal(err)
 			}
 			f.motley("revive", id)
-			eventually(t, func() bool { data, _ := os.ReadFile(receipt); return strings.TrimSpace(string(data)) == "0" })
+			fresh := "0"
+			if agent == "codex" {
+				fresh = "1\n--no-daemon"
+			}
+			eventually(t, func() bool { data, _ := os.ReadFile(receipt); return strings.TrimSpace(string(data)) == fresh })
 			f.motley("retire", id, "--keep-branch")
 			f.git(f.repo, "show-ref", "--verify", "refs/heads/"+m.Branch)
 		}

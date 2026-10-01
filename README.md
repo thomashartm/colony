@@ -19,13 +19,17 @@ curl -fsSL https://raw.githubusercontent.com/thomashartm/motley/main/install.sh 
 ```
 
 The installer builds from `main`, installs both commands in `~/.local/bin`, and
-sets up PATH, the tmux popup and Claude hooks. It installs missing Git, Go and
+sets up PATH, the tmux popup and reporting for installed agents. It installs missing Git, Go and
 tmux through your package manager; macOS requires Homebrew. Existing tmux must
 be 3.2+ and existing Go 1.21+.
 
 Install and authenticate your agent CLI separately. Open a new terminal and run
-`mtly`. Restart existing Claude sessions to load hooks. Rerun the installer to
+`mtly`. Restart agents to load hooks. In Codex, review and trust the Motley
+hooks with **`/hooks`**. Rerun the installer to
 upgrade.
+
+The installer shows a short status checklist; full output is saved under
+`~/.motley/install-history/`.
 
 From a checkout:
 
@@ -33,6 +37,30 @@ From a checkout:
 bash install.sh --local  # install local source
 make build              # build only; run ./bin/mtly
 ```
+
+### Update or uninstall
+
+Release updates require `gh` and a writable installation directory:
+
+```sh
+mtly update --check # check GitHub's latest release
+mtly update         # verify checksums and replace both commands
+```
+
+Updates preserve settings and worktrees. Details go to `~/.motley/update-history/`.
+Restart the monitor after updating.
+
+To uninstall (requires Python 3):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/thomashartm/motley/main/uninstall.sh -o motley-uninstall.sh && bash motley-uninstall.sh
+```
+
+From a checkout or release archive, run `bash uninstall.sh`. It removes the
+commands installed in `~/.local/bin` and disconnects agent hooks and the tmux
+popup. Settings, shared PATH entries, worktrees, branches and running sessions
+stay intact. Restart agents and tmux after your sessions finish. Full output
+and backup paths are saved under `~/.motley/uninstall-history/`.
 
 ## Start working
 
@@ -87,10 +115,18 @@ the table; **H** shows inactive crews. In the crew manager, **→** opens its ac
 **q** detaches the monitor. After upgrading, restart it with
 `tmux kill-session -t _motley`, then `mtly monitor`.
 
-Claude hooks report working, permission, question and ready states. Jump into
-the agent for permission requests. Codex and OpenCode currently show session
-availability only. To install Claude hooks manually, run
-`mtly hooks install claude` and restart Claude.
+Claude, Codex and OpenCode report working, permission, question and ready states.
+Jump into the agent for permission requests. To set up reporting individually:
+
+```sh
+mtly hooks install claude
+mtly hooks install codex
+mtly hooks install opencode
+```
+
+Restart the agent afterward. Codex requires native hooks (verified with 0.159.2)
+and trust approval through **`/hooks`**; Motley preserves its approval settings.
+OpenCode uses a plugin (verified with 1.18.21). Hooks are silent outside Motley.
 
 ## Crews and gigs
 
@@ -116,7 +152,8 @@ mtly revive 412-fx-cache               # restart a dead session, then attach
 Retire from another session or the monitor. It refuses unsaved or unpushed work;
 `--force` discards that work. Remote branches remain. Revive requires the
 worktree to exist and cannot restore retired members. Claude resumes its last
-recorded session; other agents start fresh. If the agent exited but its tmux
+recorded session, as do Codex and OpenCode when reporting captured a session id.
+Without a recorded id, the agent starts fresh. If the agent exited but its tmux
 shell is still alive, restart the agent in that shell instead.
 
 To adopt an existing linked worktree, run inside its tmux session:
@@ -162,11 +199,12 @@ print the tmux popup setup instructions.
 
 ## Development
 
-Requires Go 1.22+, Git, tmux, cp and bash; golangci-lint 2.14.0 and GoReleaser
+Requires Go 1.22+, Git, tmux, cp, bash, Python 3 and Node 24 for plugin tests;
+golangci-lint 2.14.0 and GoReleaser
 2.18.2 for the full checks.
 
 ```sh
-make test     # installer and Go tests
+make test     # install/uninstall, plugin and Go tests
 make check    # tests, vet, lint, macOS/Linux builds for amd64/arm64
 make snapshot # release archives in dist/; no publishing
 ```

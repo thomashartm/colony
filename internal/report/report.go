@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/thomashartm/motley/internal/agents/claude"
+	"github.com/thomashartm/motley/internal/agents/codex"
+	"github.com/thomashartm/motley/internal/agents/opencode"
 	"github.com/thomashartm/motley/internal/member"
 	"github.com/thomashartm/motley/internal/state"
 	"github.com/thomashartm/motley/internal/tmux"
@@ -61,14 +63,23 @@ func handle(ctx context.Context, id string, args []string, stdin io.Reader) erro
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
-	if *agent != "claude" || flags.NArg() != 0 {
-		return fmt.Errorf("report currently supports --agent claude and JSON stdin")
+	if (*agent != "claude" && *agent != "codex" && *agent != "opencode") || flags.NArg() != 0 {
+		return fmt.Errorf("report requires --agent claude|codex|opencode and JSON stdin")
 	}
 	data, readErr := io.ReadAll(io.LimitReader(stdin, 1024*1024+1))
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	event, parseErr := claude.Parse(data, *eventName)
+	var event state.Event
+	var parseErr error
+	switch *agent {
+	case "claude":
+		event, parseErr = claude.Parse(data, *eventName)
+	case "codex":
+		event, parseErr = codex.Parse(data, *eventName)
+	case "opencode":
+		event, parseErr = opencode.Parse(data)
+	}
 	if len(data) > 1024*1024 {
 		event = state.Event{}
 		parseErr = fmt.Errorf("hook payload exceeds 1 MiB")
@@ -119,7 +130,7 @@ func handle(ctx context.Context, id string, args []string, stdin io.Reader) erro
 	event.TS = time.Now().UTC()
 	var prior state.Event
 	_ = json.Unmarshal([]byte(previous.Context), &prior)
-	if event.Event == "Notification" && event.Status == "permission" && prior.AgentSessionID == event.AgentSessionID {
+	if *agent == "claude" && event.Event == "Notification" && event.Status == "permission" && prior.AgentSessionID == event.AgentSessionID {
 		if previous.Status == "question" {
 			event.Status = "question"
 		}

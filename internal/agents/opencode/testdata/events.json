@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "cases": [
+    {"payload":{"type":"session.created","properties":{"info":{"id":"session-1"}}},"event":"SessionStart","status":"idle","summary":""},
+    {"payload":{"type":"chat.message","properties":{"sessionID":"session-1","prompt":"Run tests\nReport"}},"event":"chat.message","status":"working","summary":"Run tests"},
+    {"payload":{"type":"session.status","properties":{"sessionID":"session-1","status":{"type":"busy"}}},"event":"session.status","status":"working","summary":""},
+    {"payload":{"type":"permission.asked","properties":{"sessionID":"session-1","id":"req-1","permission":"bash","patterns":["git push"],"metadata":{"command":"git push"}}},"event":"Notification","status":"permission","summary":"bash: git push"},
+    {"payload":{"type":"permission.replied","properties":{"sessionID":"session-1","requestID":"req-1","reply":"once"}},"event":"permission.replied","status":"working","summary":""},
+    {"payload":{"type":"question.asked","properties":{"sessionID":"session-1","id":"req-2","questions":[{"question":"Where?","options":[{"label":"Disk","description":"Persistent"}]}]}},"event":"Notification","status":"question","summary":"Where?\n  1) Disk — Persistent"},
+    {"payload":{"type":"question.replied","properties":{"sessionID":"session-1","requestID":"req-2","answers":[["Disk"]]}},"event":"question.replied","status":"working","summary":""},
+    {"payload":{"type":"session.idle","properties":{"sessionID":"session-1","lastAssistantMessage":"Done"}},"event":"Stop","status":"ready","summary":"Done"},
+    {"payload":{"type":"session.status","properties":{"sessionID":"session-1","status":{"type":"idle"}}},"event":"Stop","status":"ready","summary":""},
+    {"payload":{"type":"session.error","properties":{"sessionID":"session-1","error":{"name":"UnknownError","data":{"message":"Provider failed"}}}},"event":"Notification","status":"idle","summary":"{\"name\":\"UnknownError\",\"data\":{\"message\":\"Provider failed\"}}"},
+    {"payload":{"type":"session.deleted","properties":{"info":{"id":"session-1"}}},"event":"SessionEnd","status":"ended","summary":""}
+  ]
+}

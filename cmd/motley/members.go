@@ -133,7 +133,7 @@ func execAgentCommand() *cobra.Command {
 				return err
 			}
 			sessionID := ""
-			if resume && m.Agent == "claude" {
+			if resume {
 				sessionID, err = state.LatestSessionID(filepath.Join(dir, m.ID+".events.jsonl"), m.Agent)
 				if err != nil {
 					return err
@@ -149,6 +149,6 @@ func execAgentCommand() *cobra.Command {
 			return agents.Exec(m.Agent, m.AgentArgs, prompt, sessionID)
 		},
 	}
-	cmd.Flags().BoolVar(&resume, "resume", false, "Resume the latest recorded Claude session")
+	cmd.Flags().BoolVar(&resume, "resume", false, "Resume the agent's latest recorded session")
 	return cmd
 }

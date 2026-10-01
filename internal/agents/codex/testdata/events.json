@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "cases": [
+    {"payload":{"hook_event_name":"SessionStart","session_id":"session-1","source":"startup"},"status":"idle","summary":""},
+    {"payload":{"hook_event_name":"SessionStart","session_id":"session-1","source":"compact"},"status":"working","summary":""},
+    {"payload":{"hook_event_name":"UserPromptSubmit","session_id":"session-1","prompt":"Run tests\nThen report"},"status":"working","summary":"Run tests"},
+    {"payload":{"hook_event_name":"PreToolUse","session_id":"session-1","tool_name":"Bash","tool_input":{"command":"go test ./..."}},"status":"working","summary":"Bash: go test ./..."},
+    {"payload":{"hook_event_name":"PermissionRequest","session_id":"session-1","tool_name":"Bash","tool_input":{"command":"git push","description":"Publish branch"}},"status":"permission","summary":"Bash: git push"},
+    {"payload":{"hook_event_name":"PreToolUse","session_id":"session-1","tool_name":"request_user_input","tool_input":{"questions":[{"question":"Where to cache?","options":[{"label":"Memory"},{"label":"Disk"}]}]}},"status":"question","summary":"Where to cache?\n  1) Memory\n  2) Disk"},
+    {"payload":{"hook_event_name":"PostToolUse","session_id":"session-1","tool_name":"request_user_input","tool_input":{}},"status":"working","summary":"request_user_input: {}"},
+    {"payload":{"hook_event_name":"Stop","session_id":"session-1","last_assistant_message":"Tests pass.","transcript_path":"/must/not/read"},"status":"ready","summary":"Tests pass."},
+    {"payload":{"hook_event_name":"Interrupt","session_id":"session-1"},"status":"idle","summary":"Turn interrupted"},
+    {"payload":{"hook_event_name":"SessionEnd","session_id":"session-1","reason":"other"},"status":"ended","summary":""},
+    {"payload":{"hook_event_name":"FutureEvent","session_id":"session-1"},"status":"","summary":""}
+  ]
+}

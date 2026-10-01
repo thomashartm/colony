@@ -79,8 +79,12 @@ func TestMemberLifecycle(t *testing.T) {
 					t.Fatal(err)
 				}
 				lines := strings.Split(strings.TrimSpace(string(receipt)), "\n")
-				if len(lines) != 4 || lines[0] != agent || lines[2] != id || lines[3] != "0" {
-					t.Fatalf("agent receipt (no prompt/args expected): %q", receipt)
+				argc := "0"
+				if agent == "codex" {
+					argc = "1"
+				} // --no-daemon isolates hook environment
+				if len(lines) != 4 || lines[0] != agent || lines[2] != id || lines[3] != argc {
+					t.Fatalf("agent receipt (no prompt expected): %q", receipt)
 				}
 				cwd, err := filepath.EvalSymlinks(lines[1])
 				if err != nil {

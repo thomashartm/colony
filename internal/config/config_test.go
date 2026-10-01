@@ -36,7 +36,7 @@ func TestLoad(t *testing.T) {
 				configHome = t.TempDir()
 				t.Setenv("XDG_CONFIG_HOME", configHome)
 			}
-			path := filepath.Join(configHome, "colony", "config.toml")
+			path := filepath.Join(configHome, "motley", "config.toml")
 			if !tt.missing {
 				if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 					t.Fatal(err)

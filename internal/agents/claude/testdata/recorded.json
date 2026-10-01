@@ -25,10 +25,10 @@
         "prompt_id": "00000000-0000-4000-8000-000000000002",
         "permission_mode": "default",
         "hook_event_name": "UserPromptSubmit",
-        "prompt": "Use Read to read .tools/claude-w3-capture/fixture.txt, then reply with exactly: colony fixture complete."
+        "prompt": "Use Read to read .tools/claude-w3-capture/fixture.txt, then reply with exactly: motley fixture complete."
       },
       "status": "working",
-      "summary": "Use Read to read .tools/claude-w3-capture/fixture.txt, then reply with exactly: colony fixture complete.",
+      "summary": "Use Read to read .tools/claude-w3-capture/fixture.txt, then reply with exactly: motley fixture complete.",
       "detail": {}
     },
     {
@@ -70,7 +70,7 @@
           "type": "text",
           "file": {
             "filePath": "/fixture/repo/.tools/claude-w3-capture/fixture.txt",
-            "content": "colony fixture: hello\n",
+            "content": "motley fixture: hello\n",
             "numLines": 2,
             "startLine": 1,
             "totalLines": 2
@@ -96,12 +96,12 @@
         "permission_mode": "default",
         "hook_event_name": "Stop",
         "stop_hook_active": false,
-        "last_assistant_message": "colony fixture complete",
+        "last_assistant_message": "motley fixture complete",
         "background_tasks": [],
         "session_crons": []
       },
       "status": "ready",
-      "summary": "colony fixture complete",
+      "summary": "motley fixture complete",
       "detail": {}
     },
     {

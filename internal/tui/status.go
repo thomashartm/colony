@@ -6,11 +6,11 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/thomashartm/colony/internal/minion"
-	"github.com/thomashartm/colony/internal/state"
+	"github.com/thomashartm/motley/internal/member"
+	"github.com/thomashartm/motley/internal/state"
 )
 
-func section(row minion.Row) string {
+func section(row member.Row) string {
 	s := row.CurrentStatus()
 	if state.Attention(s) {
 		return "NEEDS YOU"
@@ -20,7 +20,7 @@ func section(row minion.Row) string {
 	}
 	return "WORKING"
 }
-func sectionOrder(row minion.Row) int {
+func sectionOrder(row member.Row) int {
 	switch section(row) {
 	case "NEEDS YOU":
 		return 0
@@ -50,7 +50,7 @@ func statusIcon(status string) (string, lipgloss.Color) {
 		return "○", lipgloss.Color("8")
 	}
 }
-func since(row minion.Row) string {
+func since(row member.Row) string {
 	if row.Since == 0 || !row.Alive {
 		return "—"
 	}
@@ -66,7 +66,7 @@ func since(row minion.Row) string {
 	}
 	return fmt.Sprintf("%dh", int(d.Hours()))
 }
-func totals(rows []minion.Row) string {
+func totals(rows []member.Row) string {
 	counts := map[string]int{}
 	for _, r := range rows {
 		s := r.CurrentStatus()

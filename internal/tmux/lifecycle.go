@@ -25,9 +25,9 @@ func Adopt(session, id, ticket, agent string) error {
 		}
 	}
 	target := "=" + SessionName(id) + ":"
-	args := []string{"set-environment", "-t", target, "COLONY_MINION", id}
+	args := []string{"set-environment", "-t", target, "MOTLEY_MEMBER", id}
 	now := strconv.FormatInt(time.Now().Unix(), 10)
-	for _, option := range [][2]string{{"@colony_minion", id}, {"@colony_ticket", ticket}, {"@colony_agent", agent}, {"@colony_status", "idle"}, {"@colony_since", now}, {"@colony_seen", now}, {"status-left", StatusLeft}, {"status-left-length", "50"}, {"status-interval", "2"}} {
+	for _, option := range [][2]string{{"@motley_member", id}, {"@motley_ticket", ticket}, {"@motley_agent", agent}, {"@motley_status", "idle"}, {"@motley_since", now}, {"@motley_seen", now}, {"status-left", StatusLeft}, {"status-left-length", "50"}, {"status-interval", "2"}} {
 		args = append(args, ";", "set-option", "-t", target, option[0], option[1])
 	}
 	_, err := run(args...)

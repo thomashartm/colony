@@ -1,4 +1,4 @@
-// Package config loads colony's configuration over its defaults.
+// Package config loads motley's configuration over its defaults.
 package config
 
 import (
@@ -11,7 +11,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
-// Config contains the root paths used by colony.
+// Config contains the root paths used by motley.
 type Config struct {
 	Schema        int    `toml:"schema"`
 	ReposRoot     string `toml:"repos_root"`
@@ -30,7 +30,7 @@ func Load() (Config, error) {
 	if configHome == "" {
 		configHome = filepath.Join(home, ".config")
 	}
-	path := filepath.Join(configHome, "colony", "config.toml")
+	path := filepath.Join(configHome, "motley", "config.toml")
 	cfg := Config{Schema: 1, ReposRoot: "~/projects", WorktreesRoot: "~/worktrees"}
 	data, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {

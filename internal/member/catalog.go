@@ -1,4 +1,4 @@
-package minion
+package member
 
 import (
 	"os"
@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/thomashartm/colony/internal/tmux"
+	"github.com/thomashartm/motley/internal/tmux"
 )
 
 // Catalog caches parsed manifests between overview refreshes. Only the polling
@@ -62,7 +62,7 @@ func Join(manifests []Manifest, sessions []tmux.Session) []Row {
 	rows := make([]Row, 0, len(manifests))
 	for _, m := range manifests {
 		s := live[tmux.SessionName(m.ID)]
-		rows = append(rows, Row{Manifest: m, Alive: s.MinionID == m.ID, Status: s.Status, Since: s.Since, Seen: s.Seen})
+		rows = append(rows, Row{Manifest: m, Alive: s.MemberID == m.ID, Status: s.Status, Since: s.Since, Seen: s.Seen})
 	}
 	return rows
 }

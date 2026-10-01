@@ -1,4 +1,4 @@
-// Package claude maps Claude Code's hook payloads to colony attention states.
+// Package claude maps Claude Code's hook payloads to motley attention states.
 package claude
 
 import (
@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/thomashartm/colony/internal/state"
+	"github.com/thomashartm/motley/internal/state"
 )
 
 type payload struct {

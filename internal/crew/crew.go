@@ -1,4 +1,4 @@
-// Package crew stores user-managed packages of work without network access.
+// Package crew stores groups of members and their gigs without network access.
 package crew
 
 import (
@@ -12,13 +12,14 @@ import (
 	"unicode"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/thomashartm/colony/internal/palette"
-	"github.com/thomashartm/colony/internal/state"
+	"github.com/thomashartm/motley/internal/palette"
+	"github.com/thomashartm/motley/internal/state"
 )
 
 type Crew struct {
 	ID    string `toml:"id" json:"id"`
 	Title string `toml:"title" json:"title"`
+	Gig   string `toml:"gig,omitempty" json:"gig,omitempty"`
 	URL   string `toml:"url,omitempty" json:"url,omitempty"`
 	Kind  string `toml:"kind" json:"kind"`
 	Color string `toml:"color" json:"color"`
@@ -59,6 +60,9 @@ func Validate(c Crew) error {
 	if strings.TrimSpace(c.Title) == "" || strings.IndexFunc(c.Title, unicode.IsControl) >= 0 {
 		return fmt.Errorf("crew title must be non-empty and contain no control characters")
 	}
+	if strings.IndexFunc(c.Gig, unicode.IsControl) >= 0 {
+		return fmt.Errorf("gig must contain no control characters")
+	}
 	if _, ok := palette.Lookup(c.Color); !ok {
 		return fmt.Errorf("unknown colour %q", c.Color)
 	}
@@ -79,7 +83,7 @@ func Find(crews []Crew, id string) (Crew, bool) {
 	return Crew{}, false
 }
 func Load() ([]Crew, error) {
-	dir, err := state.MinionsDir()
+	dir, err := state.MembersDir()
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +126,7 @@ func Save(crews []Crew) error {
 			return err
 		}
 	}
-	dir, err := state.MinionsDir()
+	dir, err := state.MembersDir()
 	if err != nil {
 		return err
 	}

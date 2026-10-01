@@ -1,4 +1,4 @@
-package minion
+package member
 
 import (
 	"os"
@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thomashartm/colony/internal/tmux"
+	"github.com/thomashartm/motley/internal/tmux"
 )
 
 func TestCatalogReloadAndJoin(t *testing.T) {
@@ -33,11 +33,11 @@ func TestCatalogReloadAndJoin(t *testing.T) {
 	if err != nil || next[0].Name != "changed" || first[0].Name != "first" {
 		t.Fatalf("reload %v %v", next, err)
 	}
-	if !Join(next, []tmux.Session{{Name: "a", MinionID: "a"}})[0].Alive {
+	if !Join(next, []tmux.Session{{Name: "a", MemberID: "a"}})[0].Alive {
 		t.Fatal("live join")
 	}
-	if Join(next, []tmux.Session{{Name: "a"}, {Name: "other", MinionID: "a"}})[0].Alive {
-		t.Fatal("unmarked or wrong session cannot make minion live")
+	if Join(next, []tmux.Session{{Name: "a"}, {Name: "other", MemberID: "a"}})[0].Alive {
+		t.Fatal("unmarked or wrong session cannot make member live")
 	}
 	if err := os.Remove(path); err != nil {
 		t.Fatal(err)

@@ -5,10 +5,10 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/thomashartm/colony/internal/config"
-	"github.com/thomashartm/colony/internal/report"
-	"github.com/thomashartm/colony/internal/tmux"
-	"github.com/thomashartm/colony/internal/tui"
+	"github.com/thomashartm/motley/internal/config"
+	"github.com/thomashartm/motley/internal/report"
+	"github.com/thomashartm/motley/internal/tmux"
+	"github.com/thomashartm/motley/internal/tui"
 )
 
 // Set by GoReleaser using -ldflags.
@@ -21,7 +21,7 @@ func main() {
 		return
 	}
 	if err := newRootCommand().Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, "colony:", err)
+		fmt.Fprintln(os.Stderr, "motley:", err)
 		os.Exit(1)
 	}
 }
@@ -30,9 +30,10 @@ func newRootCommand() *cobra.Command {
 	var monitor bool
 	var client string
 	root := &cobra.Command{
-		Use:           "colony",
+		Use:           "motley",
+		Aliases:       []string{"mtly"},
 		Short:         "A terminal tool for AI coding sessions",
-		Long:          "colony — a terminal tool for AI coding sessions.\n\nRun without arguments to open the session overview.\nUse colony monitor for a persistent overview with a separate work tab.\nConfiguration: ${XDG_CONFIG_HOME:-~/.config}/colony/config.toml.",
+		Long:          "motley (mtly) — a terminal tool for AI coding sessions.\n\nRun without arguments to open the session overview.\nUse motley monitor for a persistent overview with a separate work tab.\nConfiguration: ${XDG_CONFIG_HOME:-~/.config}/motley/config.toml.",
 		Args:          cobra.NoArgs,
 		SilenceErrors: true,
 		SilenceUsage:  true,
@@ -53,14 +54,14 @@ func newRootCommand() *cobra.Command {
 	_ = root.Flags().MarkHidden("client")
 	root.AddCommand(&cobra.Command{
 		Use:   "version",
-		Short: "Print the colony version",
+		Short: "Print the motley version",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			_, err := fmt.Fprintf(cmd.OutOrStdout(), "colony %s\n", version)
+			_, err := fmt.Fprintf(cmd.OutOrStdout(), "motley %s\n", version)
 			return err
 		},
 	})
-	root.AddCommand(blueprintCommand(), crewCommand(), retireCommand(), reviveCommand(), adoptCommand(), spawnCommand(), listCommand(), connectCommand(true), connectCommand(false), execAgentCommand(), reportCommand(), hooksCommand())
+	root.AddCommand(tabsCommand(), sendCommand(), blueprintCommand(), crewCommand(), retireCommand(), reviveCommand(), adoptCommand(), spawnCommand(), listCommand(), connectCommand(true), connectCommand(false), execAgentCommand(), reportCommand(), hooksCommand())
 	root.AddCommand(&cobra.Command{
 		Use: "config", Short: "Show the configured repository and worktree roots", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -68,7 +69,7 @@ func newRootCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "colony %s\nrepos_root: %s\nworktrees_root: %s\n", version, cfg.ReposRoot, cfg.WorktreesRoot)
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "motley %s\nrepos_root: %s\nworktrees_root: %s\n", version, cfg.ReposRoot, cfg.WorktreesRoot)
 			return err
 		},
 	})
@@ -79,7 +80,7 @@ func newRootCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Existing files are preserved. Add this line to ~/.tmux.conf and reload tmux configuration:\nsource-file %q\n\nEnable Claude status reporting: colony hooks install claude\n", path)
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Existing files are preserved. Add this line to ~/.tmux.conf and reload tmux configuration:\nsource-file %q\n\nEnable Claude status reporting: motley hooks install claude\n", path)
 			return err
 		},
 	})

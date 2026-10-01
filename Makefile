@@ -5,9 +5,11 @@ GORELEASER ?= goreleaser
 .PHONY: build test vet lint check cross-build snapshot
 
 build:
-	CGO_ENABLED=0 go build -trimpath -o bin/colony ./cmd/colony
+	CGO_ENABLED=0 go build -trimpath -o bin/motley ./cmd/motley
+	ln -sf motley bin/mtly
 
 test:
+	bash scripts/test-install.sh
 	go test ./...
 
 vet:
@@ -21,7 +23,7 @@ check: test vet lint cross-build
 cross-build:
 	@set -e; for os in darwin linux; do \
 		for arch in amd64 arm64; do \
-			CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build -trimpath -o bin/colony-$$os-$$arch ./cmd/colony; \
+			CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build -trimpath -o bin/motley-$$os-$$arch ./cmd/motley; \
 		done; \
 	done
 

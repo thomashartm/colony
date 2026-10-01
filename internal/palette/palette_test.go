@@ -3,13 +3,13 @@ package palette
 import "testing"
 
 func TestResolution(t *testing.T) {
-	if got := Resolve("minion", "red", "blue"); got.Name != "red" {
+	if got := Resolve("member", "red", "blue"); got.Name != "red" {
 		t.Fatal("override lost", got)
 	}
-	if got := Resolve("minion", "", "blue"); got.Name != "blue" {
+	if got := Resolve("member", "", "blue"); got.Name != "blue" {
 		t.Fatal("crew colour lost", got)
 	}
-	if a, b := Resolve("minion", "", ""), Resolve("minion", "", ""); a != b || a.Name == "" {
+	if a, b := Resolve("member", "", ""), Resolve("member", "", ""); a != b || a.Name == "" {
 		t.Fatal("hash must be deterministic")
 	}
 	for _, c := range Colors {

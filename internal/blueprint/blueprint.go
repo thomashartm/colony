@@ -112,9 +112,9 @@ func Discover(repoPath, repo string) ([]Blueprint, error) {
 		}
 		root = filepath.Join(home, ".config")
 	}
-	dirs := []string{filepath.Join(root, "colony", "blueprints")}
+	dirs := []string{filepath.Join(root, "motley", "blueprints")}
 	if repoPath != "" {
-		dirs = append(dirs, filepath.Join(repoPath, ".colony", "blueprints"))
+		dirs = append(dirs, filepath.Join(repoPath, ".motley", "blueprints"))
 	}
 	merged := map[string]Blueprint{}
 	for _, dir := range dirs {
@@ -206,4 +206,12 @@ func ReadPrompt(path string) (string, error) {
 		return "", fmt.Errorf("%s: invalid prompt (NUL or over 64 KiB)", path)
 	}
 	return prompt, nil
+}
+
+// ValidatePrompt checks text edited outside the template renderer as well.
+func ValidatePrompt(prompt string) error {
+	if len(prompt) > MaxPromptBytes || strings.ContainsRune(prompt, 0) {
+		return fmt.Errorf("invalid prompt (NUL or over 64 KiB)")
+	}
+	return nil
 }

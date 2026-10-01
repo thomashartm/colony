@@ -3,7 +3,7 @@ package tmux
 import (
 	"strings"
 
-	"github.com/thomashartm/colony/internal/palette"
+	"github.com/thomashartm/motley/internal/palette"
 )
 
 func Appearance(id, name, ticket, agent, crew string, color palette.Color) error {
@@ -11,7 +11,7 @@ func Appearance(id, name, ticket, agent, crew string, color palette.Color) error
 	title := strings.TrimSpace(color.Emoji + " " + ticket + " " + name)
 	// A name is literal text, never an executable tmux format such as #(command).
 	title = strings.ReplaceAll(title, "#", "##")
-	options := [][2]string{{"@colony_ticket", ticket}, {"@colony_agent", agent}, {"@colony_crew", crew}, {"@colony_color", color.Name}, {"@colony_emoji", color.Emoji}, {"status-style", "bg=" + color.Tmux + ",fg=" + color.Foreground}, {"set-titles", "on"}, {"set-titles-string", title}}
+	options := [][2]string{{"@motley_ticket", ticket}, {"@motley_agent", agent}, {"@motley_crew", crew}, {"@motley_color", color.Name}, {"@motley_emoji", color.Emoji}, {"status-style", "bg=" + color.Tmux + ",fg=" + color.Foreground}, {"set-titles", "on"}, {"set-titles-string", title}}
 	var args []string
 	for _, o := range options {
 		if len(args) > 0 {

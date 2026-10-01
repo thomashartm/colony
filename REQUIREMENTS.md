@@ -1,7 +1,7 @@
-# colony — Requirements
+# motley — Requirements
 
 Document schema: `1`  
-Status: W0–W6 implementations available; see DELIVERY.md and GitHub CI for validation. W7–W11 pending.
+Status: W0–W6 implementations available; see DELIVERY.md and GitHub CI for validation. W7 implementation in progress; W8–W11 pending.
 Source: user specification, 2026-09-30.
 
 ## Delivery agreement: MVP mode
@@ -18,7 +18,7 @@ placeholder commands or keybindings, or introduce dependencies on future items.
 Every item must end usable and green. Explicit safety and parity requirements of
 the active item remain part of that item.
 
-Every file colony writes carries a numeric `schema`. Loaders ignore unknown keys
+Every file motley writes carries a numeric `schema`. Loaders ignore unknown keys
 and default missing keys. Breaking changes require a small automatic migration or
 a documented reset; a reset is acceptable before v1.0. The representation in
 non-TOML files and third-party configuration needs the clarification in §14.
@@ -29,18 +29,20 @@ to create empty packages in W0.
 
 ## Product and terminology
 
-colony is a terminal tool for running and governing parallel AI coding sessions.
+motley is a terminal tool for running and governing parallel AI coding sessions.
 
 | Term | Meaning |
 | --- | --- |
-| colony | The tool |
-| minion | One git worktree, one tmux session and one coding agent |
-| crew | Minions working on the same package of work; a text title and optional link |
+| motley / mtly | The tool and its short command |
+| member | One git worktree, one tmux session and one coding agent |
+| crew | A group of members; a text title and optional link |
+| gig | A package of work, described by the crew's optional gig field |
 
 Agents: Claude Code, Codex and OpenCode. Platforms: macOS and Linux. Delivery:
-one static Go binary per supported OS/architecture, without cgo.
+a static Go executable per supported OS/architecture, without cgo, available
+as both `motley` and `mtly`.
 
-Ghostty displays tmux. colony never controls Ghostty directly.
+Ghostty displays tmux. motley never controls Ghostty directly.
 
 ## 0. Principles and non-goals
 
@@ -51,12 +53,12 @@ Ghostty displays tmux. colony never controls Ghostty directly.
   plus an optional lookup at spawn.
 - No AppleScript or Ghostty API. Session control goes through tmux; repository
   operations through git; GitHub operations through gh.
-- Hooks must never slow down or break an agent. `colony report` returns fast and
+- Hooks must never slow down or break an agent. `motley report` returns fast and
   always exits 0.
-- colony gradually replaces `wt` 1.2.0 and `wt-clean` 1.0.0. The unchanged scripts
+- motley gradually replaces `wt` 1.2.0 and `wt-clean` 1.0.0. The unchanged scripts
   are in `reference/wt` and `reference/wt-clean`. Match their behavior except for
-  deviations explicitly recorded here. Early work items port only minion needs.
-- The user continues using wt and wt-clean alongside colony until W10.
+  deviations explicitly recorded here. Early work items port only member needs.
+- The user continues using wt and wt-clean alongside motley until W10.
 
 ## 1. Technology
 
@@ -76,20 +78,20 @@ or git libraries. Add dependencies when a work item first needs them.
 ## 2. Target package layout
 
 ```text
-cmd/colony/main.go
+cmd/motley/main.go
 internal/config      config loading, precedence, legacy import
 internal/state       state paths, atomic writes, events.jsonl
 internal/gitx        git wrapper, worktree porcelain parser, remote → web URL
 internal/worktree    wt/wt-clean port: create/list/rebase/rm/clean/artifact copy
 internal/tmux        sessions, options, clients, popups, capture-pane
-internal/minion      manifests; spawn/adopt/retire/revive/list (tmux joined to manifests)
+internal/member      manifests; spawn/adopt/retire/revive/list (tmux joined to manifests)
 internal/report      hook entry point and event → status mapping
 internal/agents      adapter interface and claude/, codex/, opencode/
 internal/blueprint   discovery, parsing, rendering
 internal/gh          on-demand issue lookup, PR status and actions
 internal/tui         main/detail/spawn/pickers/dialogs
 integrations/claude/settings.hooks.json
-integrations/opencode/colony.ts
+integrations/opencode/motley.ts
 integrations/codex/config.snippet.toml
 reference/wt
 reference/wt-clean
@@ -97,7 +99,7 @@ reference/wt-clean
 
 ## 3. Configuration
 
-Global path: `${XDG_CONFIG_HOME:-~/.config}/colony/config.toml`.
+Global path: `${XDG_CONFIG_HOME:-~/.config}/motley/config.toml`.
 
 Target example (W0 introduces only schema and the two roots):
 
@@ -135,30 +137,30 @@ artifact_dirs = ["graphify-out"]
 setup = ["pnpm install --frozen-lockfile"]
 ```
 
-Optional `<main-repo>/.colony.toml` accepts the same keys as `[repos.<name>]`.
+Optional `<main-repo>/.motley.toml` accepts the same keys as `[repos.<name>]`.
 Target precedence, independently per setting:
 
 ```text
-CLI flag > environment > repo .colony.toml > [repos.<name>] > global > default
+CLI flag > environment > repo .motley.toml > [repos.<name>] > global > default
 ```
 
-Environment: `COLONY_BASE_BRANCH`, `COLONY_WORKTREES_ROOT`. Honor legacy
+Environment: `MOTLEY_BASE_BRANCH`, `MOTLEY_WORKTREES_ROOT`. Honor legacy
 `WT_BASE_BRANCH`, `WT_WORKTREE_DIR` (maps to `worktrees_root`) and
 `WT_CLEAN_PROTECTED` (space-separated protected branches).
 
 Invalid TOML is a hard error. A present `protected_branches` must be a non-empty
 list of whitespace-free strings; invalid values are hard errors, never ignored.
 
-Target `colony init`:
+Target `motley init`:
 
 - Scaffold defaults without overwriting an existing config file.
 - Import `base_branch`, `worktree_dir`, `prefix`, `env_globs`, `artifact_dirs` and
   `protected_branches` from existing `~/.config/bash-tools/wt/config.json` and
   `~/.config/bash-tools/wt-clean/config.json`, subject to the legacy-path mapping
   clarification in §14.
-- Write colony's `colony.tmux.conf` in its config directory and print the
+- Write motley's `motley.tmux.conf` in its config directory and print the
   `source-file` line.
-- Print next steps for `colony hooks install <agent>`.
+- Print next steps for `motley hooks install <agent>`.
 
 Additional target settings referenced below: optional `pop_command` (§9.5),
 optional `monitor_bell = true` (§9.6), and configurable Codex capture patterns
@@ -166,13 +168,13 @@ optional `monitor_bell = true` (§9.6), and configurable Codex capture patterns
 
 ## 4. State on disk
 
-Root: `${XDG_STATE_HOME:-~/.local/state}/colony/`.
+Root: `${XDG_STATE_HOME:-~/.local/state}/motley/`.
 
 ```text
-minions/<id>.toml          manifest, written only by user-triggered commands
-minions/<id>.events.jsonl  hook-written event log
-minions/<id>.prompt.md     rendered initial prompt
-minions/archive/          all three files for retired minions
+members/<id>.toml          manifest, written only by user-triggered commands
+members/<id>.events.jsonl  hook-written event log
+members/<id>.prompt.md     rendered initial prompt
+members/archive/          all three files for retired members
 crews.toml                user-triggered writes only
 pending-attach            expiring handoff for pop/claim
 report.log                hook error log
@@ -262,7 +264,7 @@ then local `master`; otherwise error.
 
 ### 5.3 Full worktree commands
 
-Exposed at W10 as `colony wt create|list|cd|rebase|rm|clean`.
+Exposed at W10 as `motley wt create|list|cd|rebase|rm|clean`.
 
 | Command | Required behavior |
 | --- | --- |
@@ -277,7 +279,7 @@ first substring match.
 
 ### 5.4 Clean
 
-`colony wt clean [days]`:
+`motley wt clean [days]`:
 
 - Candidates exclude bare, main and the worktree containing CWD. Use a path `/`
   boundary so `repo-feat-1` does not match `repo-feat-10`.
@@ -298,28 +300,28 @@ For each worktree, `clean_one`:
 6. Never touch remote branches.
 
 Report `N cleaned · M failed` and failed items. If a cleaned worktree belongs to a
-minion, kill its tmux session and archive its manifest and associated files.
+member, kill its tmux session and archive its manifest and associated files.
 
-## 6. Minions
+## 6. Members
 
 ### 6.1 Identity
 
 Use `{ticket}-{slug}` when a ticket exists, otherwise `branch_slug`. If occupied
-by a live or manifested minion, prefix `{repo}-`. A tmux session name is the id
-with `.` and `:` replaced by `_`. A tmux session is a minion if and only if its
-`@colony_minion` user option is set.
+by a live or manifested member, prefix `{repo}-`. A tmux session name is the id
+with `.` and `:` replaced by `_`. A tmux session is a member if and only if its
+`@motley_member` user option is set.
 
 ### 6.2 tmux options and derived states
 
 | Option | Writer | Meaning |
 | --- | --- | --- |
-| `@colony_minion` | spawn/adopt | Minion id |
-| `@colony_status` | report; initialized by spawn | starting, working, permission, question, ready, idle, ended |
-| `@colony_since` | report | Unix timestamp of last status change |
-| `@colony_context` | report | Bounded schema-1 event JSON for the latest mapped hook; retains question/tool context without logging every tool call |
-| `@colony_seen` | report | Unix timestamp of last hook call, for any event |
-| `@colony_ticket`, `@colony_crew`, `@colony_agent` | spawn/edit | Status-line fields; crew is the title |
-| `@colony_color`, `@colony_emoji` | spawn/edit | Resolved palette color and emoji |
+| `@motley_member` | spawn/adopt | Member id |
+| `@motley_status` | report; initialized by spawn | starting, working, permission, question, ready, idle, ended |
+| `@motley_since` | report | Unix timestamp of last status change |
+| `@motley_context` | report | Bounded schema-1 event JSON for the latest mapped hook; retains question/tool context without logging every tool call |
+| `@motley_seen` | report | Unix timestamp of last hook call, for any event |
+| `@motley_ticket`, `@motley_crew`, `@motley_agent` | spawn/edit | Status-line fields; crew is the title |
+| `@motley_color`, `@motley_emoji` | spawn/edit | Resolved palette color and emoji |
 
 Derived, never persisted: `dead` when a manifest exists without a tmux session;
 `stale` when status is working and the last hook exceeds `stale_after`.
@@ -327,7 +329,7 @@ Derived, never persisted: `dead` when a manifest exists without a tmux session;
 ### 6.3 Spawn
 
 ```text
-colony spawn --repo <r> [--ticket <t>] [--branch <b>] [--base <b>]
+motley spawn --repo <r> [--ticket <t>] [--branch <b>] [--base <b>]
   [--name <n>] [--crew <id>] [--color <c>] [--blueprint <bp>] [--agent <a>]
   [--var k=v]... [--existing] [--no-gh] [--switch|--attach|--detach]
 ```
@@ -339,17 +341,17 @@ colony spawn --repo <r> [--ticket <t>] [--branch <b>] [--base <b>]
    parent-epic or milestone suggestion per `crew_suggest`. Match existing crews
    by URL; otherwise offer to create a crew. Failure warns, never fails spawn.
    Explicit `--crew` wins.
-4. Render the blueprint into `minions/<id>.prompt.md`.
+4. Render the blueprint into `members/<id>.prompt.md`.
 5. Create the worktree (§5.1).
 6. Write the manifest.
-7. Start tmux detached, with the worktree CWD and `COLONY_MINION=<id>`:
-   `tmux new-session -d -s <session> -c <worktree> -e COLONY_MINION=<id>
-   "colony exec-agent <id>; exec $SHELL -l"`.
-8. Set colony options, color and initial `starting` status.
+7. Start tmux detached, with the worktree CWD and `MOTLEY_MEMBER=<id>`:
+   `tmux new-session -d -s <session> -c <worktree> -e MOTLEY_MEMBER=<id>
+   "motley exec-agent <id>; exec $SHELL -l"`.
+8. Set motley options, color and initial `starting` status.
 9. Default inside tmux: switch the client. Default outside: exec tmux attach.
    `--detach` leaves the session detached; explicit mode flags select behavior.
 
-`colony exec-agent <id>` builds adapter argv and execs the agent, reading the
+`motley exec-agent <id>` builds adapter argv and execs the agent, reading the
 prompt from the file and avoiding shell quoting of prompt text. Agent exit leaves
 a login shell in the pane.
 
@@ -360,8 +362,8 @@ a login shell in the pane.
 - `switch <id>`: switch-client inside tmux; attach outside.
 - `attach [<id>]`: attach this terminal; without an id, show a fuzzy picker.
 - `send <id> --tab <client>`: `tmux switch-client -c <client_tty> -t <session>`.
-- `ls [--json]`: list minions and status for humans or scripts.
-- `revive <id>`: for a dead minion, recreate tmux in its existing worktree and
+- `ls [--json]`: list members and status for humans or scripts.
+- `revive <id>`: for a dead member, recreate tmux in its existing worktree and
   resume using the latest agent session id. Without an id, start fresh without
   replaying the initial prompt.
 - `retire <id> [--force] [--keep-branch]`:
@@ -374,8 +376,9 @@ a login shell in the pane.
 
 ### 6.5 Crews
 
-A minion belongs to zero or one crew. Crews have a required free-text title,
-optional URL, unique slug id, derived kind and palette color.
+A member belongs to zero or one crew. Crews have a required free-text title,
+optional gig description and URL, unique slug id, derived kind and palette color.
+A gig names the package of work; the crew identifies the members doing it.
 
 ```toml
 schema = 1
@@ -383,6 +386,7 @@ schema = 1
 [[crew]]
 id = "fx-banking"
 title = "FX & Banking"
+gig = "Ship FX caching"
 url = "https://github.com/AderisERP/aderis-api/issues/400"
 kind = "issue"
 color = "blue"
@@ -406,15 +410,16 @@ project; GitHub `/<o>/<r>/issues/<n>` → issue; another URL → link; no URL �
 
 Commands:
 
-- `crew add --title <t> [--url <u>] [--color <c>]`: slugify title, suffix `-2`,
+- `crew add --title <t> [--gig <g>] [--url <u>] [--color <c>]`: slugify title, suffix `-2`,
   `-3`, etc. on collision. Default to the next unused palette color. At W9,
   title may be omitted for a GitHub issue/project URL and fetched once with gh.
-- `crew list [--json]`; `crew edit <id> [--title …] [--url …] [--color …]`.
-- `crew rm <id> [--force]`: refuse references from minions; force unassigns them.
-- `crew assign <minion> <crew-id|none>`.
+- `crew list [--json]`; `crew edit <id> [--title …] [--gig …] [--url …] [--color …]`.
+  An empty `--gig` clears the gig; descriptions cannot contain control characters.
+- `crew rm <id> [--force]`: refuse references from members; force unassigns them.
+- `crew assign <member> <crew-id|none>`.
 
-Title/color changes immediately refresh `@colony_crew`, `@colony_color` and
-`@colony_emoji` on live member sessions, using the color resolution below.
+Title/color changes immediately refresh `@motley_crew`, `@motley_color` and
+`@motley_emoji` on live member sessions, using the color resolution below.
 
 ### 6.6 Colors
 
@@ -429,26 +434,26 @@ Title/color changes immediately refresh `@colony_crew`, `@colony_color` and
 | brown | colour130 | #af5f00 | 🟤 | white |
 | grey | colour245 | #8a8a8a | ⚪ | black |
 
-Resolve minion color: manifest override → crew color → deterministic hash of id
+Resolve member color: manifest override → crew color → deterministic hash of id
 into the palette. Status icon colors remain separate from identity colors.
 
-- TUI: minion-color `▌` at the beginning of rows and detail headers.
+- TUI: member-color `▌` at the beginning of rows and detail headers.
 - When enabled, session `status-style` is `bg=<color>,fg=<contrast>`.
 - When enabled, per-session `set-titles-string` is `<emoji> <ticket> <name>` and
   `set-titles` is on, giving Ghostty tabs the emoji title.
 - Agent badges use their own configured label/color in rows and details,
-  independently of minion color.
+  independently of member color.
 
 ## 7. Reporting and agents
 
 ### 7.1 Hook entry point
 
-`colony report --agent <claude|codex|opencode> [--event <name>]` reads stdin for
+`motley report --agent <claude|codex|opencode> [--event <name>]` reads stdin for
 Claude/OpenCode or argv for Codex notify.
 
-- Resolve `$COLONY_MINION`. If unset, silently exit 0; hooks are global.
-- Map event to status; always update `@colony_seen`. On a transition, update
-  `@colony_status` and `@colony_since`, and append an event. Also append the
+- Resolve `$MOTLEY_MEMBER`. If unset, silently exit 0; hooks are global.
+- Map event to status; always update `@motley_seen`. On a transition, update
+  `@motley_status` and `@motley_since`, and append an event. Also append the
   explicitly retained lifecycle events in §4.2.
 - Exit 0 on **every** error path. Never write stdout. Log errors to
   `<state-root>/report.log`.
@@ -457,8 +462,8 @@ Claude/OpenCode or argv for Codex notify.
 
 ### 7.2 Claude Code
 
-`colony hooks install claude` backs up and idempotently merges hooks into
-`~/.claude/settings.json`. Each runs `colony report --agent claude`.
+`motley hooks install claude` backs up and idempotently merges hooks into
+`~/.claude/settings.json`. Each runs `motley report --agent claude`.
 
 | Hook | Status | Summary/data |
 | --- | --- | --- |
@@ -483,7 +488,7 @@ transcript may not yet contain the final record when the hook runs.
 
 ### 7.3 Codex
 
-- Installer adds `notify = ["colony", "report", "--agent", "codex"]` to
+- Installer adds `notify = ["motley", "report", "--agent", "codex"]` to
   `~/.codex/config.toml`. Turn complete maps to ready with last assistant message.
 - Prefer lifecycle hooks if supported by the installed version.
 - Otherwise infer working/permission/question from `tmux capture-pane -p -t
@@ -494,7 +499,7 @@ transcript may not yet contain the final record when the hook runs.
 
 ### 7.4 OpenCode
 
-Installer places `integrations/opencode/colony.ts` in the OpenCode plugin
+Installer places `integrations/opencode/motley.ts` in the OpenCode plugin
 directory. Subscribe to session/permission events and spawn report with JSON
 stdin. Map prompt submitted → working; permission asked → permission; session
 idle → ready; error → idle with summary. Verify plugin API, event names and
@@ -518,24 +523,24 @@ and log. The W6 dependency question for agents without idle hooks is in §14.
 
 ## 8. tmux integration
 
-Target `colony.tmux.conf` (lines arrive with their respective work items):
+Target `motley.tmux.conf` (lines arrive with their respective work items):
 
 ```tmux
 # schema = 1
-bind h display-popup -E -w 90% -h 85% "colony"
+bind h display-popup -E -w 90% -h 85% "motley"
 set -as terminal-features "*:hyperlinks"
 set -g status-interval 2
-set -g status-left "#{?#{@colony_minion},#{@colony_status} #{@colony_ticket} ,}"
-set -ga status-right " #(colony status-line)"
+set -g status-left "#{?#{@motley_member},#{@motley_status} #{@motley_ticket} ,}"
+set -ga status-right " #(motley status-line)"
 set -g set-titles on
 ```
 
-`colony status-line` emits aggregate attention counts such as `⚠1 ?1 ✓2` using
+`motley status-line` emits aggregate attention counts such as `⚠1 ?1 ✓2` using
 one `tmux list-sessions -F` call; budget < 20 ms. Introduced in W11.
 
 ## 9. TUI
 
-With no arguments, colony opens a lazygit-style left list, right detail and bottom
+With no arguments, motley opens a lazygit-style left list, right detail and bottom
 key bar. Support full-screen and tmux popup use.
 
 ```text
@@ -560,7 +565,7 @@ Attention sections, in order: NEEDS YOU (permission/question/ready/idle), WORKIN
 `g` cycles attention → crew → repo. Crew grouping uses the collapsed crew view
 in §9.7; crew headers show the title, color and an OSC 8 link when a URL exists.
 
-Minion rows show color bar, status icon, agent badge, ticket, truncated name,
+Member rows show color bar, status icon, agent badge, ticket, truncated name,
 short crew tag in crew color and time in current status.
 
 | Status | Icon | Icon color |
@@ -580,7 +585,7 @@ Permission: tool and command/file. Question: text and options. Ready: last
 assistant message, branch, `git diff --stat <base>...HEAD`, short HEAD SHA.
 
 Always show crew title/link, issue title, repo and branch, worktree path, agent,
-blueprint, clients/tabs displaying the minion from list-clients, and last-known PR
+blueprint, clients/tabs displaying the member from list-clients, and last-known PR
 state and age when available in the delivered slice.
 
 OSC 8 links: branch `…/tree/<branch>`, compare `…/compare/<base>...<branch>`, PR
@@ -595,68 +600,68 @@ Only expose keys once their capability is implemented.
 | ↑↓ / j k | Navigate |
 | / | Fuzzy filter id, name, ticket, repo, branch |
 | Enter | Jump: switch inside tmux, exec attach outside; monitor rules below |
-| t | Pick a tmux client and send selected minion there |
+| t | Pick a tmux client and send selected member there |
 | o | Pop out (§9.5) |
 | i | One-line reply with send-keys -l followed by Enter; disabled for permission, jump instead |
 | b / c / p | Open branch / compare / PR via macOS open or Linux xdg-open |
 | P | PR menu: create with gh pr create --fill, mark ready, open |
-| R | Refresh selected minion's GitHub data |
+| R | Refresh selected member's GitHub data |
 | Shift+R | Refresh all GitHub data; terminal key conflict in §14 |
 | s | Spawn form |
-| a | Adopt a non-minion tmux session |
+| a | Adopt a non-member tmux session |
 | e | Edit name, ticket, crew and color |
 | G | Crew manager: add, edit, delete, recolor |
-| r | Revive dead minion |
+| r | Revive dead member |
 | x | Retire with confirmation showing pre-check results |
 | W | Worktree clean view |
 | T | Pin monitor work client |
-| H | Toggle crews without live minions |
+| H | Toggle crews without live members |
 | ? / q | Help / quit |
 
 ### 9.4 Refresh
 
-Every second, make one `list-sessions -F` call containing all colony options and
+Every second, make one `list-sessions -F` call containing all motley options and
 one `list-clients -F '#{client_tty}\t#{client_session}'` call. Reload manifests
 when mtime changes. Read event tails on selection change and when the selected
 log mtime/size changes. Capture panes only for
-Codex minions. Monitor client-activity and selected-event freshness clarifications
+Codex members. Monitor client-activity and selected-event freshness clarifications
 are recorded in §14.
 
 ### 9.5 Pop into another tab
 
-1. `colony pop <id>` writes id/timestamp to `pending-attach`, expiring in 60 s.
-2. `colony shell-init <zsh|bash|fish>` prints an rc snippet. New shells outside
-   tmux run `colony claim`, which atomically consumes pending attach. If present,
-   the snippet execs tmux attach to the minion. Thus opening a new Ghostty tab
-   after `o` lands in that minion.
+1. `motley pop <id>` writes id/timestamp to `pending-attach`, expiring in 60 s.
+2. `motley shell-init <zsh|bash|fish>` prints an rc snippet. New shells outside
+   tmux run `motley claim`, which atomically consumes pending attach. If present,
+   the snippet execs tmux attach to the member. Thus opening a new Ghostty tab
+   after `o` lands in that member.
 3. Optional `pop_command` substitutes for writing pending attach, for example
    `ghostty +new-window -e tmux attach -t {id}` on Linux; verify this example before
    relying on it. No direct Ghostty API is introduced.
 
 ### 9.6 Monitor
 
-`colony monitor` creates `_colony` if missing and attaches it, running the TUI in
-monitor mode. This session is never a minion and survives closing the terminal
+`motley monitor` creates `_motley` if missing and attaches it, running the TUI in
+monitor mode. This session is never a member and survives closing the terminal
 window; rerunning monitor attaches again.
 
 Enter switches the **work client**, leaving the monitor client in place. Choose
 the most recently active other tmux client (`client_activity`) or a client pinned
-with T. If none exists, tell the user to open a tab and run `colony attach`.
+with T. If none exists, tell the user to open a tab and run `motley attach`.
 Normal TUI/popup jumps switch their current client.
 
 Hook changes appear within about a second. Header totals such as `⚠2 ?1 ✓3 ●4 ✗1`
 and an alert marker identify new NEEDS YOU entries. Optional `monitor_bell = true`
-rings the terminal bell. Hide crews with no live minions until H toggles them on.
+rings the terminal bell. Hide crews with no live members until H toggles them on.
 
 ### 9.7 Crew view
 
 Collapsed by default, one left row per crew: `▌FX & Banking ↗   ⚠1 ●2 ✓1`.
-Unassigned minions appear in a final pseudo-crew, “No crew”.
+Unassigned members appear in a final pseudo-crew, “No crew”.
 
 Selecting a crew shows its title/link/count and a member table in the detail pane:
 
 ```text
- ST  MINION             AGENT TICKET REPO        BRANCH              SINCE PR
+ ST  MEMBER             AGENT TICKET REPO        BRANCH              SINCE PR
  ⚠   433 migration      CC    #433   aderis-api  feat/433-migration    2m   —
  ?   415 bLink consent  CX    #415   blink-svc   feat/415-consent      4m   #88 draft ✗
  ●   412 FX cache       CC    #412   aderis-api  feat/412-fx-cache    12s   —
@@ -669,14 +674,14 @@ W9.
 
 Tab focuses the table; arrows select members; Enter jumps using monitor rules;
 i/x/e act on the selected member; Esc returns to the list. Right/Space expands
-a crew in the left list, Left collapses. An expanded minion shows normal detail.
+a crew in the left list, Left collapses. An expanded member shows normal detail.
 
 ## 10. Blueprints
 
 ### 10.1 Discovery
 
-Global `${XDG_CONFIG_HOME:-~/.config}/colony/blueprints/*.md` and repo
-`<main-repo>/.colony/blueprints/*.md`. Repo wins a name clash. A non-empty `repos`
+Global `${XDG_CONFIG_HOME:-~/.config}/motley/blueprints/*.md` and repo
+`<main-repo>/.motley/blueprints/*.md`. Repo wins a name clash. A non-empty `repos`
 restriction limits which repos offer the blueprint.
 
 ### 10.2 Format and rendering
@@ -713,7 +718,7 @@ template functions are validation errors. Commands: `blueprint list`,
 Repo fuzzy picker → ticket/name with live branch preview → agent → blueprint
 filtered by repo (including none) → variables → prompt preview → confirm.
 In preview, e opens `$EDITOR` on the rendered prompt. Show fetch/worktree/copy/setup
-progress inline as these capabilities arrive. On success, focus the new minion.
+progress inline as these capabilities arrive. On success, focus the new member.
 
 ## 11. GitHub: on demand only
 
@@ -722,7 +727,7 @@ progress inline as these capabilities arrive. On success, focus the new minion.
 - PR refresh:
   `gh pr list --repo <org/repo> --head <branch> --state all --limit 1 --json
   number,url,state,isDraft,reviewDecision,statusCheckRollup`. Compute check rollup.
-- All-minion refresh batches per repo with `--limit 200`, filtering minion
+- All-member refresh batches per repo with `--limit 200`, filtering member
   branches client-side.
 - Issue lookup: `gh issue view <n> --repo <org/repo> --json title,body,url`, plus
   GraphQL for the parent issue or milestone according to `crew_suggest`.
@@ -743,7 +748,7 @@ progress inline as these capabilities arrive. On success, focus the new minion.
    changes before v1.0.
 5. End green: build darwin/linux × amd64/arm64; clean `go vet` and
    `golangci-lint`; pass `go test ./...` and the item's new tests. Integration tests
-   use `tmux -L colony-test-<rand>` and fixture repositories with local bare remotes,
+   use `tmux -L motley-test-<rand>` and fixture repositories with local bare remotes,
    never the user's tmux server or real repositories. CI must be green; update
    README and `--help`; tag `v0.<n>.0` (numbering clarification in §14).
 6. Stop after each item. Summarize built scope, deliberate omissions, validation
@@ -751,18 +756,18 @@ progress inline as these capabilities arrive. On success, focus the new minion.
 
 ### W0 — Shell
 
-**Scope:** Go module, cobra root, `colony version`, CI build matrix/vet/lint/test,
+**Scope:** Go module, cobra root, `motley version`, CI build matrix/vet/lint/test,
 GoReleaser snapshot. Config has only schema, `repos_root` and `worktrees_root`,
 defaulting to `~/projects` and `~/worktrees`. Precedence is file > default only.
 
 **Done:** CI green; smoke test runs the binary and reads config.
 
-### W1 — First minion, end to end
+### W1 — First member, end to end
 
 **Scope:** `spawn --repo <r> --branch <b> [--agent claude|codex|opencode]
 [--ticket <t>] [--name <n>]`. New branches only: main then master base, fetch,
 worktree add from origin/base, push -u. Exact artifact copy from §5.2 using fixed
-`.env`, `.env.*`, `graphify-out` defaults. tmux with COLONY_MINION and minion,
+`.env`, `.env.*`, `graphify-out` defaults. tmux with MOTLEY_MEMBER and member,
 ticket, agent options. Start agent without prompt; drop to shell on exit. Persist
 known manifest fields. `ls` table: id/ticket/repo/branch/agent/alive-or-dead;
 `attach <id>` and `switch <id>`.
@@ -773,7 +778,7 @@ reports dead. Artifact-copy golden test.
 ### W2 — Overview TUI v0
 
 **Scope:** No-arg TUI with alive/dead list, manifest detail, 1 s refresh, Enter
-jump, q. `init` writes popup config. Thin monitor: `_colony`, jump to the most
+jump, q. `init` writes popup config. Thin monitor: `_motley`, jump to the most
 recently active other client, T to pin work client.
 
 **Done:** List/selection model tests; jump inside/outside tmux; monitor jump
@@ -788,9 +793,9 @@ seen options, NEEDS YOU/WORKING/DEAD sections with icons and status detail,
 tmux status-left, monitor totals/alert/optional bell.
 
 **Done:** Golden tests from recorded Claude payloads; report exits 0 on bad input
-or unset COLONY_MINION; p95 < 15 ms benchmark; idempotent installer with backup.
+or unset MOTLEY_MEMBER; p95 < 15 ms benchmark; idempotent installer with backup.
 
-### W4 — Finish and resume minions
+### W4 — Finish and resume members
 
 **Scope:** retire with dirty/unpushed checks, force, clean_one for one worktree
 and archive; adopt; revive with Claude resume, fresh start for other agents;
@@ -820,7 +825,7 @@ OpenCode as well, resolving the no-forward-dependency question in §14.
 
 **Scope:** Spawn form (repo → ticket/name/branch preview → agent → blueprint →
 variables → editable prompt preview → progress/launch), reply i, tabs view and t,
-filter /, `colony tabs`, `colony send`.
+filter /, `motley tabs`, `motley send`.
 
 **Done:** Form validation tests; reply/send integration tests.
 
@@ -876,21 +881,22 @@ they do not authorize expanding an earlier work item.
 
 | When | Question |
 | --- | --- |
-| W0 (resolved) | Use literal item numbering: W0 → v0.0.0, W1 → v0.1.0. GitHub destination supplied by the user: https://github.com/thomashartm/colony. |
-| W3 (resolved for current writers) | Owned JSONL records carry schema: 1; generated config/snippets use schema fields/comments. Preserve third-party Claude settings format and exact backup bytes; the integration template has schema 1 and backup filenames carry colony-v1. Copied reference/artifact files remain unchanged. Prompt representation is deferred to W6. |
+| W0 (resolved) | Use literal item numbering: W0 → v0.0.0, W1 → v0.1.0. GitHub destination supplied by the user: https://github.com/thomashartm/motley. |
+| W3 (resolved for current writers) | Owned JSONL records carry schema: 1; generated config/snippets use schema fields/comments. Preserve third-party Claude settings format and exact backup bytes; the integration template has schema 1 and backup filenames carry motley-v1. Copied reference/artifact files remain unchanged. Prompt representation is deferred to W6. |
 | W1 (resolved) | Use the branch-based default path, such as `aderis-api/feat-412-fx-cache`. Reserve normalized tmux session names as well as ids; prefix the repo on collision, then refuse if still occupied. |
 | W3 (resolved) | Tail-read events on selection change and when the selected log mtime or size changes during polling. Ready commit/diff data refreshes with those events. This keeps selected details live without reading whole logs. |
 | W2 (resolved) | Each poll reads client_name, client_tty, client_session and client_activity in one client-list call. Monitor jumps recheck clients before switching. T pins a client in memory; q detaches the monitor while keeping its TUI running. The popup binding uses run-shell to expand the originating client before display-popup runs. |
-| W4 (resolved) | Adopt manages linked worktrees only, renames the session to its minion id, and sets the session environment. Existing processes require the printed COLONY_MINION export and an agent restart. Detached worktrees use a detached-<sha8> id when no ticket is given. |
+| W4 (resolved) | Adopt manages linked worktrees only, renames the session to its member id, and sets the session environment. Existing processes require the printed MOTLEY_MEMBER export and an agent restart. Detached worktrees use a detached-<sha8> id when no ticket is given. |
 | W4 (resolved) | Refuse retiring the caller's own tmux session, since killing its pane would interrupt cleanup. Use the monitor, another session or an outside terminal. Force overrides dirty/unpushed checks, never worktree ownership checks. |
-| W4 (resolved) | Revive is detached and applies only to active dead manifests with an existing linked worktree. Archived minions stay retired. Archive filename collisions receive a UTC timestamp suffix, preserving previous history. Protected branches remain hard-coded main/master/develop until W10. |
-| W5 (resolved) | Fixed palette and agent badges; tmux status-bar and emoji-title styling are enabled. Styling switches and badge customization are deferred until usage warrants them. Crew titles are manual, URLs are http/https, and no GitHub lookup occurs. Empty crew/color fields in the minion editor clear assignment/override. Forced crew removal unassigns active/dead manifests; archives remain historical. |
+| W4 (resolved) | Revive is detached and applies only to active dead manifests with an existing linked worktree. Archived members stay retired. Archive filename collisions receive a UTC timestamp suffix, preserving previous history. Protected branches remain hard-coded main/master/develop until W10. |
+| W5 (resolved) | Fixed palette and agent badges; tmux status-bar and emoji-title styling are enabled. Styling switches and badge customization are deferred until usage warrants them. Crew titles are manual, URLs are http/https, and no GitHub lookup occurs. Empty crew/color fields in the member editor clear assignment/override. Forced crew removal unassigns active/dead manifests; archives remain historical. |
 | W6 (resolved) | Installed Claude 2.1.286 and Codex 0.159.2 accept positional prompts; OpenCode 1.18.21 accepts --prompt. Use these native arguments now, bringing initial prompt delivery forward from W8; no idle-hook or send-keys fallback is needed. Revive preserves blueprint args without replaying the prompt. CLI agent wins; conflicting agent-specific blueprint args are refused. |
 | W6 (resolved) | Prompt files use a schema-1 Markdown comment, stripped on delivery. Render/validate known fields and missing Vars keys as empty strings; unknown struct fields are template errors. Vars are optional, with repeated CLI values taking the last value. Render before worktree creation, then save the prompt before the manifest/session; cap prompts at 64 KiB for portable argv delivery. |
+| W7 (implementation) | Use a fixed feat/{ticket}-{slug} form branch with an editable override, and a case-insensitive subsequence matcher preserving attention order. The planned sahilm/fuzzy module is unavailable in this network-restricted environment; defer ranking/dependency changes. Preparing a spawn is read-only; launch uses the reviewed prompt snapshot. Manual prompts without a blueprint set prompt=true in the schema-1 manifest. Reply targets the active pane and refuses permission/ended/dead states. |
 | W9 | R and Shift+R are ordinarily the same uppercase terminal key. Choose distinguishable selected/all refresh bindings. |
-| W10 | Legacy wt worktree_dir means a root directory; colony worktree_dir is a relative template. Specify import mapping, consistent with WT_WORKTREE_DIR → worktrees_root. |
+| W10 | Legacy wt worktree_dir means a root directory; motley worktree_dir is a relative template. Specify import mapping, consistent with WT_WORKTREE_DIR → worktrees_root. |
 | W10 | Env copying requires basename-only parity, while the example `config/*.local.yaml` contains a path. Choose whether to correct the example or explicitly change matching semantics. |
-| W10 | Define precedence when both legacy WT_* and corresponding COLONY_* variables are set. |
+| W10 | Define precedence when both legacy WT_* and corresponding MOTLEY_* variables are set. |
 
 All unimplemented work items remain pending. Delivery status and checkpoint
 notes are in DELIVERY.md; no later slice starts without feedback on the preceding one.

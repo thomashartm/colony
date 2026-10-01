@@ -64,14 +64,14 @@ func withoutTmux() []string {
 	}
 	return append(env, "TERM=xterm-256color")
 }
-func (f *minionFixture) terminalClient(session string) *terminalProcess {
+func (f *memberFixture) terminalClient(session string) *terminalProcess {
 	cmd := exec.Command(f.tmuxBin, "-L", f.socket, "attach-session", "-t", "="+session)
 	cmd.Env = withoutTmux()
 	p := startTerminal(f.t, cmd)
 	eventually(f.t, func() bool { return f.clientName(p) != "" })
 	return p
 }
-func (f *minionFixture) clientName(p *terminalProcess) string {
+func (f *memberFixture) clientName(p *terminalProcess) string {
 	for _, line := range strings.Split(f.tmux("list-clients", "-F", "#{client_pid}\t#{client_name}"), "\n") {
 		fields := strings.Split(line, "\t")
 		if len(fields) == 2 && fields[0] == strconv.Itoa(p.cmd.Process.Pid) {
@@ -80,7 +80,7 @@ func (f *minionFixture) clientName(p *terminalProcess) string {
 	}
 	return ""
 }
-func (f *minionFixture) clientSession(name string) string {
+func (f *memberFixture) clientSession(name string) string {
 	for _, line := range strings.Split(f.tmux("list-clients", "-F", "#{client_name}\t#{client_session}"), "\n") {
 		fields := strings.Split(line, "\t")
 		if len(fields) == 2 && fields[0] == name {
@@ -92,13 +92,13 @@ func (f *minionFixture) clientSession(name string) string {
 func quoteShell(value string) string { return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'" }
 
 func TestOverviewAndMonitor(t *testing.T) {
-	bin := filepath.Join(t.TempDir(), "colony")
+	bin := filepath.Join(t.TempDir(), "motley")
 	commandOutput(t, "go", "build", "-o", bin, ".")
-	f := newMinionFixture(t, bin, "main")
-	f.colony("spawn", "--repo", "api", "--branch", "feat/overview", "--name", "Overview fixture", "--detach")
+	f := newMemberFixture(t, bin, "main")
+	f.motley("spawn", "--repo", "api", "--branch", "feat/overview", "--name", "Overview fixture", "--detach")
 	id := "feat-overview"
-	f.colony("crew", "add", "--title", "Overview crew", "--color", "blue")
-	f.colony("crew", "assign", id, "overview-crew")
+	f.motley("crew", "add", "--title", "Overview crew", "--color", "blue")
+	f.motley("crew", "assign", id, "overview-crew")
 
 	// A normal in-tmux TUI switches its own client and restores the pane on exit.
 	f.tmux("new-session", "-d", "-s", "overview", "/bin/sh")
@@ -113,24 +113,24 @@ func TestOverviewAndMonitor(t *testing.T) {
 	eventually(t, func() bool { return f.clientSession(overviewName) == id })
 
 	// Start the persistent monitor from this work tab; the process stays running
-	// when the client detaches, and running colony monitor reuses the same session.
+	// when the client detaches, and running motley monitor reuses the same session.
 	f.tmux("send-keys", "-t", "="+id+":", "-l", quoteShell(bin)+" monitor")
 	f.tmux("send-keys", "-t", "="+id+":", "Enter")
-	eventually(t, func() bool { return f.clientSession(overviewName) == "_colony" })
-	monitorPane := f.tmux("display-message", "-p", "-t", "=_colony:", "#{pane_id}")
-	monitorPID := f.tmux("display-message", "-p", "-t", "=_colony:", "#{pane_pid}")
+	eventually(t, func() bool { return f.clientSession(overviewName) == "_motley" })
+	monitorPane := f.tmux("display-message", "-p", "-t", "=_motley:", "#{pane_id}")
+	monitorPID := f.tmux("display-message", "-p", "-t", "=_motley:", "#{pane_pid}")
 	eventually(t, func() bool {
-		return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_colony:"), "colony monitor")
+		return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_motley:"), "motley monitor")
 	})
 	overview.send(t, "g\t")
 	eventually(t, func() bool {
-		return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_colony:"), "MINION")
+		return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_motley:"), "MEMBER")
 	})
 	overview.send(t, "\r")
 	eventually(t, func() bool {
-		return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_colony:"), "open another tab")
+		return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_motley:"), "open another tab")
 	})
-	if f.clientSession(overviewName) != "_colony" {
+	if f.clientSession(overviewName) != "_motley" {
 		t.Fatal("monitor took over its only client")
 	}
 	work := f.terminalClient("fixture")
@@ -141,42 +141,42 @@ func TestOverviewAndMonitor(t *testing.T) {
 		}
 	}()
 	workName := f.clientName(work)
-	eventually(t, func() bool { return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_colony:"), workName) })
+	eventually(t, func() bool { return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_motley:"), workName) })
 	overview.send(t, "\r")
 	eventually(t, func() bool { return f.clientSession(workName) == id })
-	if f.clientSession(overviewName) != "_colony" {
+	if f.clientSession(overviewName) != "_motley" {
 		t.Fatal("monitor client moved during jump")
 	}
 
 	// Pin the older client, then attach another work client. Enter must still
 	// switch the pinned one, and the second work tab must remain untouched.
 	overview.send(t, "T")
-	eventually(t, func() bool { return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_colony:"), "Pin work tab") })
+	eventually(t, func() bool { return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_motley:"), "Pin work tab") })
 	overview.send(t, "j")
-	eventually(t, func() bool { return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_colony:"), "> "+workName) })
+	eventually(t, func() bool { return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_motley:"), "> "+workName) })
 	overview.send(t, "\r")
-	eventually(t, func() bool { return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_colony:"), "(pinned)") })
+	eventually(t, func() bool { return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_motley:"), "(pinned)") })
 	f.tmux("switch-client", "-c", workName, "-t", "=fixture")
 	other := f.terminalClient("overview")
 	otherName := f.clientName(other)
 	overview.send(t, "\r")
 	eventually(t, func() bool { return f.clientSession(workName) == id })
-	if f.clientSession(otherName) != "overview" || f.clientSession(overviewName) != "_colony" {
+	if f.clientSession(otherName) != "overview" || f.clientSession(overviewName) != "_motley" {
 		t.Fatal("pinned jump switched an unrelated client")
 	}
-	if strings.Contains(f.colony("ls"), "_colony") {
-		t.Fatal("monitor listed as a minion")
+	if strings.Contains(f.motley("ls"), "_motley") {
+		t.Fatal("monitor listed as a member")
 	}
 	overview.send(t, "q")
 	eventually(t, func() bool { return f.clientSession(overviewName) == "" })
-	if got := f.tmux("display-message", "-p", "-t", "=_colony:", "#{pane_pid}"); got != monitorPID {
+	if got := f.tmux("display-message", "-p", "-t", "=_motley:", "#{pane_pid}"); got != monitorPID {
 		t.Fatal("detaching stopped the monitor")
 	}
 	// Re-enter through the public monitor command from another terminal pane.
 	f.tmux("send-keys", "-t", "=overview:", "-l", quoteShell(bin)+" monitor")
 	f.tmux("send-keys", "-t", "=overview:", "Enter")
-	eventually(t, func() bool { return f.clientSession(otherName) == "_colony" })
-	if f.tmux("display-message", "-p", "-t", "=_colony:", "#{pane_id}") != monitorPane {
+	eventually(t, func() bool { return f.clientSession(otherName) == "_motley" })
+	if f.tmux("display-message", "-p", "-t", "=_motley:", "#{pane_id}") != monitorPane {
 		t.Fatal("monitor was recreated instead of reused")
 	}
 
@@ -212,8 +212,8 @@ func TestOverviewAndMonitor(t *testing.T) {
 
 	// The generated popup config parses on tmux and binds a known originating
 	// client. Exercise the actual popup with two attached work/monitor clients.
-	f.colony("init")
-	popupPath := filepath.Join(f.home, "config/colony/colony.tmux.conf")
+	f.motley("init")
+	popupPath := filepath.Join(f.home, "config/motley/motley.tmux.conf")
 	f.tmux("source-file", popupPath)
 	// Some tmux versions show a single requested key in the client's status
 	// line; listing the table consistently writes machine-readable stdout.
@@ -221,7 +221,7 @@ func TestOverviewAndMonitor(t *testing.T) {
 	if !strings.Contains(binding, "--client #{q:client_name}") {
 		t.Fatalf("popup binding: %s", binding)
 	}
-	// The server PATH predates our test binary, as it may in daily use. Put colony
+	// The server PATH predates our test binary, as it may in daily use. Put motley
 	// on its environment PATH before using the installed binding.
 	f.tmux("set-environment", "-g", "PATH", filepath.Dir(bin)+string(os.PathListSeparator)+os.Getenv("PATH"))
 	f.tmux("set-environment", "-t", "="+id, "PATH", filepath.Dir(bin)+string(os.PathListSeparator)+os.Getenv("PATH"))
@@ -238,13 +238,13 @@ func TestOverviewAndMonitor(t *testing.T) {
 	})
 	work.send(t, "\r")
 	eventually(t, func() bool { return f.clientSession(workName) == id })
-	if f.clientSession(otherName) != "_colony" {
+	if f.clientSession(otherName) != "_motley" {
 		t.Fatal("popup changed monitor client")
 	}
 	// The polling overview notices session death without being restarted.
 	f.tmux("kill-session", "-t", "="+id)
 	eventually(t, func() bool {
-		return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_colony:"), "0 alive · 1 dead")
+		return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_motley:"), "0 alive · 1 dead")
 	})
 }
 

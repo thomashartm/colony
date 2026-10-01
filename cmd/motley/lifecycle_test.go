@@ -9,10 +9,10 @@ import (
 	"testing"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/thomashartm/colony/internal/minion"
+	"github.com/thomashartm/motley/internal/member"
 )
 
-func (f *minionFixture) refused(args ...string) string {
+func (f *memberFixture) refused(args ...string) string {
 	f.t.Helper()
 	out, err := exec.Command(f.bin, args...).CombinedOutput()
 	if err == nil {
@@ -20,9 +20,9 @@ func (f *minionFixture) refused(args ...string) string {
 	}
 	return string(out)
 }
-func (f *minionFixture) manifest(id string) minion.Manifest {
+func (f *memberFixture) manifest(id string) member.Manifest {
 	f.t.Helper()
-	m, err := minion.Load(filepath.Join(f.state, "colony/minions"), id)
+	m, err := member.Load(filepath.Join(f.state, "motley/members"), id)
 	if err != nil {
 		f.t.Fatal(err)
 	}
@@ -30,22 +30,22 @@ func (f *minionFixture) manifest(id string) minion.Manifest {
 }
 func buildLifecycleBinary(t *testing.T) string {
 	t.Helper()
-	bin := filepath.Join(t.TempDir(), "colony")
+	bin := filepath.Join(t.TempDir(), "motley")
 	commandOutput(t, "go", "build", "-o", bin, ".")
 	return bin
 }
 func TestFinishAndResume(t *testing.T) {
 	bin := buildLifecycleBinary(t)
 	t.Run("retire checks force and archive", func(t *testing.T) {
-		f := newMinionFixture(t, bin, "main")
-		f.colony("spawn", "--repo", "api", "--branch", "feat/retire", "--detach")
+		f := newMemberFixture(t, bin, "main")
+		f.motley("spawn", "--repo", "api", "--branch", "feat/retire", "--detach")
 		id := "feat-retire"
 		m := f.manifest(id)
 		writeFixture(t, filepath.Join(m.Worktree, "dirty.txt"), "unfinished", 0600)
 		if out := f.refused("retire", id); !strings.Contains(out, "uncommitted") {
 			t.Fatal(out)
 		}
-		assertListState(t, f.colony("ls"), id, "alive")
+		assertListState(t, f.motley("ls"), id, "alive")
 		f.git(m.Worktree, "add", "dirty.txt")
 		f.git(m.Worktree, "commit", "-m", "Unpushed work")
 		if out := f.refused("retire", id); !strings.Contains(out, "1 commits") {
@@ -55,21 +55,21 @@ func TestFinishAndResume(t *testing.T) {
 		if out := f.refused("retire", id); !strings.Contains(out, "no upstream") {
 			t.Fatal(out)
 		}
-		dir := filepath.Join(f.state, "colony/minions")
+		dir := filepath.Join(f.state, "motley/members")
 		events := "{\"schema\":1,\"agent\":\"claude\",\"agent_session_id\":\"recorded\"}\n"
 		prompt := "<!-- schema = 1 -->\nOriginal prompt\n"
 		writeFixture(t, filepath.Join(dir, id+".events.jsonl"), events, 0600)
 		writeFixture(t, filepath.Join(dir, id+".prompt.md"), prompt, 0600)
 		f.git(f.repo, "worktree", "lock", m.Worktree)
-		f.colony("retire", id, "--force")
+		f.motley("retire", id, "--force")
 		if _, err := os.Stat(m.Worktree); !os.IsNotExist(err) {
 			t.Fatal("worktree not removed", err)
 		}
 		if strings.Contains(f.git(f.repo, "worktree", "list", "--porcelain"), m.Worktree) {
 			t.Fatal("worktree still registered")
 		}
-		if strings.Contains(f.colony("ls"), id) {
-			t.Fatal("retired minion still active")
+		if strings.Contains(f.motley("ls"), id) {
+			t.Fatal("retired member still active")
 		}
 		if _, err := exec.Command("git", "-C", f.repo, "show-ref", "--verify", "refs/heads/"+m.Branch).Output(); err == nil {
 			t.Fatal("local branch survived")
@@ -77,7 +77,7 @@ func TestFinishAndResume(t *testing.T) {
 		if f.git(f.remote, "rev-parse", "refs/heads/"+m.Branch) == "" {
 			t.Fatal("remote branch deleted")
 		}
-		archived, err := minion.Load(filepath.Join(dir, "archive"), id)
+		archived, err := member.Load(filepath.Join(dir, "archive"), id)
 		if err != nil || archived.RetiredAt == nil || archived.RetiredAt.Before(m.CreatedAt) {
 			t.Fatal("missing retirement timestamp", err)
 		}
@@ -93,10 +93,10 @@ func TestFinishAndResume(t *testing.T) {
 		f.refused("revive", id)
 	})
 	t.Run("Claude resume and fresh other agents", func(t *testing.T) {
-		f := newMinionFixture(t, bin, "main")
+		f := newMemberFixture(t, bin, "main")
 		for _, agent := range []string{"claude", "codex", "opencode"} {
 			id := "feat-" + agent
-			f.colony("spawn", "--repo", "api", "--branch", "feat/"+agent, "--agent", agent, "--detach")
+			f.motley("spawn", "--repo", "api", "--branch", "feat/"+agent, "--agent", agent, "--detach")
 			marker := filepath.Join(f.home, "agent-"+id+".txt")
 			eventually(t, func() bool { _, err := os.Stat(marker); return err == nil })
 			m := f.manifest(id)
@@ -104,11 +104,11 @@ func TestFinishAndResume(t *testing.T) {
 			f.tmux("kill-session", "-t", "="+id)
 			sessionID := "11111111-1111-4111-8111-111111111111"
 			log := fmt.Sprintf("{\"schema\":1,\"agent\":%q,\"agent_session_id\":%q}\n", agent, sessionID) + strings.Repeat("{\"schema\":1,\"event\":\"Notification\"}\n", 2500)
-			writeFixture(t, filepath.Join(f.state, "colony/minions", id+".events.jsonl"), log, 0600)
+			writeFixture(t, filepath.Join(f.state, "motley/members", id+".events.jsonl"), log, 0600)
 			receipt := filepath.Join(f.home, "resume-"+id)
 			agentPath := filepath.Join(f.home, "fake agents", agent)
 			writeFixture(t, agentPath, "#!/bin/sh\nprintf '%s\\n' \"$#\" \"$@\" > "+quoteShell(receipt)+"\n", 0755)
-			f.colony("revive", id)
+			f.motley("revive", id)
 			eventually(t, func() bool { _, err := os.Stat(receipt); return err == nil })
 			got, err := os.ReadFile(receipt)
 			if err != nil {
@@ -121,20 +121,20 @@ func TestFinishAndResume(t *testing.T) {
 			} else if strings.TrimSpace(string(got)) != "0" {
 				t.Fatalf("%s must start fresh: %q", agent, got)
 			}
-			assertListState(t, f.colony("ls"), id, "alive")
+			assertListState(t, f.motley("ls"), id, "alive")
 			if after := f.manifest(id); after.CreatedAt != m.CreatedAt {
 				t.Fatal("revive rewrote manifest")
 			}
 			f.tmux("kill-session", "-t", "="+id)
-			if err := os.Remove(filepath.Join(f.state, "colony/minions", id+".events.jsonl")); err != nil {
+			if err := os.Remove(filepath.Join(f.state, "motley/members", id+".events.jsonl")); err != nil {
 				t.Fatal(err)
 			}
 			if err := os.Remove(receipt); err != nil {
 				t.Fatal(err)
 			}
-			f.colony("revive", id)
+			f.motley("revive", id)
 			eventually(t, func() bool { data, _ := os.ReadFile(receipt); return strings.TrimSpace(string(data)) == "0" })
-			f.colony("retire", id, "--keep-branch")
+			f.motley("retire", id, "--keep-branch")
 			f.git(f.repo, "show-ref", "--verify", "refs/heads/"+m.Branch)
 		}
 	})
@@ -143,7 +143,7 @@ func TestFinishAndResume(t *testing.T) {
 func TestAdoptAndRetireSafeguards(t *testing.T) {
 	bin := buildLifecycleBinary(t)
 	t.Run("adopt linked worktree and protected branch", func(t *testing.T) {
-		f := newMinionFixture(t, bin, "main")
+		f := newMemberFixture(t, bin, "main")
 		path := filepath.Join(f.trees, "manual")
 		f.git(f.repo, "worktree", "add", "-b", "develop", path, "main")
 		f.tmux("new-session", "-d", "-s", "manual", "-c", path, "/bin/sh")
@@ -161,10 +161,10 @@ func TestAdoptAndRetireSafeguards(t *testing.T) {
 		if m.Branch != "develop" || m.Agent != "claude" || m.Ticket != "42" {
 			t.Fatalf("adopted manifest: %+v", m)
 		}
-		if got := f.tmux("display-message", "-p", "-t", "="+id+":", "#{@colony_minion}|#{@colony_agent}"); got != id+"|claude" {
+		if got := f.tmux("display-message", "-p", "-t", "="+id+":", "#{@motley_member}|#{@motley_agent}"); got != id+"|claude" {
 			t.Fatal(got)
 		}
-		if got := f.tmux("show-environment", "-t", "="+id, "COLONY_MINION"); got != "COLONY_MINION="+id {
+		if got := f.tmux("show-environment", "-t", "="+id, "MOTLEY_MEMBER"); got != "MOTLEY_MEMBER="+id {
 			t.Fatal(got)
 		}
 		cmd = exec.Command(bin, "adopt")
@@ -176,7 +176,7 @@ func TestAdoptAndRetireSafeguards(t *testing.T) {
 			t.Fatal("self-retirement should refuse", out)
 		}
 		t.Setenv("TMUX_PANE", originalPane)
-		f.colony("retire", id)
+		f.motley("retire", id)
 		f.git(f.repo, "show-ref", "--verify", "refs/heads/develop")
 		cmd = exec.Command(bin, "adopt")
 		cmd.Dir = f.repo
@@ -185,15 +185,15 @@ func TestAdoptAndRetireSafeguards(t *testing.T) {
 		}
 	})
 	t.Run("force cannot remove changed ownership", func(t *testing.T) {
-		f := newMinionFixture(t, bin, "main")
-		f.colony("spawn", "--repo", "api", "--branch", "feat/guard", "--detach")
+		f := newMemberFixture(t, bin, "main")
+		f.motley("spawn", "--repo", "api", "--branch", "feat/guard", "--detach")
 		id := "feat-guard"
 		m := f.manifest(id)
 		f.git(m.Worktree, "checkout", "-b", "different")
 		if out := f.refused("retire", id, "--force"); !strings.Contains(out, "identity changed") {
 			t.Fatal(out)
 		}
-		assertListState(t, f.colony("ls"), id, "alive")
+		assertListState(t, f.motley("ls"), id, "alive")
 		f.git(m.Worktree, "checkout", m.Branch)
 		// A malformed manifest must never authorize removal of the main checkout.
 		m.Worktree = m.RepoPath
@@ -201,7 +201,7 @@ func TestAdoptAndRetireSafeguards(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		writeFixture(t, filepath.Join(f.state, "colony/minions", id+".toml"), string(data), 0600)
+		writeFixture(t, filepath.Join(f.state, "motley/members", id+".toml"), string(data), 0600)
 		if out := f.refused("retire", id, "--force"); !strings.Contains(out, "main worktree") {
 			t.Fatal(out)
 		}
@@ -210,8 +210,8 @@ func TestAdoptAndRetireSafeguards(t *testing.T) {
 		}
 	})
 	t.Run("fallback verification and retry", func(t *testing.T) {
-		f := newMinionFixture(t, bin, "main")
-		f.colony("spawn", "--repo", "api", "--branch", "feat/fallback", "--detach")
+		f := newMemberFixture(t, bin, "main")
+		f.motley("spawn", "--repo", "api", "--branch", "feat/fallback", "--detach")
 		id := "feat-fallback"
 		m := f.manifest(id)
 		f.git(f.repo, "worktree", "lock", m.Worktree)
@@ -231,16 +231,16 @@ func TestAdoptAndRetireSafeguards(t *testing.T) {
 			t.Fatal("fallback did not remove directory", err)
 		}
 		f.git(f.repo, "show-ref", "--verify", "refs/heads/"+m.Branch)
-		assertListState(t, f.colony("ls"), id, "dead")
+		assertListState(t, f.motley("ls"), id, "dead")
 		t.Setenv("PATH", originalPath)
-		f.colony("retire", id)
+		f.motley("retire", id)
 		if strings.Contains(f.git(f.repo, "worktree", "list", "--porcelain"), "feat-fallback") {
 			t.Fatal("retry did not prune registration")
 		}
 	})
 	t.Run("retry cleanup with missing worktree and reused archive id", func(t *testing.T) {
-		f := newMinionFixture(t, bin, "main")
-		f.colony("spawn", "--repo", "api", "--branch", "feat/retry", "--detach")
+		f := newMemberFixture(t, bin, "main")
+		f.motley("spawn", "--repo", "api", "--branch", "feat/retry", "--detach")
 		id := "feat-retry"
 		m := f.manifest(id)
 		f.tmux("kill-session", "-t", "="+id)
@@ -248,9 +248,9 @@ func TestAdoptAndRetireSafeguards(t *testing.T) {
 		if out := f.refused("revive", id); !strings.Contains(out, "missing") {
 			t.Fatal(out)
 		}
-		archive := filepath.Join(f.state, "colony/minions/archive", id+".toml")
+		archive := filepath.Join(f.state, "motley/members/archive", id+".toml")
 		writeFixture(t, archive, "schema = 1\n# previous retirement\n", 0600)
-		f.colony("retire", id)
+		f.motley("retire", id)
 		data, err := os.ReadFile(archive)
 		if err != nil || !strings.Contains(string(data), "previous retirement") {
 			t.Fatal("archive overwritten")
@@ -264,8 +264,8 @@ func TestAdoptAndRetireSafeguards(t *testing.T) {
 
 func TestLifecycleTUI(t *testing.T) {
 	bin := buildLifecycleBinary(t)
-	f := newMinionFixture(t, bin, "main")
-	f.colony("spawn", "--repo", "api", "--branch", "feat/dialog", "--detach")
+	f := newMemberFixture(t, bin, "main")
+	f.motley("spawn", "--repo", "api", "--branch", "feat/dialog", "--detach")
 	id := "feat-dialog"
 	m := f.manifest(id)
 	f.tmux("kill-session", "-t", "="+id)
@@ -273,13 +273,13 @@ func TestLifecycleTUI(t *testing.T) {
 	eventually(t, func() bool { return strings.Contains(terminal.text(), "dialog") })
 	terminal.send(t, "r")
 	eventually(t, func() bool { return strings.Contains(terminal.text(), "Revived "+id) })
-	assertListState(t, f.colony("ls"), id, "alive")
+	assertListState(t, f.motley("ls"), id, "alive")
 	writeFixture(t, filepath.Join(m.Worktree, "dirty.txt"), "unfinished", 0600)
 	terminal.send(t, "x")
 	eventually(t, func() bool { return strings.Contains(terminal.text(), "Dirty/untracked files: YES") })
 	terminal.send(t, "y")
 	eventually(t, func() bool { return strings.Contains(terminal.text(), "Work would be discarded") })
-	assertListState(t, f.colony("ls"), id, "alive")
+	assertListState(t, f.motley("ls"), id, "alive")
 	terminal.send(t, "f")
 	// Wait for the explicit force toggle to render before confirming.
 	eventually(t, func() bool { return strings.Contains(terminal.text(), "Force: true") })

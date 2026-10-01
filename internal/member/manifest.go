@@ -1,5 +1,5 @@
-// Package minion manages coding sessions and their manifests.
-package minion
+// Package member manages coding sessions and their manifests.
+package member
 
 import (
 	"fmt"
@@ -10,11 +10,12 @@ import (
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/thomashartm/colony/internal/state"
-	"github.com/thomashartm/colony/internal/tmux"
+	"github.com/thomashartm/motley/internal/state"
+	"github.com/thomashartm/motley/internal/tmux"
 )
 
 type Manifest struct {
+	Prompt    bool       `toml:"prompt,omitempty"`
 	Blueprint string     `toml:"blueprint,omitempty"`
 	AgentArgs []string   `toml:"agent_args,omitempty"`
 	Schema    int        `toml:"schema"`
@@ -38,7 +39,7 @@ var validID = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
 func CheckID(id string) error {
 	if !validID.MatchString(id) {
-		return fmt.Errorf("invalid minion id %q; use letters, digits, dots, underscores or hyphens, starting with a letter or digit", id)
+		return fmt.Errorf("invalid member id %q; use letters, digits, dots, underscores or hyphens, starting with a letter or digit", id)
 	}
 	return nil
 }
@@ -50,7 +51,7 @@ func Load(dir, id string) (Manifest, error) {
 	path := filepath.Join(dir, id+".toml")
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return Manifest{}, fmt.Errorf("read minion %s: %w", id, err)
+		return Manifest{}, fmt.Errorf("read member %s: %w", id, err)
 	}
 	m := Manifest{Schema: 1}
 	if err := toml.Unmarshal(data, &m); err != nil {
@@ -103,7 +104,7 @@ func (r Row) CurrentStatus() string {
 }
 
 func List() ([]Row, error) {
-	dir, err := state.MinionsDir()
+	dir, err := state.MembersDir()
 	if err != nil {
 		return nil, err
 	}
@@ -132,10 +133,10 @@ func RequireLive(id string) error {
 	for _, row := range rows {
 		if row.ID == id {
 			if !row.Alive {
-				return fmt.Errorf("minion %s is dead: its tmux session is not running", id)
+				return fmt.Errorf("member %s is dead: its tmux session is not running", id)
 			}
 			return nil
 		}
 	}
-	return fmt.Errorf("minion %q not found", id)
+	return fmt.Errorf("member %q not found", id)
 }

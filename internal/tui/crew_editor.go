@@ -6,9 +6,9 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/thomashartm/colony/internal/crew"
-	"github.com/thomashartm/colony/internal/minion"
-	"github.com/thomashartm/colony/internal/palette"
+	"github.com/thomashartm/motley/internal/crew"
+	"github.com/thomashartm/motley/internal/member"
+	"github.com/thomashartm/motley/internal/palette"
 )
 
 type identityEditor struct {
@@ -38,14 +38,14 @@ func newEditor(kind, id string, labels, values []string) *identityEditor {
 	}
 	return e
 }
-func (m Model) editMinion() (tea.Model, tea.Cmd) {
+func (m Model) editMember() (tea.Model, tea.Cmd) {
 	if m.selectedID() == "" {
-		m.message = "Select a minion, or Tab into the crew's members."
+		m.message = "Select a member, or Tab into the crew's members."
 		return m, nil
 	}
 	r := m.selectedRow()
 	m.message = ""
-	m.editor = newEditor("minion", r.ID, []string{"Name", "Ticket", "Crew id (empty = none)", "Colour (empty = inherit)"}, []string{r.Name, r.Ticket, r.Crew, r.Color})
+	m.editor = newEditor("member", r.ID, []string{"Name", "Ticket", "Crew id (empty = none)", "Colour (empty = inherit)"}, []string{r.Name, r.Ticket, r.Crew, r.Color})
 	return m, textinput.Blink
 }
 func (m Model) updateManager(key string) (tea.Model, tea.Cmd) {
@@ -58,7 +58,7 @@ func (m Model) updateManager(key string) (tea.Model, tea.Cmd) {
 		m.managerCursor = max(0, m.managerCursor-1)
 	case "a":
 		m.message = ""
-		m.editor = newEditor("add", "", []string{"Title", "URL (optional)", "Colour (empty = automatic)"}, []string{"", "", ""})
+		m.editor = newEditor("add", "", []string{"Title", "URL (optional)", "Colour (empty = automatic)", "Gig (optional)"}, []string{"", "", "", ""})
 		return m, textinput.Blink
 	case "e", "c", "x":
 		m.message = ""
@@ -80,7 +80,7 @@ func (m Model) updateManager(key string) (tea.Model, tea.Cmd) {
 			m.busy = true
 			m.busyText = "Recolouring…"
 			return m, func() tea.Msg {
-				err := minion.EditCrew(c.ID, minion.CrewEdit{Color: &color})
+				err := member.EditCrew(c.ID, member.CrewEdit{Color: &color})
 				crews, loadErr := crew.Load()
 				if err == nil {
 					err = loadErr
@@ -88,7 +88,7 @@ func (m Model) updateManager(key string) (tea.Model, tea.Cmd) {
 				return identitySaved{crews: crews, err: err}
 			}
 		}
-		m.editor = newEditor("crew", c.ID, []string{"Title", "URL (optional)", "Colour"}, []string{c.Title, c.URL, c.Color})
+		m.editor = newEditor("crew", c.ID, []string{"Title", "URL (optional)", "Colour", "Gig (optional)"}, []string{c.Title, c.URL, c.Color, c.Gig})
 		return m, textinput.Blink
 	}
 	return m, nil
@@ -119,7 +119,10 @@ func (m Model) updateEditor(msg tea.Msg) (tea.Model, tea.Cmd) {
 				e.force = !e.force
 				return m, nil
 			}
-		case "ctrl+s", "y":
+		case "enter", "ctrl+s", "y":
+			if key.String() == "enter" && e.kind != "reply" {
+				break
+			}
 			if key.String() == "y" && e.kind != "delete" {
 				break
 			}
@@ -129,16 +132,18 @@ func (m Model) updateEditor(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, func() tea.Msg {
 				var err error
 				switch e.kind {
+				case "reply":
+					err = member.Reply(e.id, e.fields[0].Value())
 				case "add":
-					_, err = minion.AddCrew(e.fields[0].Value(), e.fields[1].Value(), e.fields[2].Value())
+					_, err = member.AddCrew(e.fields[0].Value(), e.fields[1].Value(), e.fields[2].Value(), e.fields[3].Value())
 				case "crew":
-					a, b, c := e.fields[0].Value(), e.fields[1].Value(), e.fields[2].Value()
-					err = minion.EditCrew(e.id, minion.CrewEdit{Title: &a, URL: &b, Color: &c})
-				case "minion":
 					a, b, c, d := e.fields[0].Value(), e.fields[1].Value(), e.fields[2].Value(), e.fields[3].Value()
-					err = minion.EditIdentity(e.id, minion.IdentityEdit{Name: &a, Ticket: &b, Crew: &c, Color: &d})
+					err = member.EditCrew(e.id, member.CrewEdit{Title: &a, URL: &b, Color: &c, Gig: &d})
+				case "member":
+					a, b, c, d := e.fields[0].Value(), e.fields[1].Value(), e.fields[2].Value(), e.fields[3].Value()
+					err = member.EditIdentity(e.id, member.IdentityEdit{Name: &a, Ticket: &b, Crew: &c, Color: &d})
 				case "delete":
-					err = minion.RemoveCrew(e.id, e.force)
+					err = member.RemoveCrew(e.id, e.force)
 				}
 				crews, loadErr := crew.Load()
 				if err == nil {

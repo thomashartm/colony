@@ -6,18 +6,18 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/thomashartm/colony/internal/minion"
+	"github.com/thomashartm/motley/internal/member"
 )
 
 func TestRetireDialogRequiresConfirmationAndExplicitForce(t *testing.T) {
 	m := update(newModel(false, true, "client", nil), tea.WindowSizeMsg{Width: 100, Height: 25})
-	m = update(m, snapshot{rows: []minion.Row{row("a", true), row("b", false)}})
+	m = update(m, snapshot{rows: []member.Row{row("a", true), row("b", false)}})
 	next, cmd := m.Update(key("x"))
 	m = next.(Model)
 	if cmd == nil || !m.busy || m.retiring == nil {
 		t.Fatal("x did not start prechecks")
 	}
-	m = update(m, retireChecked{id: "a", check: minion.RetireCheck{Manifest: m.rows[0].Manifest, Dirty: true, Ahead: 2}})
+	m = update(m, retireChecked{id: "a", check: member.RetireCheck{Manifest: m.rows[0].Manifest, Dirty: true, Ahead: 2}})
 	next, cmd = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	m = next.(Model)
 	if cmd != nil || m.busy || !strings.Contains(m.message, "discarded") {
@@ -41,10 +41,10 @@ func TestRetireDialogRequiresConfirmationAndExplicitForce(t *testing.T) {
 	}
 }
 func TestReviveOnlyDeadAndLifecycleFailure(t *testing.T) {
-	m := update(newModel(false, true, "client", nil), snapshot{rows: []minion.Row{row("a", true), row("b", false)}})
+	m := update(newModel(false, true, "client", nil), snapshot{rows: []member.Row{row("a", true), row("b", false)}})
 	next, cmd := m.Update(key("r"))
 	m = next.(Model)
-	if cmd != nil || !strings.Contains(m.message, "dead minion") {
+	if cmd != nil || !strings.Contains(m.message, "dead member") {
 		t.Fatal("live revive not refused")
 	}
 	m = update(m, key("j"))

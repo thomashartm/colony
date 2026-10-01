@@ -1,9 +1,20 @@
-# schema = 1 (colony tooling configuration)
+# schema = 1 (motley tooling configuration)
 version: 2
-project_name: colony
+project_name: motley
 builds:
-  - main: ./cmd/colony
-    binary: colony
+  - id: motley
+    main: ./cmd/motley
+    binary: motley
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+  - id: mtly
+    main: ./cmd/motley
+    binary: mtly
     env:
       - CGO_ENABLED=0
     goos: [darwin, linux]
@@ -16,12 +27,11 @@ archives:
     files:
       - LICENSE
       - README.md
-      - colony-logo.png
       - config.example.toml
       - examples/blueprints/*.md
 checksum:
   name_template: checksums.txt
 snapshot:
-  version_template: "0.6.0-dev-{{ .ShortCommit }}"
+  version_template: "0.7.0-dev-{{ .ShortCommit }}"
 changelog:
   disable: true

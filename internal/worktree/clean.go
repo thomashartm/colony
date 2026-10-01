@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/thomashartm/colony/internal/gitx"
+	"github.com/thomashartm/motley/internal/gitx"
 )
 
 func Protected(branch string) bool {

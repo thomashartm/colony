@@ -8,9 +8,9 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/thomashartm/colony/internal/gitx"
-	"github.com/thomashartm/colony/internal/minion"
-	"github.com/thomashartm/colony/internal/state"
+	"github.com/thomashartm/motley/internal/gitx"
+	"github.com/thomashartm/motley/internal/member"
+	"github.com/thomashartm/motley/internal/state"
 )
 
 type detailMsg struct {
@@ -30,7 +30,7 @@ type detailCache struct {
 	readyKey string
 }
 
-func (c *detailCache) command(row minion.Row, seq uint64, force bool) tea.Cmd {
+func (c *detailCache) command(row member.Row, seq uint64, force bool) tea.Cmd {
 	return func() tea.Msg {
 		c.mu.Lock()
 		defer c.mu.Unlock()

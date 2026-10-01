@@ -1,4 +1,4 @@
-// Package tui implements colony's terminal overview.
+// Package tui implements motley's terminal overview.
 package tui
 
 import (
@@ -9,19 +9,21 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/thomashartm/colony/internal/crew"
-	"github.com/thomashartm/colony/internal/minion"
-	"github.com/thomashartm/colony/internal/state"
-	"github.com/thomashartm/colony/internal/tmux"
+	"github.com/thomashartm/motley/internal/config"
+	"github.com/thomashartm/motley/internal/crew"
+	"github.com/thomashartm/motley/internal/member"
+	"github.com/thomashartm/motley/internal/state"
+	"github.com/thomashartm/motley/internal/tmux"
 )
 
 type snapshot struct {
 	crews   []crew.Crew
-	rows    []minion.Row
+	rows    []member.Row
 	clients []tmux.Client
 	err     error
 }
@@ -32,6 +34,15 @@ type actionDone struct {
 }
 
 type Model struct {
+	allRows          []member.Row
+	query            textinput.Model
+	searching        bool
+	pickMode, sendID string
+	spawn            *spawnForm
+	spawnCfg         config.Config
+	sendMsg          func(tea.Msg)
+	focusID          string
+
 	crews                             []crew.Crew
 	group                             string
 	crewCursor, tableCursor           int
@@ -40,7 +51,7 @@ type Model struct {
 	manager                           bool
 	managerCursor                     int
 	editor                            *identityEditor
-	rows                              []minion.Row
+	rows                              []member.Row
 	clients                           []tmux.Client
 	selected, width, height           int
 	detail                            viewport.Model
@@ -51,7 +62,7 @@ type Model struct {
 	choices                           []tmux.Client
 	choice                            int
 	poll                              tea.Cmd
-	fetchDetail                       func(minion.Row, uint64, bool) tea.Cmd
+	fetchDetail                       func(member.Row, uint64, bool) tea.Cmd
 	detailSeq                         uint64
 	event                             state.Event
 	gitDetail                         string
@@ -61,7 +72,10 @@ type Model struct {
 }
 
 func newModel(monitor, inside bool, client string, poll tea.Cmd) Model {
-	return Model{monitor: monitor, inside: inside, client: client, poll: poll, detail: viewport.New(1, 1)}
+	q := textinput.New()
+	q.Prompt = "/"
+	q.CharLimit = 128
+	return Model{query: q, monitor: monitor, inside: inside, client: client, poll: poll, detail: viewport.New(1, 1)}
 }
 
 func (m Model) Init() tea.Cmd { return m.poll }
@@ -69,6 +83,8 @@ func nextPoll() tea.Cmd       { return tea.Tick(time.Second, func(time.Time) tea
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case spawnLoaded, spawnPrepared, spawnProgress, spawnFinished, promptEdited:
+		return m.spawnMessage(msg)
 	case tick:
 		return m, m.poll
 	case snapshot:
@@ -79,8 +95,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.pollError = ""
 		id := m.selectedID()
 		crewKey := m.currentEntry().key()
-		old := make(map[string]minion.Row, len(m.rows))
-		for _, r := range m.rows {
+		old := make(map[string]member.Row, len(m.rows))
+		for _, r := range m.allRows {
 			old[r.ID] = r
 		}
 		ring := false
@@ -94,7 +110,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
-		m.rows, m.clients, m.loaded = msg.rows, msg.clients, true
+		m.allRows, m.clients, m.loaded = msg.rows, msg.clients, true
+		m.rows = nil
+		for _, r := range msg.rows {
+			if match(m.query.Value(), strings.Join([]string{r.ID, r.Name, r.Ticket, r.Repo, r.Branch}, " ")) {
+				m.rows = append(m.rows, r)
+			}
+		}
 		m.crews = msg.crews
 		m.sortRows()
 		for i, row := range m.rows {
@@ -108,6 +130,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.restoreCrewSelection(crewKey, id)
 		}
 		m.managerCursor = max(0, min(m.managerCursor, len(m.crews)-1))
+		if m.focusID != "" {
+			for i, r := range m.rows {
+				if r.ID == m.focusID {
+					m.selected = i
+					m.focusID = ""
+					break
+				}
+			}
+		}
 		m.updateDetail()
 		cmd := m.requestDetail(id != m.selectedID())
 		var bell tea.Cmd
@@ -126,6 +157,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		m.detail.Width, m.detail.Height = m.detailWidth(), max(1, m.height-5)
+		if m.spawn != nil && m.spawn.step == previewStep {
+			m.spawn.preview.Width = m.detailWidth()
+			m.spawn.preview.Height = max(1, m.height-9)
+			m.spawn.preview.SetContent(ansi.Hardwrap(multiline(m.spawn.plan.Prompt), m.detailWidth(), true))
+		}
 		m.updateDetail()
 	case identitySaved:
 		crewKey, id := m.currentEntry().key(), m.selectedID()
@@ -137,8 +173,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.message = msg.err.Error()
 		} else {
-			m.editor = nil
 			m.message = "Saved"
+			if m.editor != nil && m.editor.kind == "reply" {
+				m.message = "Reply sent"
+			}
+			m.editor = nil
 		}
 		if msg.crews != nil || msg.err == nil {
 			m.crews = msg.crews
@@ -177,6 +216,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		key := msg.String()
+		if m.spawn != nil {
+			return m.updateSpawn(msg)
+		}
+		if m.searching {
+			return m.updateFilter(msg)
+		}
 		if m.editor != nil {
 			return m.updateEditor(msg)
 		}
@@ -187,18 +232,39 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateRetire(key)
 		}
 		if m.picking {
+			if m.pickMode == "send" {
+				return m.updateSendPicker(key)
+			}
 			return m.updatePicker(key)
+		}
+		if key == "esc" && m.query.Value() != "" && (m.group != "crew" || !m.tableFocus) {
+			m.query.SetValue("")
+			m.applyFilter()
+			return m, m.requestDetail(true)
 		}
 		if next, cmd, handled := m.groupingKey(key); handled {
 			return next, cmd
 		}
 		switch key {
+		case "s":
+			return m.beginSpawn()
+		case "i":
+			return m.beginReply()
+		case "t":
+			return m.beginSend()
+		case "/":
+			m.searching = true
+			return m, m.query.Focus()
+		case "esc":
+			m.query.SetValue("")
+			m.applyFilter()
+			return m, m.requestDetail(true)
 		case "G":
 			m.manager = true
 			m.managerCursor = 0
 			return m, nil
 		case "e":
-			return m.editMinion()
+			return m.editMember()
 		case "q", "ctrl+c":
 			if !m.monitor {
 				return m, tea.Quit
@@ -226,6 +292,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.beginRevive()
 		case "T":
 			if m.monitor {
+				m.pickMode = "pin"
 				m.choices, m.choice, m.picking = workClients(m.clients), 0, true
 				for i, c := range m.choices {
 					if c.Name == m.pinned {
@@ -241,6 +308,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.alert = false
 			return m, m.requestDetail(true)
 		}
+	}
+	if m.spawn != nil && !m.busy {
+		return m.updateSpawn(msg)
+	}
+	if m.searching {
+		return m.updateFilter(msg)
 	}
 	if m.editor != nil && !m.busy {
 		return m.updateEditor(msg)
@@ -314,7 +387,7 @@ func WorkClient(clients []tmux.Client, pinned string) (tmux.Client, error) {
 		return tmux.Client{}, fmt.Errorf("pinned work tab is unavailable; press T to choose a work tab")
 	}
 	if len(work) == 0 {
-		return tmux.Client{}, fmt.Errorf("open another tab and run colony attach <id> to use it as the work tab")
+		return tmux.Client{}, fmt.Errorf("open another tab and run motley attach <id> to use it as the work tab")
 	}
 	return work[0], nil
 }
@@ -324,7 +397,7 @@ func (m Model) jump() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if !m.selectedRow().Alive {
-		m.message = "This minion is dead; its tmux session is not running."
+		m.message = "This member is dead; its tmux session is not running."
 		return m, nil
 	}
 	if !m.inside && !m.monitor {
@@ -406,7 +479,7 @@ func field(label, value string) string {
 }
 func (m *Model) updateDetail() {
 	if m.selectedID() == "" {
-		m.detail.SetContent("Select a minion to see its details.")
+		m.detail.SetContent("Select a member to see its details.")
 		return
 	}
 	r := m.selectedRow()
@@ -421,10 +494,14 @@ func (m *Model) updateDetail() {
 	if r.Blueprint != "" {
 		blueprintInfo = "\n" + field("Blueprint", r.Blueprint)
 	}
+	gigInfo := ""
+	if c := m.crewFor(r.Crew); c.Gig != "" {
+		gigInfo = "\n" + field("Gig", c.Gig)
+	}
 	body := strings.Join([]string{
-		colored("▌ "+clean(r.Name), minion.Color(r.Manifest, m.crews)), "", field("ID", r.ID), field("Status", status+" · "+since(r)), field("Ticket", r.Ticket),
+		colored("▌ "+clean(r.Name), member.Color(r.Manifest, m.crews)), "", field("ID", r.ID), field("Status", status+" · "+since(r)), field("Ticket", r.Ticket),
 		field("Repo", r.Repo), field("Branch", r.Branch), field("Base", r.Base), field("Agent", r.Agent) + " · " + coloredBadge(r.Agent),
-		"Crew  " + m.crewLabel(r.Crew) + blueprintInfo,
+		"Crew  " + m.crewLabel(r.Crew) + gigInfo + blueprintInfo,
 		"", field("Worktree", r.Worktree), field("Main repo", r.RepoPath), field("Remote", r.RemoteURL),
 		field("Created", r.CreatedAt.Local().Format("2006-01-02 15:04 MST")), field("Tabs", strings.Join(clients, ", ")),
 	}, "\n")
@@ -452,10 +529,10 @@ func (m *Model) updateDetail() {
 
 func (m Model) View() string {
 	if m.width == 0 {
-		return "Loading colony…"
+		return "Loading motley…"
 	}
 	if m.width < 60 || m.height < 10 {
-		return "colony needs a terminal of at least 60 × 10.\nResize the terminal; q to quit."
+		return "motley needs a terminal of at least 60 × 10.\nResize the terminal; q to quit."
 	}
 	alive := 0
 	for _, row := range m.rows {
@@ -463,10 +540,10 @@ func (m Model) View() string {
 			alive++
 		}
 	}
-	header := fmt.Sprintf(" colony  %d alive · %d dead", alive, len(m.rows)-alive)
+	header := fmt.Sprintf(" motley  %d alive · %d dead", alive, len(m.rows)-alive)
 	header += "  " + totals(m.rows)
 	if m.monitor {
-		header = fmt.Sprintf(" colony monitor  %d alive · %d dead", alive, len(m.rows)-alive)
+		header = fmt.Sprintf(" motley monitor  %d alive · %d dead", alive, len(m.rows)-alive)
 		header += "  " + totals(m.rows)
 		if m.alert {
 			header += "  ! NEW ATTENTION"
@@ -498,6 +575,9 @@ func (m Model) View() string {
 	if m.editor != nil {
 		right = m.editorView(height)
 	}
+	if m.spawn != nil {
+		right = m.spawnView(height)
+	}
 	border := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("8"))
 	left := border.Width(width).Height(height).Render(list)
 	detail := border.Width(m.detailWidth()).Height(height).Render(right)
@@ -514,9 +594,9 @@ func (m Model) View() string {
 	if !m.loaded && message == "" {
 		message = "Loading…"
 	}
-	keys := " ↑↓/jk select  enter jump  x retire  r revive  e edit  g group  G crews  pgup/pgdn detail  q quit"
+	keys := " ↑↓/jk  enter jump  s spawn  i reply  t tab  / filter  g group  G crews  e edit  pgup/pgdn  x/r  q quit"
 	if m.monitor {
-		keys = " ↑↓/jk select  enter jump  x retire  r revive  e edit  g group  G crews  T pin  q detach"
+		keys = " ↑↓/jk  enter jump  s spawn  i reply  t tab  / filter  g group  G crews  e edit  T pin  x/r  q detach"
 	}
 	if m.group == "crew" {
 		keys = " tab members  →/space expand  ← collapse  H hidden  g group  G crews  q quit"
@@ -539,6 +619,22 @@ func (m Model) View() string {
 			keys = " y delete  f force unassign  esc cancel"
 		}
 	}
+	if m.query.Value() != "" {
+		header += "  /" + m.query.Value()
+	}
+	if m.searching {
+		message = m.query.View()
+		keys = " type to filter  enter keep  esc clear"
+	}
+	if m.spawn != nil {
+		keys = m.spawnKeys()
+	}
+	if m.editor != nil && m.editor.kind == "reply" {
+		keys = " enter send  esc cancel"
+	}
+	if m.picking && m.pickMode == "send" {
+		keys = " ↑↓/jk choose tab  enter send  esc cancel"
+	}
 	header += "  [" + m.groupName() + "]"
 	return fit(header, m.width) + "\n" + lipgloss.JoinHorizontal(lipgloss.Top, left, detail) + "\n" + fit(clean(message), m.width) + "\n" + fit(keys, m.width)
 }
@@ -547,7 +643,10 @@ func (m Model) listView(height, width int) string {
 		return m.crewList(height, width)
 	}
 	if len(m.rows) == 0 {
-		return "No minions yet.\n\ncolony spawn --help"
+		if m.query.Value() != "" {
+			return "No matches.\nEsc clears the filter."
+		}
+		return "No members yet.\n\nmotley spawn --help"
 	}
 	var lines []string
 	selectedLine := 0
@@ -561,7 +660,7 @@ func (m Model) listView(height, width int) string {
 			lines = append(lines, group)
 			last = group
 		}
-		line := m.minionLine(r, width)
+		line := m.memberLine(r, width)
 		style := lipgloss.NewStyle()
 		if i == m.selected {
 			style = style.Reverse(true)
@@ -574,10 +673,17 @@ func (m Model) listView(height, width int) string {
 }
 func (m Model) pickerView(height int) string {
 	labels := []string{"Automatic — most recently active work tab"}
+	if m.pickMode == "send" {
+		labels = nil
+	}
 	for _, c := range m.choices {
 		labels = append(labels, clean(c.Name)+" · "+clean(c.Session))
 	}
-	lines := []string{"Pin work tab", ""}
+	title := "Pin work tab"
+	if m.pickMode == "send" {
+		title = "Send " + m.sendID + " to tab"
+	}
+	lines := []string{fit(title, m.detailWidth()), ""}
 	start := max(0, m.choice-max(1, height-2)+1)
 	for i := start; i < len(labels) && len(lines) < height; i++ {
 		label := "  " + labels[i]

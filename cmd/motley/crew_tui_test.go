@@ -6,13 +6,13 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/x/ansi"
-	"github.com/thomashartm/colony/internal/crew"
+	"github.com/thomashartm/motley/internal/crew"
 )
 
 func TestCrewEditorTerminal(t *testing.T) {
 	bin := buildLifecycleBinary(t)
-	f := newMinionFixture(t, bin, "main")
-	f.colony("spawn", "--repo", "api", "--branch", "feat/crews", "--name", "Crew fixture", "--detach")
+	f := newMemberFixture(t, bin, "main")
+	f.motley("spawn", "--repo", "api", "--branch", "feat/crews", "--name", "Crew fixture", "--detach")
 	terminal := startTerminal(t, exec.Command(bin))
 	defer func() {
 		if t.Failed() {
@@ -30,14 +30,14 @@ func TestCrewEditorTerminal(t *testing.T) {
 	eventually(t, func() bool { return strings.Contains(terminal.text(), "a add") })
 	terminal.send(t, "a")
 	eventually(t, func() bool { return strings.Contains(terminal.text(), "Add crew") })
-	send("Banking\t\tblue\x13", "Saved")
+	send("Banking\t\tblue\tShip payments\x13", "Saved")
 	eventually(t, func() bool {
 		cs, err := crew.Load()
-		return err == nil && len(cs) == 1 && cs[0].ID == "banking" && cs[0].Color == "blue"
+		return err == nil && len(cs) == 1 && cs[0].ID == "banking" && cs[0].Color == "blue" && cs[0].Gig == "Ship payments"
 	})
 	eventually(t, func() bool { return strings.Contains(terminal.text(), "Saved") })
 	send("q", "g group")
-	// Select a minion's identity editor, keeping its name and ticket.
+	// Select a member's identity editor, keeping its name and ticket.
 	terminal.send(t, "e")
 	eventually(t, func() bool { return strings.Contains(terminal.text(), "Edit feat-crews") })
 	send("\t\tbanking\tyellow\x13", "Saved")
@@ -45,13 +45,13 @@ func TestCrewEditorTerminal(t *testing.T) {
 	// The terminal remains responsive and grouping displays the member table.
 	terminal.send(t, "g")
 	eventually(t, func() bool {
-		return strings.Contains(terminal.text(), "MINION") && strings.Contains(terminal.text(), "1 minions")
+		return strings.Contains(terminal.text(), "MEMBER") && strings.Contains(terminal.text(), "1 members")
 	})
 	send("G", "a add")
 	terminal.send(t, "x")
 	eventually(t, func() bool { return strings.Contains(terminal.text(), "Delete crew banking?") })
 	terminal.send(t, "y")
-	eventually(t, func() bool { return strings.Contains(terminal.text(), "referenced by 1 minions") })
+	eventually(t, func() bool { return strings.Contains(terminal.text(), "referenced by 1 members") })
 	terminal.send(t, "f")
 	eventually(t, func() bool { return strings.Contains(terminal.text(), "Force unassign: true") })
 	send("y", "Saved")

@@ -15,7 +15,7 @@ func TestInstallPreservesSettingsAndIsIdempotent(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		t.Fatal(err)
 	}
-	original := []byte(`{"permissions":{"allow":["Read"]},"custom":{"keep":true},"hooks":{"Stop":[{"matcher":"","hooks":[{"type":"command","command":"echo existing"}]}],"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"colony report --agent claude"}]}]}}`)
+	original := []byte(`{"permissions":{"allow":["Read"]},"custom":{"keep":true},"hooks":{"Stop":[{"matcher":"","hooks":[{"type":"command","command":"echo existing"}]}],"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"motley report --agent claude"}]}]}}`)
 	if err := os.WriteFile(path, original, 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +63,7 @@ func TestInstallPreservesSettingsAndIsIdempotent(t *testing.T) {
 			}
 		}
 		if count != 1 {
-			t.Fatalf("%s has %d colony hooks", event, count)
+			t.Fatalf("%s has %d motley hooks", event, count)
 		}
 	}
 	_, backup, changed, err = Install()

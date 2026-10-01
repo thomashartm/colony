@@ -1,4 +1,4 @@
-package minion
+package member
 
 import (
 	"fmt"
@@ -10,12 +10,12 @@ import (
 	"unicode"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/thomashartm/colony/internal/agents"
-	"github.com/thomashartm/colony/internal/crew"
-	"github.com/thomashartm/colony/internal/gitx"
-	"github.com/thomashartm/colony/internal/state"
-	"github.com/thomashartm/colony/internal/tmux"
-	"github.com/thomashartm/colony/internal/worktree"
+	"github.com/thomashartm/motley/internal/agents"
+	"github.com/thomashartm/motley/internal/crew"
+	"github.com/thomashartm/motley/internal/gitx"
+	"github.com/thomashartm/motley/internal/state"
+	"github.com/thomashartm/motley/internal/tmux"
+	"github.com/thomashartm/motley/internal/worktree"
 )
 
 type RetireCheck struct {
@@ -37,7 +37,7 @@ func (c RetireCheck) Risks() []string {
 }
 
 func InspectRetire(id string) (RetireCheck, error) {
-	dir, err := state.MinionsDir()
+	dir, err := state.MembersDir()
 	if err != nil {
 		return RetireCheck{}, err
 	}
@@ -95,7 +95,7 @@ func inspectRetire(m Manifest, checkChanges bool) (RetireCheck, error) {
 		if !exists {
 			return c, nil
 		}
-		return c, fmt.Errorf("minion branch %q is missing", m.Branch)
+		return c, fmt.Errorf("member branch %q is missing", m.Branch)
 	}
 	upstream := ""
 	if m.Branch != "" {
@@ -115,7 +115,7 @@ func inspectRetire(m Manifest, checkChanges bool) (RetireCheck, error) {
 }
 
 func Retire(id string, force, keepBranch bool) error {
-	dir, err := state.MinionsDir()
+	dir, err := state.MembersDir()
 	if err != nil {
 		return err
 	}
@@ -142,8 +142,8 @@ func Retire(id string, force, keepBranch bool) error {
 	live := false
 	for _, s := range sessions {
 		if s.Name == tmux.SessionName(id) {
-			if s.MinionID != id {
-				return fmt.Errorf("session %s is not owned by this minion", s.Name)
+			if s.MemberID != id {
+				return fmt.Errorf("session %s is not owned by this member", s.Name)
 			}
 			live = true
 		}
@@ -219,7 +219,7 @@ func archive(dir string, m Manifest) error {
 }
 
 func Revive(id string) error {
-	dir, err := state.MinionsDir()
+	dir, err := state.MembersDir()
 	if err != nil {
 		return err
 	}
@@ -238,7 +238,7 @@ func Revive(id string) error {
 	}
 	for _, s := range sessions {
 		if s.Name == tmux.SessionName(id) {
-			return fmt.Errorf("minion %s is already alive or its session name is occupied", id)
+			return fmt.Errorf("member %s is already alive or its session name is occupied", id)
 		}
 	}
 	registered, err := worktree.Linked(m.RepoPath, m.Worktree, m.Branch)
@@ -321,7 +321,7 @@ func Adopt(opts AdoptOptions) (Manifest, error) {
 	if err != nil {
 		return Manifest{}, err
 	}
-	dir, err := state.MinionsDir()
+	dir, err := state.MembersDir()
 	if err != nil {
 		return Manifest{}, err
 	}
@@ -347,7 +347,7 @@ func Adopt(opts AdoptOptions) (Manifest, error) {
 			return Manifest{}, e
 		}
 		if p == path {
-			return Manifest{}, fmt.Errorf("worktree already belongs to minion %s", m.ID)
+			return Manifest{}, fmt.Errorf("worktree already belongs to member %s", m.ID)
 		}
 	}
 	sessions, err := tmux.Sessions()
@@ -359,8 +359,8 @@ func Adopt(opts AdoptOptions) (Manifest, error) {
 	for _, s := range sessions {
 		if s.Name == session {
 			current = true
-			if s.MinionID != "" || s.Monitor {
-				return Manifest{}, fmt.Errorf("session is already managed by colony")
+			if s.MemberID != "" || s.Monitor {
+				return Manifest{}, fmt.Errorf("session is already managed by motley")
 			}
 		} else {
 			others = append(others, s)

@@ -7,15 +7,15 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
-	"github.com/thomashartm/colony/internal/crew"
-	"github.com/thomashartm/colony/internal/minion"
+	"github.com/thomashartm/motley/internal/crew"
+	"github.com/thomashartm/motley/internal/member"
 )
 
 func crewCommand() *cobra.Command {
-	root := &cobra.Command{Use: "crew", Short: "Group minions by a named package of work"}
-	var title, url, color string
-	add := &cobra.Command{Use: "add --title <title>", Short: "Create a crew with an optional link and colour", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
-		c, err := minion.AddCrew(title, url, color)
+	root := &cobra.Command{Use: "crew", Short: "Manage crews of members and their gigs"}
+	var title, url, color, gig string
+	add := &cobra.Command{Use: "add --title <title>", Short: "Create a crew with an optional gig, link and colour", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+		c, err := member.AddCrew(title, url, color, gig)
 		if err != nil {
 			return err
 		}
@@ -26,6 +26,7 @@ func crewCommand() *cobra.Command {
 	_ = add.MarkFlagRequired("title")
 	add.Flags().StringVar(&url, "url", "", "Optional http/https link (no network lookup)")
 	add.Flags().StringVar(&color, "color", "", "Palette colour (default: next unused)")
+	add.Flags().StringVar(&gig, "gig", "", "Gig: the crew's package of work")
 	var asJSON bool
 	list := &cobra.Command{Use: "list", Short: "List crews", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 		crews, err := crew.Load()
@@ -40,20 +41,20 @@ func crewCommand() *cobra.Command {
 			return json.NewEncoder(cmd.OutOrStdout()).Encode(crews)
 		}
 		w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 4, 2, ' ', 0)
-		if _, err := fmt.Fprintln(w, "ID\tTITLE\tCOLOR\tKIND\tURL"); err != nil {
+		if _, err := fmt.Fprintln(w, "ID\tTITLE\tGIG\tCOLOR\tKIND\tURL"); err != nil {
 			return err
 		}
 		for _, c := range crews {
-			if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", c.ID, c.Title, c.Color, c.Kind, c.URL); err != nil {
+			if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", c.ID, c.Title, c.Gig, c.Color, c.Kind, c.URL); err != nil {
 				return err
 			}
 		}
 		return w.Flush()
 	}}
 	list.Flags().BoolVar(&asJSON, "json", false, "Print JSON")
-	var editTitle, editURL, editColor string
+	var editTitle, editURL, editColor, editGig string
 	edit := &cobra.Command{Use: "edit <id>", Short: "Edit a crew and refresh its live sessions", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
-		e := minion.CrewEdit{}
+		e := member.CrewEdit{}
 		if cmd.Flags().Changed("title") {
 			e.Title = &editTitle
 		}
@@ -63,16 +64,20 @@ func crewCommand() *cobra.Command {
 		if cmd.Flags().Changed("color") {
 			e.Color = &editColor
 		}
-		return minion.EditCrew(args[0], e)
+		if cmd.Flags().Changed("gig") {
+			e.Gig = &editGig
+		}
+		return member.EditCrew(args[0], e)
 	}}
 	edit.Flags().StringVar(&editTitle, "title", "", "New title")
 	edit.Flags().StringVar(&editURL, "url", "", "New link (empty clears it)")
 	edit.Flags().StringVar(&editColor, "color", "", "New palette colour")
+	edit.Flags().StringVar(&editGig, "gig", "", "New gig (empty clears it)")
 	var force bool
-	rm := &cobra.Command{Use: "rm <id>", Short: "Remove an unused crew; --force unassigns its minions", Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error { return minion.RemoveCrew(args[0], force) }}
-	rm.Flags().BoolVar(&force, "force", false, "Unassign active and dead minions before removal")
-	assign := &cobra.Command{Use: "assign <minion> <crew-id|none>", Short: "Assign or unassign a minion and refresh its colour", Args: cobra.ExactArgs(2), RunE: func(_ *cobra.Command, args []string) error {
-		return minion.EditIdentity(args[0], minion.IdentityEdit{Crew: &args[1]})
+	rm := &cobra.Command{Use: "rm <id>", Short: "Remove an unused crew; --force unassigns its members", Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error { return member.RemoveCrew(args[0], force) }}
+	rm.Flags().BoolVar(&force, "force", false, "Unassign active and dead members before removal")
+	assign := &cobra.Command{Use: "assign <member> <crew-id|none>", Short: "Assign or unassign a member and refresh its colour", Args: cobra.ExactArgs(2), RunE: func(_ *cobra.Command, args []string) error {
+		return member.EditIdentity(args[0], member.IdentityEdit{Crew: &args[1]})
 	}}
 	root.AddCommand(add, list, edit, rm, assign)
 	return root

@@ -28,7 +28,7 @@ func TestLoadDefaultsAndInvalidFiles(t *testing.T) {
 	if crews, err := Load(); err != nil || len(crews) != 0 {
 		t.Fatal(crews, err)
 	}
-	path := filepath.Join(root, "colony/crews.toml")
+	path := filepath.Join(root, "motley/crews.toml")
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		t.Fatal(err)
 	}

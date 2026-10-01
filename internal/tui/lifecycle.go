@@ -6,19 +6,19 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/thomashartm/colony/internal/minion"
-	"github.com/thomashartm/colony/internal/worktree"
+	"github.com/thomashartm/motley/internal/member"
+	"github.com/thomashartm/motley/internal/worktree"
 )
 
 type retireDialog struct {
 	id                  string
-	check               minion.RetireCheck
+	check               member.RetireCheck
 	err                 error
 	loaded, force, keep bool
 }
 type retireChecked struct {
 	id    string
-	check minion.RetireCheck
+	check member.RetireCheck
 	err   error
 }
 type lifecycleDone struct {
@@ -34,7 +34,7 @@ func (m Model) beginRetire() (tea.Model, tea.Cmd) {
 	m.retiring = &retireDialog{id: id}
 	m.busy = true
 	m.busyText = "Checking retirement…"
-	return m, func() tea.Msg { c, err := minion.InspectRetire(id); return retireChecked{id: id, check: c, err: err} }
+	return m, func() tea.Msg { c, err := member.InspectRetire(id); return retireChecked{id: id, check: c, err: err} }
 }
 func (m Model) beginRevive() (tea.Model, tea.Cmd) {
 	id := m.selectedID()
@@ -42,12 +42,12 @@ func (m Model) beginRevive() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if m.selectedRow().Alive {
-		m.message = "Revive requires a dead minion; this session is still alive."
+		m.message = "Revive requires a dead member; this session is still alive."
 		return m, nil
 	}
 	m.busy = true
 	m.busyText = "Reviving…"
-	return m, func() tea.Msg { return lifecycleDone{id: id, action: "Revived", err: minion.Revive(id)} }
+	return m, func() tea.Msg { return lifecycleDone{id: id, action: "Revived", err: member.Revive(id)} }
 }
 func (m Model) updateRetire(key string) (tea.Model, tea.Cmd) {
 	// Copy the dialog so model snapshots remain values, as elsewhere in Bubble Tea.
@@ -75,7 +75,7 @@ func (m Model) updateRetire(key string) (tea.Model, tea.Cmd) {
 		m.busyText = "Retiring…"
 		m.message = ""
 		return m, func() tea.Msg {
-			return lifecycleDone{id: dialog.id, action: "Retired", err: minion.Retire(dialog.id, dialog.force, dialog.keep)}
+			return lifecycleDone{id: dialog.id, action: "Retired", err: member.Retire(dialog.id, dialog.force, dialog.keep)}
 		}
 	}
 	return m, nil

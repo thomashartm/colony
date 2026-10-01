@@ -1,4 +1,4 @@
-module github.com/thomashartm/colony
+module github.com/thomashartm/motley
 
 go 1.22.0
 

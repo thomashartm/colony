@@ -1,4 +1,4 @@
-package minion
+package member
 
 import (
 	"fmt"
@@ -9,15 +9,14 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/pelletier/go-toml/v2"
-	"github.com/thomashartm/colony/internal/agents"
-	"github.com/thomashartm/colony/internal/blueprint"
-	"github.com/thomashartm/colony/internal/config"
-	"github.com/thomashartm/colony/internal/crew"
-	"github.com/thomashartm/colony/internal/gitx"
-	"github.com/thomashartm/colony/internal/state"
-	"github.com/thomashartm/colony/internal/tmux"
-	"github.com/thomashartm/colony/internal/worktree"
+	"github.com/thomashartm/motley/internal/agents"
+	"github.com/thomashartm/motley/internal/blueprint"
+	"github.com/thomashartm/motley/internal/config"
+	"github.com/thomashartm/motley/internal/crew"
+	"github.com/thomashartm/motley/internal/gitx"
+	"github.com/thomashartm/motley/internal/state"
+	"github.com/thomashartm/motley/internal/tmux"
+	"github.com/thomashartm/motley/internal/worktree"
 )
 
 type SpawnOptions struct {
@@ -25,40 +24,40 @@ type SpawnOptions struct {
 	Vars                                                      []string
 }
 
-func Spawn(cfg config.Config, opts SpawnOptions, progress io.Writer) (Manifest, error) {
+func Prepare(cfg config.Config, opts SpawnOptions) (Prepared, error) {
 	for _, tool := range []string{"git", "tmux", "cp"} {
 		if _, err := exec.LookPath(tool); err != nil {
-			return Manifest{}, fmt.Errorf("%s is required: %w", tool, err)
+			return Prepared{}, fmt.Errorf("%s is required: %w", tool, err)
 		}
 	}
 	for _, value := range []string{opts.Name, opts.Ticket, opts.Repo} {
 		if strings.IndexFunc(value, unicode.IsControl) >= 0 {
-			return Manifest{}, fmt.Errorf("name, ticket and repo must not contain control characters")
+			return Prepared{}, fmt.Errorf("name, ticket and repo must not contain control characters")
 		}
 	}
 	repo, err := ResolveRepo(cfg.ReposRoot, opts.Repo)
 	if err != nil {
-		return Manifest{}, err
+		return Prepared{}, err
 	}
 	vars, err := blueprint.Variables(opts.Vars)
 	if err != nil {
-		return Manifest{}, err
+		return Prepared{}, err
 	}
 	if opts.Blueprint == "" && len(opts.Vars) > 0 {
-		return Manifest{}, fmt.Errorf("--var requires --blueprint")
+		return Prepared{}, fmt.Errorf("--var requires --blueprint")
 	}
 	var bp blueprint.Blueprint
 	if opts.Blueprint != "" {
 		available, err := blueprint.Discover(repo, opts.Repo)
 		if err != nil {
-			return Manifest{}, err
+			return Prepared{}, err
 		}
 		bp, err = blueprint.Find(available, opts.Blueprint)
 		if err != nil {
-			return Manifest{}, err
+			return Prepared{}, err
 		}
 		if opts.Agent != "" && opts.Agent != bp.Agent && len(bp.Args) > 0 {
-			return Manifest{}, fmt.Errorf("blueprint %s args belong to %s; cannot use them with --agent %s", bp.Name, bp.Agent, opts.Agent)
+			return Prepared{}, fmt.Errorf("blueprint %s args belong to %s; cannot use them with --agent %s", bp.Name, bp.Agent, opts.Agent)
 		}
 		if opts.Agent == "" {
 			opts.Agent = bp.Agent
@@ -68,29 +67,72 @@ func Spawn(cfg config.Config, opts SpawnOptions, progress io.Writer) (Manifest, 
 		opts.Agent = "claude"
 	}
 	if _, err := agents.Binary(opts.Agent); err != nil {
-		return Manifest{}, err
+		return Prepared{}, err
 	}
 	branchSlug := strings.ReplaceAll(opts.Branch, "/", "-")
 	if err := CheckID(branchSlug); err != nil {
-		return Manifest{}, fmt.Errorf("branch cannot form a minion path: %w", err)
+		return Prepared{}, fmt.Errorf("branch cannot form a member path: %w", err)
 	}
 	root, err := filepath.Abs(cfg.WorktreesRoot)
 	if err != nil {
-		return Manifest{}, err
+		return Prepared{}, err
 	}
 	path := filepath.Join(root, opts.Repo, branchSlug)
 	if err := worktree.CheckNew(repo, opts.Branch, path); err != nil {
-		return Manifest{}, err
+		return Prepared{}, err
 	}
 	base, err := worktree.Base(repo)
 	if err != nil {
-		return Manifest{}, err
+		return Prepared{}, err
 	}
 	remote, err := gitx.Output(repo, "remote", "get-url", "origin")
 	if err != nil {
+		return Prepared{}, err
+	}
+	crews, err := crew.Load()
+	if err != nil {
+		return Prepared{}, err
+	}
+	if err := validateIdentity(opts.Crew, opts.Color, crews); err != nil {
+		return Prepared{}, err
+	}
+	name := opts.Name
+	if name == "" {
+		name = filepath.Base(opts.Branch)
+	}
+	m := Manifest{Schema: 1, Name: name, Repo: opts.Repo, RepoPath: repo, Worktree: path, Branch: opts.Branch, Base: base, RemoteURL: remote, Ticket: opts.Ticket, Agent: opts.Agent, Blueprint: opts.Blueprint, AgentArgs: bp.Args, Crew: opts.Crew, Color: opts.Color}
+	p := Prepared{Manifest: m, HasPrompt: opts.Blueprint != ""}
+	if p.HasPrompt {
+		c, _ := crew.Find(crews, opts.Crew)
+		p.Prompt, err = bp.Render(blueprint.Data{Repo: opts.Repo, Branch: opts.Branch, Base: base, Ticket: opts.Ticket, Name: name, Worktree: path, Crew: blueprint.Crew{Title: c.Title, URL: c.URL, Kind: c.Kind}, Vars: vars})
+		if err != nil {
+			return Prepared{}, err
+		}
+	}
+	return p, nil
+}
+
+// Prepared is a reviewed spawn plan. Preparing it does not create a worktree or
+// write state; the TUI can edit its prompt before launching the same snapshot.
+type Prepared struct {
+	Manifest  Manifest
+	Prompt    string
+	HasPrompt bool
+}
+
+func Spawn(cfg config.Config, opts SpawnOptions, progress io.Writer) (Manifest, error) {
+	p, err := Prepare(cfg, opts)
+	if err != nil {
 		return Manifest{}, err
 	}
-	dir, err := state.MinionsDir()
+	return SpawnPrepared(p, progress)
+}
+func SpawnPrepared(p Prepared, progress io.Writer) (Manifest, error) {
+	m := p.Manifest
+	if err := blueprint.ValidatePrompt(p.Prompt); err != nil {
+		return Manifest{}, err
+	}
+	dir, err := state.MembersDir()
 	if err != nil {
 		return Manifest{}, err
 	}
@@ -103,7 +145,7 @@ func Spawn(cfg config.Config, opts SpawnOptions, progress io.Writer) (Manifest, 
 	if err != nil {
 		return Manifest{}, err
 	}
-	if err := validateIdentity(opts.Crew, opts.Color, crews); err != nil {
+	if err := validateIdentity(m.Crew, m.Color, crews); err != nil {
 		return Manifest{}, err
 	}
 	manifests, err := loadAll(dir)
@@ -114,39 +156,24 @@ func Spawn(cfg config.Config, opts SpawnOptions, progress io.Writer) (Manifest, 
 	if err != nil {
 		return Manifest{}, err
 	}
-	id, name, err := identity(opts, manifests, sessions)
+	id, name, err := identity(SpawnOptions{Repo: m.Repo, Branch: m.Branch, Ticket: m.Ticket, Name: m.Name}, manifests, sessions)
 	if err != nil {
 		return Manifest{}, err
 	}
-	prompt := ""
-	if opts.Blueprint != "" {
-		c, _ := crew.Find(crews, opts.Crew)
-		prompt, err = bp.Render(blueprint.Data{Repo: opts.Repo, Branch: opts.Branch, Base: base, Ticket: opts.Ticket, Name: name, Worktree: path, Crew: blueprint.Crew{Title: c.Title, URL: c.URL, Kind: c.Kind}, Vars: vars})
-		if err != nil {
-			return Manifest{}, err
-		}
-	}
-	if err := worktree.Create(repo, opts.Branch, base, path, progress); err != nil {
+	if err := worktree.Create(m.RepoPath, m.Branch, m.Base, m.Worktree, progress); err != nil {
 		return Manifest{}, err
 	}
-	m := Manifest{
-		Schema: 1, ID: id, Name: name, Repo: opts.Repo, RepoPath: repo,
-		Worktree: path, Branch: opts.Branch, Base: base, RemoteURL: remote,
-		Ticket: opts.Ticket, Agent: opts.Agent, Blueprint: opts.Blueprint, AgentArgs: bp.Args, Crew: opts.Crew, Color: opts.Color, CreatedAt: time.Now().UTC(),
-	}
-	if opts.Blueprint != "" {
-		if err := state.WriteAtomic(filepath.Join(dir, id+".prompt.md"), []byte(blueprint.PromptHeader+prompt)); err != nil {
-			return Manifest{}, fmt.Errorf("worktree retained at %s; prompt could not be saved: %w", path, err)
+	m.ID, m.Name, m.CreatedAt = id, name, time.Now().UTC()
+	if p.HasPrompt {
+		m.Prompt = true
+		if err := state.WriteAtomic(filepath.Join(dir, id+".prompt.md"), []byte(blueprint.PromptHeader+p.Prompt)); err != nil {
+			return Manifest{}, fmt.Errorf("worktree retained at %s; prompt could not be saved: %w", m.Worktree, err)
 		}
 	}
-	data, err := toml.Marshal(m)
-	if err == nil {
-		err = state.WriteAtomic(filepath.Join(dir, id+".toml"), data)
+	if err := saveManifest(dir, m); err != nil {
+		return Manifest{}, fmt.Errorf("worktree retained at %s; manifest could not be saved: %w", m.Worktree, err)
 	}
-	if err != nil {
-		return Manifest{}, fmt.Errorf("worktree retained at %s; manifest could not be saved: %w", path, err)
-	}
-	if err := tmux.Start(id, path, opts.Ticket, opts.Agent); err != nil {
+	if err := tmux.Start(id, m.Worktree, m.Ticket, m.Agent); err != nil {
 		return Manifest{}, fmt.Errorf("worktree and manifest retained for %s; tmux startup failed: %w", id, err)
 	}
 	return m, applyAppearance(m, crews)
@@ -195,7 +222,7 @@ func identity(opts SpawnOptions, manifests []Manifest, sessions []tmux.Session) 
 	if opts.Ticket != "" {
 		suffix := slug(strings.TrimPrefix(name, opts.Ticket+"-"))
 		if suffix == "" {
-			return "", "", fmt.Errorf("name must contain letters or digits to form a minion id")
+			return "", "", fmt.Errorf("name must contain letters or digits to form a member id")
 		}
 		id = opts.Ticket + "-" + suffix
 	}
@@ -209,7 +236,7 @@ func identity(opts SpawnOptions, manifests []Manifest, sessions []tmux.Session) 
 			}
 		}
 		for _, s := range sessions {
-			if s.Name == tmux.SessionName(id) || s.MinionID == id {
+			if s.Name == tmux.SessionName(id) || s.MemberID == id {
 				return true
 			}
 		}
@@ -222,7 +249,7 @@ func identity(opts SpawnOptions, manifests []Manifest, sessions []tmux.Session) 
 		return "", "", err
 	}
 	if taken(id) {
-		return "", "", fmt.Errorf("minion id %q is already taken; choose a different name or branch", id)
+		return "", "", fmt.Errorf("member id %q is already taken; choose a different name or branch", id)
 	}
 	return id, name, nil
 }

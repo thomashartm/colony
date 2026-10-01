@@ -8,10 +8,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/thomashartm/colony/internal/crew"
-	"github.com/thomashartm/colony/internal/minion"
-	"github.com/thomashartm/colony/internal/palette"
-	"github.com/thomashartm/colony/internal/state"
+	"github.com/thomashartm/motley/internal/crew"
+	"github.com/thomashartm/motley/internal/member"
+	"github.com/thomashartm/motley/internal/palette"
+	"github.com/thomashartm/motley/internal/state"
 )
 
 const noCrew = "~none"
@@ -20,7 +20,7 @@ type crewEntry struct{ crew, id string }
 
 func (e crewEntry) key() string {
 	if e.id != "" {
-		return "minion:" + e.id
+		return "member:" + e.id
 	}
 	return "crew:" + e.crew
 }
@@ -39,8 +39,8 @@ func (m Model) crewFor(id string) crew.Crew {
 	}
 	return crew.Crew{ID: noCrew, Title: "No crew", Color: "grey"}
 }
-func (m Model) members(id string) []minion.Row {
-	var rows []minion.Row
+func (m Model) members(id string) []member.Row {
+	var rows []member.Row
 	for _, r := range m.rows {
 		if m.crewFor(r.Crew).ID == id {
 			rows = append(rows, r)
@@ -60,6 +60,9 @@ func (m Model) crewEntries() []crewEntry {
 	var entries []crewEntry
 	for _, c := range crews {
 		members := m.members(c.ID)
+		if m.query.Value() != "" && len(members) == 0 {
+			continue
+		}
 		live := false
 		for _, r := range members {
 			live = live || r.Alive
@@ -86,14 +89,14 @@ func (m Model) currentEntry() crewEntry {
 	}
 	return crewEntry{}
 }
-func (m Model) selectedRow() minion.Row {
+func (m Model) selectedRow() member.Row {
 	id := m.selectedID()
 	for _, r := range m.rows {
 		if r.ID == id {
 			return r
 		}
 	}
-	return minion.Row{}
+	return member.Row{}
 }
 func (m *Model) restoreCrewSelection(key, member string) {
 	entries := m.crewEntries()
@@ -218,14 +221,14 @@ func (m Model) groupingKey(key string) (Model, tea.Cmd, bool) {
 	m.updateDetail()
 	return m, m.requestDetail(oldID != m.selectedID()), true
 }
-func (m Model) rowsSafeSelected() minion.Row {
+func (m Model) rowsSafeSelected() member.Row {
 	if m.selected >= 0 && m.selected < len(m.rows) {
 		return m.rows[m.selected]
 	}
-	return minion.Row{}
+	return member.Row{}
 }
-func (m Model) minionLine(r minion.Row, width int) string {
-	color := minion.Color(r.Manifest, m.crews)
+func (m Model) memberLine(r member.Row, width int) string {
+	color := member.Color(r.Manifest, m.crews)
 	icon, statusColor := statusIcon(r.CurrentStatus())
 	badge, bc := palette.Badge(r.Agent)
 	prefix := colored("▌", color) + " " + lipgloss.NewStyle().Foreground(statusColor).Render(icon) + " " + colored(badge, bc) + " "
@@ -254,7 +257,7 @@ func (m Model) crewList(height, width int) string {
 		if e.id != "" {
 			for _, r := range m.rows {
 				if r.ID == e.id {
-					line = "  " + m.minionLine(r, width-2)
+					line = "  " + m.memberLine(r, width-2)
 					break
 				}
 			}
@@ -289,13 +292,16 @@ func (m Model) crewTable(height, width int) string {
 	if c.URL != "" {
 		title = link(title+" ↗", c.URL)
 	}
-	lines := []string{fit(title+fmt.Sprintf(" · %d minions", len(rows)), width)}
+	lines := []string{fit(title+fmt.Sprintf(" · %d members", len(rows)), width)}
+	if c.Gig != "" {
+		lines = append(lines, fit("Gig  "+clean(c.Gig), width))
+	}
 	if len(rows) == 0 {
-		return strings.Join(append(lines, "No minions in this crew."), "\n")
+		return strings.Join(append(lines, "No members in this crew."), "\n")
 	}
 	// The rightmost columns disappear before shrinking the identity columns.
 	widths := []int{2, 12, 5, 6, 8}
-	headers := []string{"ST", "MINION", "AGENT", "TICKET", "REPO"}
+	headers := []string{"ST", "MEMBER", "AGENT", "TICKET", "REPO"}
 	if width >= 56 {
 		widths = append(widths, 12)
 		headers = append(headers, "BRANCH")

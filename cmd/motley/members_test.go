@@ -11,22 +11,22 @@ import (
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/thomashartm/colony/internal/minion"
+	"github.com/thomashartm/motley/internal/member"
 )
 
-func TestMinionLifecycle(t *testing.T) {
+func TestMemberLifecycle(t *testing.T) {
 	for _, tool := range []string{"git", "tmux", "cp"} {
 		if _, err := exec.LookPath(tool); err != nil {
 			t.Fatalf("integration tests require %s: %v", tool, err)
 		}
 	}
-	bin := filepath.Join(t.TempDir(), "colony")
+	bin := filepath.Join(t.TempDir(), "motley")
 	if out, err := exec.Command("go", "build", "-o", bin, ".").CombinedOutput(); err != nil {
 		t.Fatalf("build: %v\n%s", err, out)
 	}
 	for _, base := range []string{"main", "master"} {
 		t.Run(base, func(t *testing.T) {
-			f := newMinionFixture(t, bin, base)
+			f := newMemberFixture(t, bin, base)
 			before := f.git(f.repo, "status", "--porcelain")
 			agentNames := []string{"claude", "codex", "opencode"}
 			if base == "master" {
@@ -41,15 +41,15 @@ func TestMinionLifecycle(t *testing.T) {
 					id = "412-fx-cache"
 					firstID = id
 				}
-				out := f.colony(args...)
+				out := f.motley(args...)
 				if !strings.Contains(out, "Created "+id) {
 					t.Fatalf("spawn output: %s", out)
 				}
-				data, err := os.ReadFile(filepath.Join(f.state, "colony/minions", id+".toml"))
+				data, err := os.ReadFile(filepath.Join(f.state, "motley/members", id+".toml"))
 				if err != nil {
 					t.Fatal(err)
 				}
-				var m minion.Manifest
+				var m member.Manifest
 				if err := toml.Unmarshal(data, &m); err != nil {
 					t.Fatal(err)
 				}
@@ -68,7 +68,7 @@ func TestMinionLifecycle(t *testing.T) {
 					t.Fatalf("env copy: %q %v", copied, err)
 				}
 				session := strings.ReplaceAll(id, ".", "_")
-				options := f.tmux("display-message", "-p", "-t", "="+session+":", "#{@colony_minion}|#{@colony_ticket}|#{@colony_agent}")
+				options := f.tmux("display-message", "-p", "-t", "="+session+":", "#{@motley_member}|#{@motley_ticket}|#{@motley_agent}")
 				if options != id+"|"+m.Ticket+"|"+agent {
 					t.Fatalf("session options: %q", options)
 				}
@@ -90,7 +90,7 @@ func TestMinionLifecycle(t *testing.T) {
 				if err != nil || cwd != physical {
 					t.Fatalf("agent cwd=%s, want %s (%v)", cwd, physical, err)
 				}
-				assertListState(t, f.colony("ls"), id, "alive")
+				assertListState(t, f.motley("ls"), id, "alive")
 			}
 			if after := f.git(f.repo, "status", "--porcelain"); before != after {
 				t.Fatalf("source working tree changed: before %q, after %q", before, after)
@@ -115,7 +115,7 @@ func TestMinionLifecycle(t *testing.T) {
 			}
 			t.Cleanup(func() { _ = input.Close(); _ = client.Process.Kill(); _ = client.Wait() })
 			eventually(t, func() bool { return strings.TrimSpace(f.tmux("list-clients", "-F", "#{client_session}")) == "fixture" })
-			f.colony("switch", firstID)
+			f.motley("switch", firstID)
 			if got := f.tmux("list-clients", "-F", "#{client_session}"); got != firstID {
 				t.Fatalf("switch client: got %q", got)
 			}
@@ -134,23 +134,23 @@ func TestMinionLifecycle(t *testing.T) {
 				t.Fatal("rejected spawn changed worktrees")
 			}
 			f.tmux("kill-session", "-t", "="+firstID)
-			assertListState(t, f.colony("ls"), firstID, "dead")
+			assertListState(t, f.motley("ls"), firstID, "dead")
 			if out, err := exec.Command(bin, "switch", firstID).CombinedOutput(); err == nil || !strings.Contains(string(out), "is dead") {
-				t.Fatalf("switch dead minion must fail clearly: %v %s", err, out)
+				t.Fatalf("switch dead member must fail clearly: %v %s", err, out)
 			}
 			f.tmux("kill-server")
 			eventually(t, func() bool {
 				out, err := exec.Command(bin, "ls").CombinedOutput()
 				return err == nil && !strings.Contains(string(out), "alive")
 			})
-			assertListState(t, f.colony("ls"), firstID, "dead")
+			assertListState(t, f.motley("ls"), firstID, "dead")
 		})
 	}
 	t.Run("attach and switch argv", func(t *testing.T) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
 		t.Setenv("XDG_STATE_HOME", home)
-		writeFixture(t, filepath.Join(home, "colony/minions/feat-example.v2.toml"), "schema = 1\nid = 'feat-example.v2'\n", 0o600)
+		writeFixture(t, filepath.Join(home, "motley/members/feat-example.v2.toml"), "schema = 1\nid = 'feat-example.v2'\n", 0o600)
 		fakeBin := filepath.Join(home, "bin")
 		writeFixture(t, filepath.Join(fakeBin, "tmux"), `#!/bin/sh
 if [ "$1" = -u ]; then shift; fi
@@ -176,16 +176,16 @@ fi
 	})
 }
 
-type minionFixture struct {
+type memberFixture struct {
 	t                                *testing.T
 	bin, tmuxBin, socket             string
 	home, state, trees, repo, remote string
 }
 
-func newMinionFixture(t *testing.T, bin, base string) *minionFixture {
+func newMemberFixture(t *testing.T, bin, base string) *memberFixture {
 	t.Helper()
 	root := t.TempDir()
-	f := &minionFixture{t: t, bin: bin, home: root, state: filepath.Join(root, "state"), trees: filepath.Join(root, "work trees 'quoted'"), repo: filepath.Join(root, "repos/api"), remote: filepath.Join(root, "origin.git"), socket: fmt.Sprintf("colony-test-%d", time.Now().UnixNano())}
+	f := &memberFixture{t: t, bin: bin, home: root, state: filepath.Join(root, "state"), trees: filepath.Join(root, "work trees 'quoted'"), repo: filepath.Join(root, "repos/api"), remote: filepath.Join(root, "origin.git"), socket: fmt.Sprintf("motley-test-%d", time.Now().UnixNano())}
 	var err error
 	f.tmuxBin, err = exec.LookPath("tmux")
 	if err != nil {
@@ -195,7 +195,7 @@ func newMinionFixture(t *testing.T, bin, base string) *minionFixture {
 		"HOME": root, "XDG_CONFIG_HOME": filepath.Join(root, "config"), "XDG_STATE_HOME": f.state,
 		"TMUX": "", "TMUX_PANE": "", "SHELL": "/bin/sh", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1",
 		"HISTFILE":        "/dev/null",
-		"GIT_AUTHOR_NAME": "Colony Test", "GIT_AUTHOR_EMAIL": "colony@example.invalid", "GIT_COMMITTER_NAME": "Colony Test", "GIT_COMMITTER_EMAIL": "colony@example.invalid",
+		"GIT_AUTHOR_NAME": "Motley Test", "GIT_AUTHOR_EMAIL": "motley@example.invalid", "GIT_COMMITTER_NAME": "Motley Test", "GIT_COMMITTER_EMAIL": "motley@example.invalid",
 		"GIT_DIR": "", "GIT_WORK_TREE": "", "GIT_INDEX_FILE": "",
 	} {
 		// Unset git path overrides rather than supplying an empty Git path.
@@ -224,7 +224,7 @@ func newMinionFixture(t *testing.T, bin, base string) *minionFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	writeFixture(t, filepath.Join(root, "config/colony/config.toml"), string(cfg), 0o600)
+	writeFixture(t, filepath.Join(root, "config/motley/config.toml"), string(cfg), 0o600)
 	// Start the server before changing PATH, exercising per-session environment.
 	f.tmux("-f", "/dev/null", "new-session", "-d", "-s", "fixture", "/bin/sh")
 	t.Cleanup(func() { _ = exec.Command(f.tmuxBin, "-L", f.socket, "kill-server").Run() })
@@ -233,23 +233,23 @@ func newMinionFixture(t *testing.T, bin, base string) *minionFixture {
 	t.Setenv("TMUX_PANE", f.tmux("display-message", "-p", "-t", "fixture", "#{pane_id}"))
 	fakeBin := filepath.Join(root, "fake agents")
 	for _, agent := range []string{"claude", "codex", "opencode"} {
-		writeFixture(t, filepath.Join(fakeBin, agent), "#!/bin/sh\nprintf '%s\\n' \"$(basename \"$0\")\" \"$PWD\" \"$COLONY_MINION\" \"$#\" > \"$HOME/agent-$COLONY_MINION.txt\"\n", 0o755)
+		writeFixture(t, filepath.Join(fakeBin, agent), "#!/bin/sh\nprintf '%s\\n' \"$(basename \"$0\")\" \"$PWD\" \"$MOTLEY_MEMBER\" \"$#\" > \"$HOME/agent-$MOTLEY_MEMBER.txt\"\n", 0o755)
 	}
 	t.Setenv("PATH", fakeBin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	return f
 }
 
-func (f *minionFixture) git(dir string, args ...string) string {
+func (f *memberFixture) git(dir string, args ...string) string {
 	f.t.Helper()
 	return commandOutput(f.t, "git", append([]string{"-C", dir}, args...)...)
 }
 
-func (f *minionFixture) tmux(args ...string) string {
+func (f *memberFixture) tmux(args ...string) string {
 	f.t.Helper()
 	return commandOutput(f.t, f.tmuxBin, append([]string{"-L", f.socket}, args...)...)
 }
 
-func (f *minionFixture) colony(args ...string) string {
+func (f *memberFixture) motley(args ...string) string {
 	f.t.Helper()
 	return commandOutput(f.t, f.bin, args...)
 }
@@ -296,5 +296,5 @@ func assertListState(t *testing.T, out, id, state string) {
 			return
 		}
 	}
-	t.Fatalf("minion %s absent from list:\n%s", id, out)
+	t.Fatalf("member %s absent from list:\n%s", id, out)
 }

@@ -6,9 +6,9 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
-	"github.com/thomashartm/colony/internal/blueprint"
-	"github.com/thomashartm/colony/internal/config"
-	"github.com/thomashartm/colony/internal/minion"
+	"github.com/thomashartm/motley/internal/blueprint"
+	"github.com/thomashartm/motley/internal/config"
+	"github.com/thomashartm/motley/internal/member"
 )
 
 func blueprintCommand() *cobra.Command {
@@ -22,7 +22,7 @@ func blueprintCommand() *cobra.Command {
 			if err != nil {
 				return nil, err
 			}
-			path, err = minion.ResolveRepo(cfg.ReposRoot, repo)
+			path, err = member.ResolveRepo(cfg.ReposRoot, repo)
 			if err != nil {
 				return nil, err
 			}

@@ -7,16 +7,16 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
-	"github.com/thomashartm/colony/internal/agents"
-	"github.com/thomashartm/colony/internal/blueprint"
-	"github.com/thomashartm/colony/internal/config"
-	"github.com/thomashartm/colony/internal/minion"
-	"github.com/thomashartm/colony/internal/state"
-	"github.com/thomashartm/colony/internal/tmux"
+	"github.com/thomashartm/motley/internal/agents"
+	"github.com/thomashartm/motley/internal/blueprint"
+	"github.com/thomashartm/motley/internal/config"
+	"github.com/thomashartm/motley/internal/member"
+	"github.com/thomashartm/motley/internal/state"
+	"github.com/thomashartm/motley/internal/tmux"
 )
 
 func spawnCommand() *cobra.Command {
-	var opts minion.SpawnOptions
+	var opts member.SpawnOptions
 	var detach bool
 	cmd := &cobra.Command{
 		Use:   "spawn --repo <name> --branch <new-branch>",
@@ -28,11 +28,11 @@ func spawnCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			m, err := minion.Spawn(cfg, opts, cmd.ErrOrStderr())
+			m, err := member.Spawn(cfg, opts, cmd.ErrOrStderr())
 			if err != nil {
 				return err
 			}
-			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "Created %s\nWorktree: %s\nAttach: colony attach %s\n", m.ID, m.Worktree, m.ID); err != nil {
+			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "Created %s\nWorktree: %s\nAttach: motley attach %s\n", m.ID, m.Worktree, m.ID); err != nil {
 				return err
 			}
 			if detach {
@@ -58,9 +58,9 @@ func spawnCommand() *cobra.Command {
 
 func listCommand() *cobra.Command {
 	return &cobra.Command{
-		Use: "ls", Short: "List minions, agent status and tmux session state", Args: cobra.NoArgs,
+		Use: "ls", Short: "List members, agent status and tmux session state", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			rows, err := minion.List()
+			rows, err := member.List()
 			if err != nil {
 				return err
 			}
@@ -87,14 +87,14 @@ func listCommand() *cobra.Command {
 }
 
 func connectCommand(attach bool) *cobra.Command {
-	use, short := "switch <id>", "Switch this tmux client to a minion, or attach outside tmux"
+	use, short := "switch <id>", "Switch this tmux client to a member, or attach outside tmux"
 	if attach {
-		use, short = "attach <id>", "Attach this terminal to a minion's tmux session"
+		use, short = "attach <id>", "Attach this terminal to a member's tmux session"
 	}
 	return &cobra.Command{
 		Use: use, Short: short, Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			if err := minion.RequireLive(args[0]); err != nil {
+			if err := member.RequireLive(args[0]); err != nil {
 				return err
 			}
 			if attach {
@@ -115,21 +115,21 @@ func jump(id string) error {
 func execAgentCommand() *cobra.Command {
 	var resume bool
 	cmd := &cobra.Command{
-		Use: "exec-agent <id>", Short: "Start the agent recorded in a minion manifest", Hidden: true,
+		Use: "exec-agent <id>", Short: "Start the agent recorded in a member manifest", Hidden: true,
 		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			dir, err := state.MinionsDir()
+			dir, err := state.MembersDir()
 			if err != nil {
 				return err
 			}
-			m, err := minion.Load(dir, args[0])
+			m, err := member.Load(dir, args[0])
 			if err != nil {
 				return err
 			}
 			if err := os.Chdir(m.Worktree); err != nil {
 				return err
 			}
-			if err := os.Setenv("COLONY_MINION", m.ID); err != nil {
+			if err := os.Setenv("MOTLEY_MEMBER", m.ID); err != nil {
 				return err
 			}
 			sessionID := ""
@@ -140,7 +140,7 @@ func execAgentCommand() *cobra.Command {
 				}
 			}
 			prompt := ""
-			if !resume && m.Blueprint != "" {
+			if !resume && (m.Prompt || m.Blueprint != "") {
 				prompt, err = blueprint.ReadPrompt(filepath.Join(dir, m.ID+".prompt.md"))
 				if err != nil {
 					return err

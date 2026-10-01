@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"time"
 
-	claudehooks "github.com/thomashartm/colony/integrations/claude"
-	"github.com/thomashartm/colony/internal/state"
+	claudehooks "github.com/thomashartm/motley/integrations/claude"
+	"github.com/thomashartm/motley/internal/state"
 )
 
-const hookCommand = "colony report --agent claude"
+const hookCommand = "motley report --agent claude"
 
 func Install() (path, backup string, changed bool, err error) {
 	home, err := os.UserHomeDir()
@@ -103,7 +103,7 @@ func Install() (path, backup string, changed bool, err error) {
 		return path, "", false, err
 	}
 	if exists {
-		backup = path + ".colony-v1-backup-" + time.Now().UTC().Format("20060102T150405.000000000Z")
+		backup = path + ".motley-v1-backup-" + time.Now().UTC().Format("20060102T150405.000000000Z")
 		f, e := os.OpenFile(backup, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 		if e != nil {
 			return path, "", false, e

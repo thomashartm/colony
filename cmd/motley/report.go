@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/thomashartm/colony/internal/agents/claude"
-	"github.com/thomashartm/colony/internal/report"
+	"github.com/thomashartm/motley/internal/agents/claude"
+	"github.com/thomashartm/motley/internal/report"
 )
 
 func reportCommand() *cobra.Command {
@@ -22,10 +22,10 @@ func hooksCommand() *cobra.Command {
 			return err
 		}
 		if !changed {
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Colony hooks are already installed in %s\n", path)
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Motley hooks are already installed in %s\n", path)
 			return err
 		}
-		if _, err = fmt.Fprintf(cmd.OutOrStdout(), "Installed colony hooks in %s\n", path); err != nil {
+		if _, err = fmt.Fprintf(cmd.OutOrStdout(), "Installed motley hooks in %s\n", path); err != nil {
 			return err
 		}
 		if backup != "" {
@@ -33,7 +33,7 @@ func hooksCommand() *cobra.Command {
 				return err
 			}
 		}
-		_, err = fmt.Fprintln(cmd.OutOrStdout(), "Restart existing Claude sessions to load the hooks. Sessions outside colony are ignored.")
+		_, err = fmt.Fprintln(cmd.OutOrStdout(), "Restart existing Claude sessions to load the hooks. Sessions outside motley are ignored.")
 		return err
 	}}
 	root.AddCommand(install)

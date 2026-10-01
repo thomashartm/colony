@@ -7,18 +7,18 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/thomashartm/colony/internal/minion"
-	"github.com/thomashartm/colony/internal/state"
+	"github.com/thomashartm/motley/internal/member"
+	"github.com/thomashartm/motley/internal/state"
 )
 
-func statusRow(id, status string, since int64) minion.Row {
+func statusRow(id, status string, since int64) member.Row {
 	r := row(id, status != "dead")
 	r.Status = status
 	r.Since = since
 	return r
 }
 func TestAttentionOrderAndAlerts(t *testing.T) {
-	rows := []minion.Row{statusRow("ready", "ready", 30), statusRow("work", "working", 1), statusRow("question", "question", 20), statusRow("permission", "permission", 10), statusRow("idle", "idle", 40), statusRow("dead", "dead", 1), statusRow("ended", "ended", 1)}
+	rows := []member.Row{statusRow("ready", "ready", 30), statusRow("work", "working", 1), statusRow("question", "question", 20), statusRow("permission", "permission", 10), statusRow("idle", "idle", 40), statusRow("dead", "dead", 1), statusRow("ended", "ended", 1)}
 	m := update(newModel(true, true, "monitor", nil), tea.WindowSizeMsg{Width: 120, Height: 30})
 	m = update(m, snapshot{rows: rows})
 	var ids []string
@@ -36,7 +36,7 @@ func TestAttentionOrderAndAlerts(t *testing.T) {
 			t.Fatal("missing section", s)
 		}
 	}
-	next := append([]minion.Row(nil), rows...)
+	next := append([]member.Row(nil), rows...)
 	for i := range next {
 		if next[i].ID == "work" {
 			next[i].Status = "ready"
@@ -63,7 +63,7 @@ func TestAttentionOrderAndAlerts(t *testing.T) {
 }
 func TestStatusDetailAndLateSelectionResponse(t *testing.T) {
 	m := update(newModel(false, true, "client", nil), tea.WindowSizeMsg{Width: 120, Height: 50})
-	m = update(m, snapshot{rows: []minion.Row{statusRow("a", "question", 1), statusRow("b", "permission", 2)}})
+	m = update(m, snapshot{rows: []member.Row{statusRow("a", "question", 1), statusRow("b", "permission", 2)}})
 	m.detailSeq = 1
 	m = update(m, detailMsg{id: "a", seq: 1, event: state.Event{Status: "question", Summary: "generic", Detail: map[string]string{"question": "Which option?\n1) Alpha\n2) Beta"}}})
 	if !strings.Contains(m.detail.View(), "Beta") {

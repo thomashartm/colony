@@ -1,45 +1,111 @@
-# colony
+# motley
 
-<p align="center">
-  <img src="colony-logo.png" alt="colony logo" width="320">
-</p>
+motley is a terminal tool for parallel AI coding sessions.
 
-colony is a terminal tool for parallel AI coding sessions.
-
-Each minion gets its own git worktree, tmux session and coding agent.
+Each member gets its own git worktree, tmux session and coding agent.
 Use Claude Code, Codex or OpenCode, and switch between sessions from your terminal.
 
-## Build and run
+Run it as **`motley`** or **`mtly`**. A running agent session is a **member**,
+a group of members is a **crew**, and a package of work is a **gig**.
 
-Supports macOS and Linux on amd64 and arm64, with cgo disabled. Building requires
-Go 1.22 or newer on Linux; use Go 1.25.5 or newer on current macOS.
-Running minions requires git, tmux ≥ 3.2, the system `cp` command and your chosen
-agent CLI on PATH. Install and authenticate the agent before spawning a minion.
+## Install
+
+Download, build and install the latest source from `main` with one command:
+
+```sh
+wget -qO motley-install.sh https://raw.githubusercontent.com/thomashartm/motley/main/install.sh && bash motley-install.sh
+```
+
+On macOS, where `curl` is included:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/thomashartm/motley/main/install.sh -o motley-install.sh && bash motley-install.sh
+```
+
+The installer supports macOS/Linux on amd64/arm64 and bash, zsh or fish. It:
+
+- Installs missing Git, Go and tmux using Homebrew, apt, dnf or pacman. Homebrew
+  must already be installed on macOS; Linux package installation may ask for sudo.
+- Builds with Go 1.25.5, [downloaded automatically by Go](https://go.dev/doc/toolchain) when needed (requires
+  an existing or package-installed Go ≥ 1.21), and installs to `~/.local/bin/motley`
+  with `~/.local/bin/mtly` as its short command.
+- Adds PATH to your shell startup files, creates default motley configuration,
+  and enables the tmux popup. Existing settings are preserved; modified shell
+  and tmux files get a `.motley-backup.*` copy.
+- Installs Claude reporting hooks if `claude` is already on PATH.
+
+**Open a new terminal, then run `motley` or `mtly`.** No manual PATH or configuration edits
+are needed. In the current terminal you can immediately run `~/.local/bin/motley`.
+Rerun the same command to upgrade. Install and authenticate your chosen agent
+CLI separately; restart existing Claude sessions after hook installation.
+Existing tmux must be version 3.2 or newer.
+
+Motley uses `${XDG_CONFIG_HOME:-~/.config}/motley` for configuration and
+`${XDG_STATE_HOME:-~/.local/state}/motley` for state. When moving from an earlier
+pre-v1 setup, run the installer and copy any configuration or blueprints you want
+to retain into these directories. Existing sessions are not imported
+automatically; use `motley adopt` from their linked worktrees, then follow its
+printed environment and agent-restart instructions.
+
+### Install from a checkout
+
+To install your local code, including changes not yet published:
+
+```sh
+bash install.sh --local
+```
+
+To build without installing or changing your configuration:
 
 ```sh
 make build
-./bin/colony
-./bin/colony version
-./bin/colony --help
+./bin/motley
 ```
 
-For a local install:
+## Try it
+
+First check installation and open the overview:
 
 ```sh
-CGO_ENABLED=0 go install ./cmd/colony
-export PATH="$(go env GOPATH)/bin:$PATH"
-colony version
+motley version
+motley config
+motley ls
+motley
 ```
 
-Keep that PATH entry in your shell configuration. Source builds report `dev`;
-snapshot binaries include the Git commit.
+An empty member list is normal on first use. Press **q** to close the overview.
+By default, your main Git repositories go under `~/projects` and motley creates
+worktrees under `~/worktrees`.
 
-## Start a minion
+To test a real agent session:
+
+1. Have a repository under `~/projects`, with an `origin` remote and a local
+   `main` or `master` branch. Authenticate your agent CLI before continuing.
+2. Run `motley`, press **s**, select the repository and enter a name such as
+   `Motley test`. Choose your installed agent and **none** for the blueprint.
+3. Review the branch and launch. **This creates and pushes a new branch to origin.**
+   The main checkout is preserved.
+4. Press **Enter** on the new member. Ask the agent to describe the repository
+   without changing files. With Claude hooks installed, another terminal running
+   `motley` should show **working**, then **ready** when the turn finishes.
+5. Press **Ctrl-b d** to detach. Run `motley` again; use **/** to filter for the
+   test member, **i** to send a follow-up, or **Enter** to return to it.
+6. From another terminal, run `motley monitor`. Open the agent in a separate tab
+   with `motley attach <id>` (use the id from `motley ls`). The monitor's Enter
+   key switches that work tab while leaving the monitor visible. **Ctrl-b h**
+   opens the popup in a tmux work tab.
+7. Finish from outside the member with `motley retire <id>`, or **x** in the
+   overview. Retirement refuses unsaved or unpushed work. It removes the local
+   worktree and branch; the remote test branch remains for you to delete.
+
+For automated checks, see [Development checks](#development-checks).
+
+## Start a member
 
 With a main repository at `~/projects/api` and an `origin` remote:
 
 ```sh
-colony spawn --repo api --branch feat/412-fx-cache --ticket 412 --name "FX cache"
+motley spawn --repo api --branch feat/412-fx-cache --ticket 412 --name "FX cache"
 ```
 
 This fetches `origin/main` (or `origin/master` when only a local master exists),
@@ -50,11 +116,11 @@ outside tmux. Detach with tmux's `Ctrl-b d`; the session keeps running.
 Choose another agent or leave it running in the background:
 
 ```sh
-colony spawn --repo api --branch feat/cache-tests --agent codex --detach
-colony spawn --repo api --branch feat/cache-docs --agent opencode --detach
-colony ls
-colony attach 412-fx-cache
-colony switch feat-cache-tests
+motley spawn --repo api --branch feat/cache-tests --agent codex --detach
+motley spawn --repo api --branch feat/cache-docs --agent opencode --detach
+motley ls
+motley attach 412-fx-cache
+motley switch feat-cache-tests
 ```
 
 `--repo` is an exact directory name under `repos_root`. The branch must be new
@@ -62,7 +128,7 @@ locally. Use letters, digits, slashes, dots, underscores and hyphens in branch
 names. Worktrees are created under
 `<worktrees_root>/<repo>/<branch-with-slashes-replaced-by-hyphens>`.
 
-Minion ids use the ticket and name when supplied, otherwise the branch with
+Member ids use the ticket and name when supplied, otherwise the branch with
 slashes replaced by hyphens. A conflicting id gets a repository prefix; the
 spawn output prints the actual id and attach command.
 
@@ -70,116 +136,119 @@ The main checkout's files stay untouched. Local `.env` and `.env.*` files and
 `graphify-out` directories are copied recursively, preserving attributes and
 existing destination files. Searches exclude `.git` and `node_modules`.
 
-When the agent exits, its pane becomes a shell. `colony ls` shows both the agent status
+When the agent exits, its pane becomes a shell. `motley ls` shows both the agent status
 and whether its tmux session is **alive** or **dead**. After Claude exits, its
 status is **ended** while the shell session remains alive. Manifests live in
-`${XDG_STATE_HOME:-~/.local/state}/colony/minions/`. If creation fails after a
-worktree has been made, colony reports the error and retains that worktree.
+`${XDG_STATE_HOME:-~/.local/state}/motley/members/`. If creation fails after a
+worktree has been made, motley reports the error and retains that worktree.
 
 ## Finish, adopt and resume
 
-Retire a minion from the monitor, another tmux session, or outside tmux:
+Retire a member from the monitor, another tmux session, or outside tmux:
 
 ```sh
-colony retire 412-fx-cache
-colony retire 412-fx-cache --keep-branch
+motley retire 412-fx-cache
+motley retire 412-fx-cache --keep-branch
 ```
 
 Retirement refuses uncommitted/untracked files and commits ahead of the local
 upstream reference. Without an upstream, it checks commits beyond the base
-branch. `--force` explicitly discards that work. Colony kills the tmux session,
+branch. `--force` explicitly discards that work. Motley kills the tmux session,
 removes the worktree, and deletes its local branch unless `--keep-branch` is set
 or the branch is `main`, `master` or `develop`. Remote branches are kept.
 
-The manifest, event log and any prompt move to `minions/archive/`, with a
+The manifest, event log and any prompt move to `members/archive/`, with a
 retirement timestamp. Reused ids get a timestamp suffix in the archive. If
 cleanup fails, the active manifest is retained so you can correct the reported
 problem and retry. A main checkout or a worktree whose branch has changed is
 refused even with `--force`.
 
-Colony refuses to retire the session running the command or popup: killing that
+Motley refuses to retire the session running the command or popup: killing that
 pane would interrupt cleanup. Use the monitor or another terminal instead.
 
-To bring an existing worktree session into colony, run from that linked
+To bring an existing worktree session into motley, run from that linked
 worktree inside tmux:
 
 ```sh
-colony adopt --agent claude --ticket 412 --name "FX cache"
+motley adopt --agent claude --ticket 412 --name "FX cache"
 ```
 
-This records its Git state and renames the current tmux session to the minion id.
+This records its Git state and renames the current tmux session to the member id.
 Main checkouts cannot be adopted. Existing processes keep their environment;
-run the printed `export COLONY_MINION=...` command in your current shell and
+run the printed `export MOTLEY_MEMBER=...` command in your current shell and
 restart the agent to enable reporting. New panes inherit the id automatically.
 Retirement manages the whole adopted tmux session, including its other panes.
 
-To restart a **dead** minion whose worktree still exists:
+To restart a **dead** member whose worktree still exists:
 
 ```sh
-colony revive 412-fx-cache
-colony attach 412-fx-cache
+motley revive 412-fx-cache
+motley attach 412-fx-cache
 ```
 
 Claude resumes the latest session id recorded in its event log. Without a
 recorded id, it starts fresh. Codex and OpenCode start fresh. Revive leaves the
-new tmux session detached; it does not restore retired minions or deleted
+new tmux session detached; it does not restore retired members or deleted
 worktrees. An agent that exited into a shell still has a live tmux session;
 restart it in that shell, or close that session before using revive.
 
-## Crews and colours
+## Crews, gigs and colours
 
-Group minions around a package of work:
+Group members into a crew and describe its gig (package of work):
 
 ```sh
-colony crew add --title "FX & Banking" --color blue
-colony crew assign 412-fx-cache fx-banking
-colony crew list
-colony crew edit fx-banking --title "Banking" --color purple
+mtly crew add --title "FX & Banking" --gig "Ship FX caching" --color blue
+motley crew assign 412-fx-cache fx-banking
+motley crew list
+motley crew edit fx-banking --title "Banking" --color purple
+motley crew edit fx-banking --gig "Roll out payments"
 ```
 
-A crew can have an optional `--url` link. Titles are entered manually; colony
+A crew can have an optional `--gig` description and `--url` link. Clear its gig
+with `crew edit <id> --gig ""`. Gigs appear in crew lists and TUI details.
+Titles are entered manually; motley
 makes no network request. New ids use the title's slug, with a numeric suffix
 when needed. Without `--color`, a crew takes the next unused palette colour.
 
-Use `--crew <id>` on spawn or adopt. A minion inherits its crew's colour unless
-it has a `--color` override; unassigned minions get a stable colour from their id.
+Use `--crew <id>` on spawn or adopt. A member inherits its crew's colour unless
+it has a `--color` override; unassigned members get a stable colour from their id.
 The palette is **red, orange, yellow, green, blue, purple, brown, grey**.
 The overview uses a colour bar for identity and separate status icons. Agent
 badges are **CC** (orange), **CX** (green), and **OC** (purple).
 
-Crew edits immediately update live minions' tmux status bars and emoji titles,
+Crew edits immediately update live members' tmux status bars and emoji titles,
 while preserving individual colour overrides. In the overview, **e** edits a
-minion's name, ticket, crew and colour. Clear its colour to restore inheritance.
+member's name, ticket, crew and colour. Clear its colour to restore inheritance.
 For older sessions, assigning a crew or saving an edit also applies the styling.
 
 ```sh
-colony crew assign 412-fx-cache none
-colony crew rm fx-banking
-colony crew rm fx-banking --force
-colony crew list --json
+motley crew assign 412-fx-cache none
+motley crew rm fx-banking
+motley crew rm fx-banking --force
+motley crew list --json
 ```
 
-Removal refuses crews referenced by live or dead minions. `--force` unassigns
-those minions; their worktrees and sessions remain. Archived manifests retain
+Removal refuses crews referenced by live or dead members. `--force` unassigns
+those members; their worktrees and sessions remain. Archived manifests retain
 their historical crew id. Crews are stored in
-`${XDG_STATE_HOME:-~/.local/state}/colony/crews.toml`.
+`${XDG_STATE_HOME:-~/.local/state}/motley/crews.toml`.
 
 ## Blueprints
 
-Blueprints are Markdown templates for a minion's initial prompt. Store them in
-`${XDG_CONFIG_HOME:-~/.config}/colony/blueprints/`, or in the main repository's
-`.colony/blueprints/` directory. A repository blueprint overrides a global one
+Blueprints are Markdown templates for a member's initial prompt. Store them in
+`${XDG_CONFIG_HOME:-~/.config}/motley/blueprints/`, or in the main repository's
+`.motley/blueprints/` directory. A repository blueprint overrides a global one
 with the same name. An optional `repos` list restricts where it is available.
 
 Start with [feature-plan-first.md](examples/blueprints/feature-plan-first.md):
 
 ```sh
-mkdir -p ~/.config/colony/blueprints
-cp examples/blueprints/feature-plan-first.md ~/.config/colony/blueprints/
-colony blueprint list --repo api
-colony blueprint show feature-plan-first --repo api
-colony blueprint validate --repo api
-colony spawn --repo api --branch feat/412-fx-cache --ticket 412 --name "FX cache" \
+mkdir -p ~/.config/motley/blueprints
+cp examples/blueprints/feature-plan-first.md ~/.config/motley/blueprints/
+motley blueprint list --repo api
+motley blueprint show feature-plan-first --repo api
+motley blueprint validate --repo api
+motley spawn --repo api --branch feat/412-fx-cache --ticket 412 --name "FX cache" \
   --blueprint feature-plan-first --var 'constraints=Keep the change small'
 ```
 
@@ -200,7 +269,7 @@ can contain commas, equals signs and newlines. The last value for a key wins.
 `vars` lists suggested inputs; it does not make them mandatory.
 
 The CLI's `--agent` overrides the blueprint's agent. If the blueprint has arguments
-for a different agent, colony refuses the mismatch before creating a worktree.
+for a different agent, motley refuses the mismatch before creating a worktree.
 Blueprint arguments are passed unchanged, so the example's Claude plan mode is
 selected by its `args = ["--permission-mode", "plan"]`.
 
@@ -210,11 +279,11 @@ Rendered prompts are limited to 64 KiB and saved privately beside the manifest
 as `<id>.prompt.md`, with a schema comment that is removed before delivery.
 The manifest records the blueprint name and agent arguments. **Revive preserves
 those arguments without replaying the initial prompt.** Retirement archives the
-prompt with the rest of the minion's state.
+prompt with the rest of the member's state.
 
 ## Configuration
 
-Reads `${XDG_CONFIG_HOME:-~/.config}/colony/config.toml`. Missing files/settings
+Reads `${XDG_CONFIG_HOME:-~/.config}/motley/config.toml`. Missing files/settings
 use defaults. File values override defaults. `XDG_CONFIG_HOME` selects the config
 directory.
 
@@ -231,54 +300,96 @@ directories. Invalid TOML, incorrect field types and empty roots produce errors.
 Unknown keys are ignored; missing keys, including schema, use defaults. Only
 schema 1 is supported.
 
-`colony version` and `--help` remain available even with invalid configuration.
-`colony config` displays the configured roots.
+`motley version` and `--help` remain available even with invalid configuration.
+`motley config` displays the configured roots.
 
 ## Session overview
 
-Run `colony` to browse your minions in a terminal overview. The left list shows
+Run `motley` to browse your members in a terminal overview. The left list shows
 **NEEDS YOU** (permission, question, ready, idle), **WORKING**, and **ENDED / DEAD**.
-Waiting minions appear oldest first, with a status icon and elapsed time.
+Waiting members appear oldest first, with a status icon and elapsed time.
 The right pane shows the request or response, repository, branch, agent, worktree
-and attached terminals, plus the selected blueprint. Ready minions also show
+and attached terminals, plus the selected blueprint. Ready members also show
 their commit and diff summary.
-It refreshes every second, including details for the selected minion.
+It refreshes every second, including details for the selected member.
 
 | Key | Action |
 | --- | --- |
-| ↑/↓ or j/k | Select a minion |
+| ↑/↓ or j/k | Select a member |
 | Enter | Switch this tmux client, or attach from outside tmux |
+| s | Spawn a member with repository, agent and blueprint selection |
+| i | Send a one-line reply to the member's active pane; Enter sends, Esc cancels |
+| t | Send the selected member to another attached work tab |
+| / | Filter by id, name, ticket, repository or branch; Enter keeps the filter, Esc clears it |
 | Page Up / Page Down | Scroll the details |
 | x | Retire: inspect checks, then confirm; f toggles force, k keeps the branch, Esc cancels |
-| r | Revive a dead minion |
+| r | Revive a dead member |
 | g | Cycle attention, crew and repository grouping |
-| e | Edit the selected minion; Tab changes fields, Ctrl-s saves, Esc cancels |
+| e | Edit the selected member; Tab changes fields, Ctrl-s saves, Esc cancels |
 | G | Crew manager: a adds, e edits, c cycles colour, x deletes |
 | q | Close the overview |
 
 In crew grouping, each collapsed row shows a crew and its status counts. Select
 it to see a member table, then **Tab** into the table and use **↑/↓** to choose a
-minion. **Enter**, **e**, **x** and **r** act on that member; **Esc** returns to
+member. **Enter**, **e**, **x** and **r** act on that member; **Esc** returns to
 the crew list. **→** or **Space** expands a crew in the list; **←** collapses it.
-**H** shows crews with no live minions. Unassigned minions appear under **No crew**.
+**H** shows crews with no live members. Unassigned members appear under **No crew**.
 Crew titles with links are clickable in terminals that support hyperlinks.
 
 The overview needs a terminal at least 60 columns wide and 10 rows high.
-Use `colony ls` for plain text output.
+Use `motley ls` for plain text output.
+
+### Spawn and steer
+
+Press **s** to create a member from the overview:
+
+1. Type to filter repositories; use arrows and Enter to choose one.
+2. Enter a ticket (optional) and name. The branch previews as `feat/<ticket>-<name>`
+   or `feat/<name>`; Tab moves between fields, including an editable branch.
+3. Select Claude, Codex or OpenCode, then a compatible blueprint or **none**.
+4. Fill any blueprint variables, then review the rendered prompt.
+5. Press **e** to edit the prompt in `$EDITOR` (default `vi`), or Enter to launch.
+
+Preparing the preview makes no worktree or state changes. Editing also works
+with **none** selected as the blueprint. Keep the prompt file's schema comment;
+motley removes it before delivery. The form shows fetch/create/push/copy progress
+and selects the new member on success. Esc cancels before launch; created
+worktrees are retained if launch fails. Use **e** on the created member to assign
+a crew or colour.
+
+Filtering is case-insensitive and matches characters in order: `fxc` matches
+`FX cache`. Attention ordering is preserved. While entering a filter, Enter
+returns to navigation; Esc clears it. In a crew member table, Esc first returns
+to the crew list.
+
+**i** replies with literal text plus Enter in the member's active tmux pane.
+Permission requests require jumping into the agent; replies are disabled for
+permission, ended and dead states. **t** selects another attached work tab;
+the monitor's client is excluded.
+
+The same tab action is available from the CLI:
+
+```sh
+motley tabs
+motley send 412-fx-cache --tab /dev/ttys012
+```
+
+Use the TTY printed by `motley tabs`. Motley rechecks that the member and tab
+are still attached before switching, and refuses to send to the monitor tab.
 
 ### Claude status reporting
 
-Install hooks once, with colony on PATH:
+Install hooks once, with motley on PATH:
 
 ```sh
-colony hooks install claude
+motley hooks install claude
 ```
 
-The installer merges into `~/.claude/settings.json`, preserves other settings and
+The hook installer merges into `~/.claude/settings.json`, preserves other settings and
 hooks, and backs up an existing file before changing it. Running it again makes
 no changes. Restart existing Claude sessions to load the hooks. To start Claude
-again in an existing minion, exit Claude and run `claude` in that same pane.
-Sessions outside colony are ignored.
+again in an existing member, exit Claude and run `claude` in that same pane.
+Sessions outside motley are ignored.
 
 | State | Meaning |
 | --- | --- |
@@ -289,28 +400,29 @@ Sessions outside colony are ignored.
 | ● working / starting | Claude is running or the session is starting |
 | ■ ended / ✗ dead | Agent exited / tmux session ended |
 
-Use **Enter** to jump to a minion and answer Claude there. Codex and OpenCode
+Use **Enter** to jump to a member and answer Claude there. Codex and OpenCode
 currently show session availability without live agent attention states.
 
 Hooks produce no terminal output and always exit successfully. Diagnostics go to
-`${XDG_STATE_HOME:-~/.local/state}/colony/report.log`; per-minion event history is
+`${XDG_STATE_HOME:-~/.local/state}/motley/report.log`; per-member event history is
 beside its manifest as `<id>.events.jsonl`. Hooks do not change manifests.
 
-New minion sessions show their status and ticket in tmux's status bar. For
+New member sessions show their status and ticket in tmux's status bar. For
 existing sessions, add this to your tmux configuration and reload it:
 
 ```tmux
 set -g status-interval 2
 set -g status-left-length 50
-set -g status-left "#{?#{@colony_minion},#{@colony_status} #{@colony_ticket} ,}"
+set -g status-left "#{?#{@motley_member},#{@motley_status} #{@motley_ticket} ,}"
 ```
 
 ### Popup
 
-With colony on PATH, run:
+The installer enables **Ctrl-b h** automatically. If you built the binary manually,
+run:
 
 ```sh
-colony init
+motley init
 ```
 
 This creates missing configuration files and prints a `source-file` line for
@@ -323,34 +435,34 @@ prefix is Ctrl-b. Existing config files are preserved.
 Open a separate terminal tab or window and run:
 
 ```sh
-colony monitor
+motley monitor
 ```
 
-The monitor runs in the `_colony` tmux session. **Enter switches another work
+The monitor runs in the `_motley` tmux session. **Enter switches another work
 tab**, keeping the monitor visible. It chooses the most recently active tmux
 client outside the monitor. Press **T** to pin a work tab, or select **Automatic**
 to follow activity again. If there is no work tab, open another terminal and run
-`colony attach <id>`.
+`motley attach <id>`.
 
 In the monitor, **q** detaches the terminal and leaves the overview running.
-Closing the terminal also leaves it running; `colony monitor` reconnects to it.
-The `_colony` session does not appear in the minion list.
+Closing the terminal also leaves it running; `motley monitor` reconnects to it.
+The `_motley` session does not appear in the member list.
 
-The header shows per-status counts and **NEW ATTENTION** when a minion needs you.
-Selecting another minion or jumping acknowledges the marker. To also ring the
-terminal bell, add `monitor_bell = true` to colony's configuration, then restart
+The header shows per-status counts and **NEW ATTENTION** when a member needs you.
+Selecting another member or jumping acknowledges the marker. To also ring the
+terminal bell, add `monitor_bell = true` to motley's configuration, then restart
 the overview process. Terminal notification behavior depends on your terminal's
 bell settings.
 
-After upgrading colony, restart an existing monitor to load the new binary
+After upgrading motley, restart an existing monitor to load the new binary
 (`q` only detaches it):
 
 ```sh
-tmux kill-session -t _colony
-colony monitor
+tmux kill-session -t _motley
+motley monitor
 ```
 
-This restarts the overview; minion sessions keep running.
+This restarts the overview; member sessions keep running.
 
 ## Development checks
 
@@ -373,6 +485,6 @@ CI runs tests and vet on macOS/Linux, checks the Go 1.22 minimum on Linux, lints
 cross-builds darwin/linux × amd64/arm64, and uploads snapshot archives. CI does
 not publish releases. Tests require git, tmux, cp and bash. They use temporary
 HOME/config/state directories, fixture repositories with local bare remotes,
-fake agents and separate `tmux -L colony-test-<random>` servers. They never use
+fake agents and separate `tmux -L motley-test-<random>` servers. They never use
 your working repositories or active tmux server. Artifact-copy tests compare
 against the original wt script and a golden inventory.

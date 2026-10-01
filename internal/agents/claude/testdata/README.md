@@ -4,7 +4,7 @@
 Captured locally with Claude Code **2.1.285**, Haiku, on 2026-09-30.
 `recorded.json` contains real hook payloads with paths and session/prompt IDs
 replaced by fixture values. Expected mappings are hand-written.
-`transcript.jsonl` retains only the assistant text record fields used by colony;
+`transcript.jsonl` retains only the assistant text record fields used by motley;
 model metadata and opaque signatures are omitted.
 
 A temporary settings file registered a JSON-stdin recorder for SessionStart,
@@ -14,7 +14,7 @@ changed. CLI options: `--setting-sources '' --settings <recorder-settings.json>
 --strict-mcp-config --model haiku --effort low`.
 
 1. In print mode, allow only Read, read a fixture file, then respond exactly
-   `colony fixture complete`.
+   `motley fixture complete`.
 2. In interactive mode, enable AskUserQuestion and Bash. Ask “Which fixture
    option?” (Alpha/Beta), then request `touch` on a temporary marker. Select Alpha
    and approve that single command manually. Wait for the idle notification,
@@ -26,7 +26,7 @@ A Bash permission notification contains only a generic message, so the reporter
 retains preceding tool input in a bounded tmux option.
 
 Stop supplies `last_assistant_message`. The copied transcript taken *during*
-Stop did not yet contain that last record; the completed transcript did. Colony
+Stop did not yet contain that last record; the completed transcript did. Motley
 prefers the direct field and reads only the final 64 KiB of a transcript when
 that field is absent.
 

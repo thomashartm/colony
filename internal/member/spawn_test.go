@@ -1,9 +1,9 @@
-package minion
+package member
 
 import (
 	"testing"
 
-	"github.com/thomashartm/colony/internal/tmux"
+	"github.com/thomashartm/motley/internal/tmux"
 )
 
 func TestIdentity(t *testing.T) {

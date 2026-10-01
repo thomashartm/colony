@@ -7,19 +7,19 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/thomashartm/colony/internal/minion"
-	"github.com/thomashartm/colony/internal/tmux"
+	"github.com/thomashartm/motley/internal/member"
+	"github.com/thomashartm/motley/internal/tmux"
 )
 
 func update(m Model, msg tea.Msg) Model { next, _ := m.Update(msg); return next.(Model) }
 func key(s string) tea.KeyMsg           { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(s)} }
-func row(id string, alive bool) minion.Row {
-	return minion.Row{Manifest: minion.Manifest{ID: id, Name: id, Repo: "api", Branch: "feat/" + id, Worktree: "/tmp/trees/" + id, Agent: "claude"}, Alive: alive}
+func row(id string, alive bool) member.Row {
+	return member.Row{Manifest: member.Manifest{ID: id, Name: id, Repo: "api", Branch: "feat/" + id, Worktree: "/tmp/trees/" + id, Agent: "claude"}, Alive: alive}
 }
 
 func TestSelectionSurvivesRefresh(t *testing.T) {
 	m := update(newModel(false, true, "client", nil), tea.WindowSizeMsg{Width: 100, Height: 24})
-	m = update(m, snapshot{rows: []minion.Row{row("b", true), row("dead", false), row("a", true)}})
+	m = update(m, snapshot{rows: []member.Row{row("b", true), row("dead", false), row("a", true)}})
 	if m.selectedID() != "a" {
 		t.Fatal("live rows must sort first by id")
 	}
@@ -27,11 +27,11 @@ func TestSelectionSurvivesRefresh(t *testing.T) {
 	if m.selectedID() != "b" || !strings.Contains(m.detail.View(), "feat/b") {
 		t.Fatal("selection/detail did not move")
 	}
-	m = update(m, snapshot{rows: []minion.Row{row("aa", true), row("b", false), row("a", true)}})
+	m = update(m, snapshot{rows: []member.Row{row("aa", true), row("b", false), row("a", true)}})
 	if m.selectedID() != "b" {
 		t.Fatal("selection identity was lost on insertion or state change")
 	}
-	m = update(m, snapshot{rows: []minion.Row{row("a", true)}})
+	m = update(m, snapshot{rows: []member.Row{row("a", true)}})
 	if m.selectedID() != "a" {
 		t.Fatal("selection not clamped after removal")
 	}
@@ -40,18 +40,18 @@ func TestSelectionSurvivesRefresh(t *testing.T) {
 		t.Fatal("failed refresh must preserve last snapshot and show error")
 	}
 	m = update(m, snapshot{})
-	if m.selectedID() != "" || m.pollError != "" || !strings.Contains(m.View(), "No minions yet") {
+	if m.selectedID() != "" || m.pollError != "" || !strings.Contains(m.View(), "No members yet") {
 		t.Fatal("empty state")
 	}
 }
 func TestJumpRoutesAndRefusals(t *testing.T) {
 	m := newModel(false, false, "", nil)
-	m = update(m, snapshot{rows: []minion.Row{row("a", false)}})
+	m = update(m, snapshot{rows: []member.Row{row("a", false)}})
 	m = update(m, tea.KeyMsg{Type: tea.KeyEnter})
 	if m.attachID != "" || !strings.Contains(m.message, "dead") {
-		t.Fatal("dead minion should not attach")
+		t.Fatal("dead member should not attach")
 	}
-	m = update(m, snapshot{rows: []minion.Row{row("a", true)}})
+	m = update(m, snapshot{rows: []member.Row{row("a", true)}})
 	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	m = next.(Model)
 	if m.attachID != "a" {
@@ -105,7 +105,7 @@ func TestMonitorTargetAndPin(t *testing.T) {
 func TestViewFitsTerminal(t *testing.T) {
 	for _, size := range [][2]int{{60, 10}, {80, 24}, {140, 40}} {
 		m := update(newModel(false, true, "client", nil), tea.WindowSizeMsg{Width: size[0], Height: size[1]})
-		rows := make([]minion.Row, 50)
+		rows := make([]member.Row, 50)
 		for i := range rows {
 			rows[i] = row(strings.Repeat("long界", 20), true)
 		}

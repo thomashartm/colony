@@ -6,8 +6,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/thomashartm/colony/internal/crew"
-	"github.com/thomashartm/colony/internal/minion"
+	"github.com/thomashartm/motley/internal/crew"
+	"github.com/thomashartm/motley/internal/member"
 )
 
 func crewSnapshot() snapshot {
@@ -15,9 +15,9 @@ func crewSnapshot() snapshot {
 	a.Crew, a.Status, a.Since, a.Ticket = "fx", "permission", 10, "433"
 	b.Crew, b.Status, b.Repo, b.Since = "fx", "working", "worker", 20
 	d.Crew = "inactive"
-	return snapshot{rows: []minion.Row{b, c, d, a}, crews: []crew.Crew{
+	return snapshot{rows: []member.Row{b, c, d, a}, crews: []crew.Crew{
 		{ID: "inactive", Title: "Archived work", Color: "grey"},
-		{ID: "fx", Title: "FX Banking", Color: "blue", URL: "https://example.com/work"},
+		{ID: "fx", Title: "FX Banking", Gig: "Ship FX caching", Color: "blue", URL: "https://example.com/work"},
 	}}
 }
 func TestCrewNavigationAndRefresh(t *testing.T) {
@@ -27,8 +27,11 @@ func TestCrewNavigationAndRefresh(t *testing.T) {
 	if m.group != "crew" || len(m.crewEntries()) != 2 || m.currentEntry().crew != "fx" || m.selectedID() != "" {
 		t.Fatalf("collapsed crews: %+v", m.crewEntries())
 	}
-	if !strings.Contains(m.crewTable(20, 73), "MINION") || !strings.Contains(m.crewTable(20, 73), "waiting") {
+	if !strings.Contains(m.crewTable(20, 73), "MEMBER") || !strings.Contains(m.crewTable(20, 73), "waiting") {
 		t.Fatal("missing member table")
+	}
+	if !strings.Contains(m.crewTable(20, 73), "Gig  Ship FX caching") {
+		t.Fatal("missing crew gig")
 	}
 	m = update(m, key("H"))
 	if len(m.crewEntries()) != 3 || m.currentEntry().crew != "fx" {
@@ -74,6 +77,9 @@ func TestCrewNavigationAndRefresh(t *testing.T) {
 	m = update(m, key("j"))
 	if m.selectedID() != "busy" || !strings.Contains(m.detail.View(), "feat/busy") {
 		t.Fatal("expanded member detail")
+	}
+	if !strings.Contains(m.detail.View(), "Ship FX caching") {
+		t.Fatal("missing member gig")
 	}
 	m = update(m, tea.KeyMsg{Type: tea.KeyLeft})
 	if m.currentEntry().crew != "fx" || m.selectedID() != "" || len(m.crewEntries()) != 3 {

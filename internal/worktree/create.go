@@ -1,4 +1,4 @@
-// Package worktree implements the worktree operations needed by minions.
+// Package worktree implements the worktree operations needed by members.
 package worktree
 
 import (
@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/thomashartm/colony/internal/gitx"
+	"github.com/thomashartm/motley/internal/gitx"
 )
 
 // Base uses local main, then master, as in wt's resolve_base_branch.
@@ -41,6 +41,7 @@ func Create(repo, branch, base, path string, output io.Writer) error {
 	if err := CheckNew(repo, branch, path); err != nil {
 		return err
 	}
+	_, _ = fmt.Fprintln(output, "Fetching origin/"+base+"…")
 	if err := gitx.Run(repo, output, "fetch", "origin", base); err != nil {
 		if err := gitx.Run(repo, output, "fetch", "origin"); err != nil {
 			return err
@@ -49,12 +50,15 @@ func Create(repo, branch, base, path string, output io.Writer) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
+	_, _ = fmt.Fprintln(output, "Creating worktree…")
 	if err := gitx.Run(repo, output, "worktree", "add", "-b", branch, path, "origin/"+base); err != nil {
 		return err
 	}
+	_, _ = fmt.Fprintln(output, "Pushing branch…")
 	if err := gitx.Run(path, output, "push", "-u", "origin", branch); err != nil {
 		return fmt.Errorf("worktree retained at %s; push failed: %w", path, err)
 	}
+	_, _ = fmt.Fprintln(output, "Copying local artifacts…")
 	if err := CopyArtifacts(repo, path, output); err != nil {
 		return fmt.Errorf("worktree retained at %s; artifact copy failed: %w", path, err)
 	}

@@ -14,10 +14,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/thomashartm/colony/internal/agents/claude"
-	"github.com/thomashartm/colony/internal/minion"
-	"github.com/thomashartm/colony/internal/state"
-	"github.com/thomashartm/colony/internal/tmux"
+	"github.com/thomashartm/motley/internal/agents/claude"
+	"github.com/thomashartm/motley/internal/member"
+	"github.com/thomashartm/motley/internal/state"
+	"github.com/thomashartm/motley/internal/tmux"
 )
 
 const timeout = 250 * time.Millisecond
@@ -25,7 +25,7 @@ const timeout = 250 * time.Millisecond
 // Run never prints or returns an error to an agent. It also bounds blocked stdin
 // and tmux calls, so a broken hook cannot hold up the agent indefinitely.
 func Run(args []string, stdin io.Reader) {
-	id := os.Getenv("COLONY_MINION")
+	id := os.Getenv("MOTLEY_MEMBER")
 	if id == "" {
 		return
 	}
@@ -51,7 +51,7 @@ func Run(args []string, stdin io.Reader) {
 }
 
 func handle(ctx context.Context, id string, args []string, stdin io.Reader) error {
-	if err := minion.CheckID(id); err != nil {
+	if err := member.CheckID(id); err != nil {
 		return err
 	}
 	flags := flag.NewFlagSet("report", flag.ContinueOnError)
@@ -76,7 +76,7 @@ func handle(ctx context.Context, id string, args []string, stdin io.Reader) erro
 	if readErr != nil {
 		parseErr = readErr
 	}
-	dir, err := state.MinionsDir()
+	dir, err := state.MembersDir()
 	if err != nil {
 		return err
 	}
@@ -169,7 +169,7 @@ func logError(err error) {
 }
 
 func writeError(err error) {
-	dir, e := state.MinionsDir()
+	dir, e := state.MembersDir()
 	if e != nil {
 		return
 	}

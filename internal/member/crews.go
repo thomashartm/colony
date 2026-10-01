@@ -1,4 +1,4 @@
-package minion
+package member
 
 import (
 	"errors"
@@ -8,10 +8,10 @@ import (
 	"unicode"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/thomashartm/colony/internal/crew"
-	"github.com/thomashartm/colony/internal/palette"
-	"github.com/thomashartm/colony/internal/state"
-	"github.com/thomashartm/colony/internal/tmux"
+	"github.com/thomashartm/motley/internal/crew"
+	"github.com/thomashartm/motley/internal/palette"
+	"github.com/thomashartm/motley/internal/state"
+	"github.com/thomashartm/motley/internal/tmux"
 )
 
 func Color(m Manifest, crews []crew.Crew) palette.Color {
@@ -53,7 +53,7 @@ func syncAppearance(ms []Manifest, crews []crew.Crew) error {
 	var failures []error
 	for _, m := range ms {
 		for _, s := range sessions {
-			if s.Name == tmux.SessionName(m.ID) && s.MinionID == m.ID {
+			if s.Name == tmux.SessionName(m.ID) && s.MemberID == m.ID {
 				if err := applyAppearance(m, crews); err != nil {
 					failures = append(failures, fmt.Errorf("%s: %w", m.ID, err))
 				}
@@ -66,8 +66,8 @@ func syncAppearance(ms []Manifest, crews []crew.Crew) error {
 	return nil
 }
 
-func AddCrew(title, url, color string) (crew.Crew, error) {
-	dir, err := state.MinionsDir()
+func AddCrew(title, url, color, gig string) (crew.Crew, error) {
+	dir, err := state.MembersDir()
 	if err != nil {
 		return crew.Crew{}, err
 	}
@@ -105,17 +105,17 @@ func AddCrew(title, url, color string) (crew.Crew, error) {
 			}
 		}
 	}
-	c := crew.Crew{ID: id, Title: title, URL: url, Kind: crew.Kind(url), Color: color}
+	c := crew.Crew{ID: id, Title: title, Gig: strings.TrimSpace(gig), URL: url, Kind: crew.Kind(url), Color: color}
 	if err := crew.Validate(c); err != nil {
 		return c, err
 	}
 	return c, crew.Save(append(crews, c))
 }
 
-type CrewEdit struct{ Title, URL, Color *string }
+type CrewEdit struct{ Title, URL, Color, Gig *string }
 
 func EditCrew(id string, edit CrewEdit) error {
-	dir, err := state.MinionsDir()
+	dir, err := state.MembersDir()
 	if err != nil {
 		return err
 	}
@@ -137,6 +137,9 @@ func EditCrew(id string, edit CrewEdit) error {
 		found = true
 		if edit.Title != nil {
 			c.Title = strings.TrimSpace(*edit.Title)
+		}
+		if edit.Gig != nil {
+			c.Gig = strings.TrimSpace(*edit.Gig)
 		}
 		if edit.URL != nil {
 			c.URL = *edit.URL
@@ -168,7 +171,7 @@ func EditCrew(id string, edit CrewEdit) error {
 	return syncAppearance(affected, crews)
 }
 func RemoveCrew(id string, force bool) error {
-	dir, err := state.MinionsDir()
+	dir, err := state.MembersDir()
 	if err != nil {
 		return err
 	}
@@ -195,7 +198,7 @@ func RemoveCrew(id string, force bool) error {
 		}
 	}
 	if len(affected) > 0 && !force {
-		return fmt.Errorf("crew %s is referenced by %d minions; --force unassigns them", id, len(affected))
+		return fmt.Errorf("crew %s is referenced by %d members; --force unassigns them", id, len(affected))
 	}
 	for i := range affected {
 		affected[i].Crew = ""
@@ -218,7 +221,7 @@ func RemoveCrew(id string, force bool) error {
 type IdentityEdit struct{ Name, Ticket, Crew, Color *string }
 
 func EditIdentity(id string, edit IdentityEdit) error {
-	dir, err := state.MinionsDir()
+	dir, err := state.MembersDir()
 	if err != nil {
 		return err
 	}

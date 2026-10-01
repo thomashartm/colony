@@ -54,7 +54,7 @@ func TestNotificationFallbackAndStop(t *testing.T) {
 		{`{"hook_event_name":"Notification","notification_type":"auth_success","message":"permission granted"}`, "", "", "permission granted"},
 		{`{"hook_event_name":"FutureHook"}`, "", "", ""},
 		{`{"prompt":"first line\nsecond line"}`, "UserPromptSubmit", "working", "first line"},
-		{`{"hook_event_name":"Stop","transcript_path":"testdata/transcript.jsonl"}`, "", "ready", "colony fixture complete"},
+		{`{"hook_event_name":"Stop","transcript_path":"testdata/transcript.jsonl"}`, "", "ready", "motley fixture complete"},
 		{`{"hook_event_name":"Stop","transcript_path":"/missing","last_assistant_message":"Direct response"}`, "", "ready", "Direct response"},
 	} {
 		got, err := Parse([]byte(tc.input), tc.event)

@@ -73,7 +73,7 @@ func TestPrepareIsReadOnly(t *testing.T) {
 		t.Fatalf("%v %s", err, out)
 	}
 	git("push", "-u", "origin", "main")
-	script := "#!/bin/sh\ncase \"$*\" in *list-sessions*) echo 'no server running on fixture' >&2; exit 1;; *) exit 0;; esac\n"
+	script := "#!/bin/sh\ncase \"$*\" in *list-sessions*) echo 'no server running on fixture' >&2; exit 1;; *list-keys*) echo 'unknown key'; exit 1;; *) exit 0;; esac\n"
 	if err := os.WriteFile(filepath.Join(bin, "tmux"), []byte(script), 0755); err != nil {
 		t.Fatal(err)
 	}

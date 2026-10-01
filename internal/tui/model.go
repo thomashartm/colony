@@ -86,6 +86,8 @@ func nextPoll() tea.Cmd       { return tea.Tick(time.Second, func(time.Time) tea
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.MouseMsg:
+		return m.mouse(msg)
 	case spawnLoaded, spawnPrepared, spawnProgress, spawnFinished, promptEdited:
 		return m.spawnMessage(msg)
 	case tick:
@@ -666,6 +668,9 @@ func (m Model) View() string {
 	}
 	if m.picking && m.pickMode == "send" {
 		keys = " ↑↓/jk choose tab  enter send  esc cancel"
+	}
+	if m.navigationAvailable() {
+		keys = navigationBar + " " + strings.TrimSpace(keys)
 	}
 	header += "  [" + m.groupName() + "]"
 	return fit(header, m.width) + "\n" + lipgloss.JoinHorizontal(lipgloss.Top, left, detail) + "\n" + fit(clean(message), m.width) + "\n" + fit(keys, m.width)

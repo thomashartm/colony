@@ -112,12 +112,20 @@ the table; **H** shows inactive crews. In the crew manager, **→** opens its ac
 
 ### Inside an agent's tmux session
 
+Shortcuts stay visible at the bottom, below the normal tmux status row. Existing
+sessions gain the footer when you attach or switch to them with the updated Motley.
+Click the underlined footer controls, or use the keys below. In the overview,
+click **List**, **Details**, **Actions**, a member or an action; the mouse wheel
+scrolls lists and details. Forms still use the keyboard.
+
 With the default tmux prefix, press **Ctrl-b**, release both keys, then press
 the next key. Use your own prefix if you changed it.
 
 - **Details:** **Ctrl-b h** opens Motley. Select a member with **↑/↓**, then
   **→** focuses its details. Scroll with **↑/↓** or **Page Up/Page Down**;
   **←/Esc** returns to the list.
+- **Monitor:** **Ctrl-b H** (uppercase) opens the persistent monitor in this tab;
+  press it again to return to the previous session. The agent keeps running.
 - **Back to the agent:** **q** closes the popup. **Enter** switches to the
   selected member instead.
 - **Other tmux windows/panes:** **Ctrl-b w** opens the window picker;

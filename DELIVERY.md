@@ -569,3 +569,27 @@ Ghostty tab and attaching an existing member, including how to move the view and
 the distinction between creating a terminal tab and sending to an attached tab.
 Checked commands against the CLI, popup binding and TUI handlers; checked tmux
 bindings and Ghostty's installed default keybindings. Documentation only.
+
+### Persistent shortcuts and mouse navigation — 2026-10-01
+
+Member sessions now show three help rows below their existing tmux status row,
+using the configured prefix and the current member's attach command. Spawn,
+revive, adopt and attachment install the footer. Prefix H toggles the originating
+client between the persistent monitor and its previous session; prefix h retains
+the popup. Underlined footer controls support mouse clicks for monitor, details,
+detach, windows, previous/next window and scrollback. Clicks dispatch on release
+to avoid tmux's rapid-click key translation. Existing key actions remain the
+fallback outside Motley controls.
+
+The overview supports clickable List/Details/Actions/Enter/q controls, member
+and crew selection, action selection and wheel scrolling. Forms retain keyboard
+input. Navigation callbacks target the originating client and its active session;
+no navigation command is typed into the agent. README documents the controls.
+
+Validation passed: installer, uninstall and plugin checks; full Go suite; vet;
+lint; four platform builds; whitespace check. Real isolated tmux tests cover a
+custom prefix, existing status row and key fallback, reattachment, keyboard and
+mouse monitor round trips, rapid window/scroll clicks and non-destructive detach.
+TUI tests cover navigation buttons, member/crew/action clicks, scrolling, modal
+guards and minimum-size handling. Existing monitors must be restarted to load
+the updated TUI; agent processes need not be restarted for the tmux footer.

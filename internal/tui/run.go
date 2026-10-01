@@ -58,7 +58,7 @@ func Run(monitor bool, client string, bell bool) error {
 	m.fetchDetail = cache.command
 	var program *tea.Program
 	m.sendMsg = func(msg tea.Msg) { program.Send(msg) }
-	program = tea.NewProgram(m, tea.WithAltScreen())
+	program = tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	result, err := program.Run()
 	if err != nil {
 		return err

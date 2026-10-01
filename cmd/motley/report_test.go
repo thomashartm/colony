@@ -84,7 +84,7 @@ func TestClaudeReportingEndToEnd(t *testing.T) {
 		t.Fatal("question overwritten by generic permission notification", err)
 	}
 	// Selected detail must refresh without navigation, in a real monitor terminal.
-	configPath := filepath.Join(f.home, "config/motley/config.toml")
+	configPath := filepath.Join(f.home, ".motley/config.toml")
 	configData, err := os.ReadFile(configPath)
 	if err != nil {
 		t.Fatal(err)

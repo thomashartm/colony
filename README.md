@@ -249,7 +249,8 @@ Revive keeps agent arguments without replaying the initial prompt.
 
 ## Configuration
 
-Edit `~/.config/motley/config.toml`:
+Motley creates `~/.motley/config.toml` on first launch, preserving it on later
+starts. Existing XDG settings are copied there once. Edit this file:
 
 ```toml
 schema = 1

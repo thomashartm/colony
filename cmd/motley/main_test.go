@@ -35,7 +35,7 @@ func TestBinarySmoke(t *testing.T) {
 		!strings.Contains(out, "worktrees_root: "+filepath.Join(home, "worktrees")) {
 		t.Fatalf("defaults: %v\n%s", err, out)
 	}
-	path := filepath.Join(home, "config", "motley", "config.toml")
+	path := filepath.Join(home, ".motley", "config.toml")
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		t.Fatal(err)
 	}

@@ -33,7 +33,7 @@ func newRootCommand() *cobra.Command {
 		Use:           "motley",
 		Aliases:       []string{"mtly"},
 		Short:         "A terminal tool for AI coding sessions",
-		Long:          "motley (mtly) — a terminal tool for AI coding sessions.\n\nRun without arguments to open the session overview.\nUse motley monitor for a persistent overview with a separate work tab.\nConfiguration: ${XDG_CONFIG_HOME:-~/.config}/motley/config.toml.",
+		Long:          "motley (mtly) — a terminal tool for AI coding sessions.\n\nRun without arguments to open the session overview.\nUse motley monitor for a persistent overview with a separate work tab.\nConfiguration: ~/.motley/config.toml (created on first launch).",
 		Args:          cobra.NoArgs,
 		SilenceErrors: true,
 		SilenceUsage:  true,

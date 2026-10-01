@@ -593,3 +593,11 @@ mouse monitor round trips, rapid window/scroll clicks and non-destructive detach
 TUI tests cover navigation buttons, member/crew/action clicks, scrolling, modal
 guards and minimum-size handling. Existing monitors must be restarted to load
 the updated TUI; agent processes need not be restarted for the tmux footer.
+
+### Local navigation rollout and tmux compatibility — 2026-10-01
+
+The installed binary was still `local-a2ac75b`, explaining the popup-only shortcut
+and missing arrow navigation. Hosted macOS CI also exposed tmux 3.7c's single-key
+`list-keys` output going to the status line. Shortcut setup now reads the whole
+key table and extracts the original binding. Focused parser, real-tmux footer and
+overview/monitor tests passed before updating the local installation.

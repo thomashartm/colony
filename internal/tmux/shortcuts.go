@@ -79,13 +79,11 @@ func bindNavigation(table, key, guard, command string) error {
 		return err
 	}
 	if original == "" {
-		binding, lookupErr := run("list-keys", "-T", table, key)
+		// Some tmux versions send a single-key query to the status line,
+		// leaving stdout empty. Read the whole table to preserve bindings.
+		binding, lookupErr := run("list-keys", "-T", table)
 		if lookupErr == nil {
-			match := regexp.MustCompile(`^bind-key\s+(?:-r\s+)?-T\s+\S+\s+\S+\s+(.+)`).FindStringSubmatch(binding)
-			if len(match) != 2 {
-				return fmt.Errorf("cannot preserve tmux binding %s %s", table, key)
-			}
-			original = match[1]
+			original = bindingCommand(binding, key)
 		} else if !strings.Contains(binding, "unknown key") {
 			return lookupErr
 		}
@@ -215,4 +213,13 @@ func monitorNavigation() error {
 		return err
 	}
 	return navigationBindings()
+}
+
+func bindingCommand(table, key string) string {
+	pattern := `(?m)^bind-key\s+(?:-r\s+)?-T\s+\S+\s+` + regexp.QuoteMeta(key) + `\s+([^\n]+)`
+	match := regexp.MustCompile(pattern).FindStringSubmatch(table)
+	if len(match) == 2 {
+		return match[1]
+	}
+	return ""
 }

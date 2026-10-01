@@ -276,24 +276,67 @@ func TestLifecycleTUI(t *testing.T) {
 	f.motley("spawn", "--repo", "api", "--branch", "feat/dialog", "--detach")
 	id := "feat-dialog"
 	m := f.manifest(id)
-	f.tmux("kill-session", "-t", "="+id)
-	terminal := startTerminal(t, exec.Command(bin, "--monitor"))
-	eventually(t, func() bool { return strings.Contains(terminal.text(), "dialog") })
-	terminal.send(t, "r")
-	eventually(t, func() bool { return strings.Contains(terminal.text(), "Revived "+id) })
-	assertListState(t, f.motley("ls"), id, "alive")
+	terminal := f.terminalClient(id)
+	client := f.clientName(terminal)
+	// Reproduce opening the overview in the very agent we want to retire.
+	eventually(t, func() bool { _, err := os.Stat(filepath.Join(f.home, "agent-"+id+".txt")); return err == nil })
+	f.tmux("send-keys", "-t", "="+id+":", "-l", quoteShell(bin))
+	f.tmux("send-keys", "-t", "="+id+":", "Enter")
+	eventually(t, func() bool { return f.clientSession(client) == "_motley" })
+	screen := func() string { return f.tmux("capture-pane", "-p", "-t", "=_motley:") }
+	defer func() {
+		if t.Failed() {
+			t.Log(screen())
+		}
+	}()
+	eventually(t, func() bool { return strings.Contains(screen(), "1 alive") })
 	writeFixture(t, filepath.Join(m.Worktree, "dirty.txt"), "unfinished", 0600)
-	terminal.send(t, "x")
-	eventually(t, func() bool { return strings.Contains(terminal.text(), "Dirty/untracked files: YES") })
+	terminal.send(t, "X")
+	eventually(t, func() bool { return strings.Contains(screen(), "Terminate "+id+"?") })
 	terminal.send(t, "y")
-	eventually(t, func() bool { return strings.Contains(terminal.text(), "Work would be discarded") })
+	eventually(t, func() bool {
+		return strings.Contains(screen(), "Terminated "+id) && strings.Contains(screen(), "0 alive")
+	})
+	assertListState(t, f.motley("ls"), id, "dead")
+	data, err := os.ReadFile(filepath.Join(m.Worktree, "dirty.txt"))
+	if err != nil || string(data) != "unfinished" {
+		t.Fatal("termination lost work", err)
+	}
+	f.git(f.repo, "show-ref", "--verify", "refs/heads/"+m.Branch)
+	if after := f.manifest(id); after.CreatedAt != m.CreatedAt {
+		t.Fatal("termination rewrote manifest")
+	}
+	terminal.send(t, "r")
+	eventually(t, func() bool { return strings.Contains(screen(), "Revived "+id) && strings.Contains(screen(), "1 alive") })
+	terminal.send(t, "x")
+	eventually(t, func() bool { return strings.Contains(screen(), "Dirty/untracked files: YES") })
+	terminal.send(t, "y")
+	eventually(t, func() bool { return strings.Contains(screen(), "Work would be discarded") })
 	assertListState(t, f.motley("ls"), id, "alive")
 	terminal.send(t, "f")
-	// Wait for the explicit force toggle to render before confirming.
-	eventually(t, func() bool { return strings.Contains(terminal.text(), "Force: true") })
+	eventually(t, func() bool { return strings.Contains(screen(), "Force: true") })
 	terminal.send(t, "y")
-	eventually(t, func() bool { return strings.Contains(terminal.text(), "Retired "+id) })
+	eventually(t, func() bool { return strings.Contains(screen(), "Retired "+id) })
 	if _, err := os.Stat(m.Worktree); !os.IsNotExist(err) {
 		t.Fatal("TUI did not remove worktree", err)
+	}
+	if f.clientSession(client) != "_motley" {
+		t.Fatal("retirement killed or left monitor")
+	}
+}
+
+func TestTerminateOwnership(t *testing.T) {
+	f := newMemberFixture(t, buildLifecycleBinary(t), "main")
+	f.motley("spawn", "--repo", "api", "--branch", "feat/stop", "--detach")
+	id := "feat-stop"
+	f.tmux("set-option", "-t", "="+id+":", "@motley_member", "someone-else")
+	if err := member.Terminate(id); err == nil {
+		t.Fatal("terminated another owner's session")
+	}
+	f.tmux("has-session", "-t", "="+id)
+	f.tmux("set-option", "-t", "="+id+":", "@motley_member", id)
+	t.Setenv("TMUX_PANE", f.tmux("display-message", "-p", "-t", "="+id+":", "#{pane_id}"))
+	if err := member.Terminate(id); err == nil || !strings.Contains(err.Error(), "motley monitor") {
+		t.Fatal("self termination not redirected", err)
 	}
 }

@@ -113,9 +113,9 @@ func TestOverviewAndMonitor(t *testing.T) {
 	overview.send(t, "\r")
 	eventually(t, func() bool { return f.clientSession(overviewName) == id })
 
-	// Start the persistent monitor from this work tab; the process stays running
+	// Running bare motley inside an agent must open the independent monitor; the process stays running
 	// when the client detaches, and running motley monitor reuses the same session.
-	f.tmux("send-keys", "-t", "="+id+":", "-l", quoteShell(bin)+" monitor")
+	f.tmux("send-keys", "-t", "="+id+":", "-l", quoteShell(bin))
 	f.tmux("send-keys", "-t", "="+id+":", "Enter")
 	eventually(t, func() bool { return f.clientSession(overviewName) == "_motley" })
 	monitorPane := f.tmux("display-message", "-p", "-t", "=_motley:", "#{pane_id}")
@@ -133,7 +133,7 @@ func TestOverviewAndMonitor(t *testing.T) {
 	overview.send(t, "\x02H")
 	eventually(t, func() bool { return f.clientSession(overviewName) == "_motley" })
 	eventually(t, func() bool {
-		return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_motley:"), "[Open agent: o]")
+		return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_motley:"), "[o Open agent]")
 	})
 	paneHeight, err := strconv.Atoi(f.tmux("display-message", "-p", "-t", "=_motley:", "#{pane_height}"))
 	if err != nil {
@@ -144,6 +144,22 @@ func TestOverviewAndMonitor(t *testing.T) {
 	eventually(t, func() bool { return f.clientSession(overviewName) == id })
 	overview.send(t, "\x1b[<0;14;28M\x1b[<0;14;28m")
 	eventually(t, func() bool { return f.clientSession(overviewName) == "_motley" })
+	// Click each panel button through the tmux client (not directly into the model).
+	for _, test := range []struct{ button, hint string }{{"[1 List]", "[List] Nav:"}, {"[2 Details]", "[Details] Nav:"}, {"[3 Actions]", "[Actions] Nav:"}} {
+		view := f.tmux("capture-pane", "-p", "-t", "=_motley:")
+		lines := strings.Split(view, "\n")
+		x := strings.Index(lines[len(lines)-1], test.button) + 2
+		if x < 2 {
+			t.Fatalf("button missing: %s\n%s", test.button, view)
+		}
+		overview.send(t, fmt.Sprintf("\x1b[<0;%d;%dM\x1b[<0;%d;%dm", x, paneHeight, x, paneHeight))
+		eventually(t, func() bool { return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_motley:"), test.hint) })
+	}
+	for _, test := range []struct{ key, hint string }{{"1", "[List] Nav:"}, {"2", "[Details] Nav:"}, {"3", "[Actions] Nav:"}} {
+		overview.send(t, test.key)
+		eventually(t, func() bool { return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_motley:"), test.hint) })
+	}
+	overview.send(t, "2")
 	work := f.terminalClient("fixture")
 	defer func() {
 		if t.Failed() {

@@ -24,6 +24,14 @@ func (m Model) contentHeight() int { return max(1, m.height-4-m.footerRows()) }
 // variant retains navigation and confirm/back controls instead of cutting off keys.
 func (m Model) footer() string {
 	rows := m.footerRows()
+	if m.terminating != nil {
+		lines := make([]string, rows)
+		if rows > 1 {
+			lines[0] = "[Terminate] ↑↓ choose · enter select · esc cancel"
+		}
+		lines[rows-1] = m.terminateButtons()
+		return strings.Join(lines, "\n")
+	}
 	buttons := m.navigationAvailable()
 	if buttons {
 		rows--
@@ -103,7 +111,7 @@ func (m Model) footerGroups() (full, compact []string) {
 		return []string{"[Tabs] Nav: ↑↓/jk select", "Act: enter " + action + " · esc cancel"}, []string{"[Tabs] ↑↓ select", "enter " + action + " · esc cancel"}
 	}
 	if m.panel == actionsPanel {
-		return []string{"[Actions] Nav: ↑↓/jk choose", "Act: enter open · ←/esc details"}, []string{"[Actions] ↑↓ choose", "enter open · esc back"}
+		return []string{"[Actions] Nav: ↑↓/jk choose", "Act: enter run · ←/esc details"}, []string{"[Actions] ↑↓ choose", "enter run · esc back"}
 	}
 	if m.panel == detailPanel || m.tableFocus {
 		movement := "scroll"

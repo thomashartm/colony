@@ -176,3 +176,23 @@ func TestArrowConfirmationsAndSpawn(t *testing.T) {
 		t.Fatal("preview cancel launched")
 	}
 }
+
+func TestDirectPanelKeysRespectEditing(t *testing.T) {
+	m := update(newModel(false, false, "", nil), snapshot{rows: []member.Row{row("alpha", true)}})
+	for _, test := range []struct {
+		key   string
+		panel int
+	}{{"3", actionsPanel}, {"1", listPanel}, {"2", detailPanel}, {"3", actionsPanel}} {
+		m = update(m, key(test.key))
+		if m.panel != test.panel || m.selectedID() != "alpha" {
+			t.Fatal("direct panel key lost selection", test.key)
+		}
+	}
+	m = update(m, key("e"))
+	for _, digit := range []string{"1", "2", "3"} {
+		m = update(m, key(digit))
+	}
+	if m.editor == nil || m.editor.fields[0].Value() != "alpha123" {
+		t.Fatal("panel keys intercepted editor input")
+	}
+}

@@ -23,6 +23,7 @@ func TestFooterFitsEveryContextAfterResize(t *testing.T) {
 		"reply":        func(m *Model) { m.editor = newEditor("reply", "waiting", []string{"Reply"}, []string{"Hello"}) },
 		"crews":        func(m *Model) { m.manager = true },
 		"crew actions": func(m *Model) { m.manager = true; m.managerActions = true },
+		"terminate":    func(m *Model) { m.terminating = &terminateDialog{id: "waiting"} },
 		"retire":       func(m *Model) { m.retiring = &retireDialog{id: "waiting", loaded: true} },
 		"pin":          func(m *Model) { m.picking = true },
 		"send":         func(m *Model) { m.picking = true; m.pickMode = "send" },
@@ -78,14 +79,14 @@ func TestFooterGroupsAndEssentialControls(t *testing.T) {
 		}
 	}
 	m = update(m, tea.WindowSizeMsg{Width: 60, Height: 10})
-	for _, want := range []string{"[Details]", "[Actions]", "[Open agent: o]", "[Close: q]"} {
+	for _, want := range []string{"[1 List]", "[2 Details]", "[3 Actions]", "[o Open agent]", "[q Close]"} {
 		if !strings.Contains(m.footer(), want) {
 			t.Fatalf("missing essential %q", want)
 		}
 	}
 	m = update(m, tea.WindowSizeMsg{Width: 60, Height: 12})
 	m.panel = actionsPanel
-	if !strings.Contains(m.footer(), "enter open") || !strings.Contains(m.footer(), "esc") {
+	if !strings.Contains(m.footer(), "enter run") || !strings.Contains(m.footer(), "esc") {
 		t.Fatal("action controls hidden")
 	}
 }
@@ -95,7 +96,7 @@ func TestOpenAgentAlwaysVisible(t *testing.T) {
 		m := update(newModel(true, true, "", nil), tea.WindowSizeMsg{Width: 60, Height: height})
 		for _, panel := range []int{listPanel, detailPanel, actionsPanel} {
 			m.panel = panel
-			if !strings.Contains(m.footer(), "[Open agent: o]") {
+			if !strings.Contains(m.footer(), "[o Open agent]") {
 				t.Fatal("Open agent control hidden")
 			}
 		}

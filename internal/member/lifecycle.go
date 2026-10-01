@@ -62,7 +62,7 @@ func inspectRetire(m Manifest, checkChanges bool) (RetireCheck, error) {
 			return c, err
 		}
 		if session == tmux.SessionName(m.ID) {
-			return c, fmt.Errorf("retire %s from the monitor, another tmux session, or a terminal outside tmux", m.ID)
+			return c, fmt.Errorf("open motley monitor to retire %s; this overview is inside the target session (or use another tmux session)", m.ID)
 		}
 	}
 	if !checkChanges {
@@ -216,6 +216,33 @@ func archive(dir string, m Manifest) error {
 		return fmt.Errorf("archive saved at %s.toml; remove active manifest: %w", prefix, err)
 	}
 	return nil
+}
+
+// Terminate stops only the owned tmux session. Files, branch and history remain
+// available for inspection or revival, including uncommitted work.
+func Terminate(id string) error {
+	dir, err := state.MembersDir()
+	if err != nil {
+		return err
+	}
+	lock, err := state.LockSpawn(dir)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = lock.Close() }()
+	if err := RequireLive(id); err != nil {
+		return err
+	}
+	if os.Getenv("TMUX") != "" && os.Getenv("TMUX_PANE") != "" {
+		session, err := tmux.CurrentSession()
+		if err != nil {
+			return err
+		}
+		if session == tmux.SessionName(id) {
+			return fmt.Errorf("open motley monitor to terminate %s; this overview is inside the target session", id)
+		}
+	}
+	return tmux.Kill(id)
 }
 
 func Revive(id string) error {

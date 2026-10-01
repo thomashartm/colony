@@ -601,3 +601,7 @@ and missing arrow navigation. Hosted macOS CI also exposed tmux 3.7c's single-ke
 `list-keys` output going to the status line. Shortcut setup now reads the whole
 key table and extracts the original binding. Focused parser, real-tmux footer and
 overview/monitor tests passed before updating the local installation.
+Installed `local-76fc7f4` with `install.sh --local` (all checklist steps passed),
+closed the old popup and switched the existing client to `_motley`. Readback
+confirmed the full monitor, clickable navigation, enabled mouse support and
+preserved `feat-cleanup-tasks` session. The updated PR's hosted checks are pending.

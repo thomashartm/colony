@@ -396,3 +396,11 @@ and that all four snapshot archives contain the exact logo and README reference.
 GoReleaser snapshot packaging passed. The logo and naming commits are ready
 for the user-requested push to `origin/main`; hosted CI and release publication
 remain separate checks.
+
+### README cleanup — 2026-10-01
+
+Shortened the README to installation, everyday commands, essential keyboard
+controls, configuration and development checks. Removed repeated walkthroughs
+and implementation detail while retaining launch/retirement side effects,
+agent reporting limits, adoption and pre-v1 setup instructions. Documentation
+only; checked local links, command examples and diff whitespace.

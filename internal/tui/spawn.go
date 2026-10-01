@@ -26,6 +26,7 @@ const (
 )
 
 type spawnForm struct {
+	previewAction       int
 	step, choice, field int
 	repos               []string
 	blueprints          []blueprint.Blueprint
@@ -199,6 +200,7 @@ func (m Model) spawnMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.query.SetValue("")
 		m.group = "attention"
 		m.tableFocus = false
+		m.panel = listPanel
 		m.focusID = msg.manifest.ID
 		rows := make([]member.Row, 0, len(m.allRows)+1)
 		for _, r := range m.allRows {
@@ -244,7 +246,18 @@ func (m Model) updateSpawn(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if f.step == previewStep {
 			switch k {
+			case "right", "tab":
+				f.previewAction = (f.previewAction + 1) % 3
+			case "left", "shift+tab":
+				f.previewAction = (f.previewAction + 2) % 3
 			case "enter":
+				if f.previewAction == 1 {
+					return m, m.editPrompt()
+				}
+				if f.previewAction == 2 {
+					m.spawn = nil
+					return m, nil
+				}
 				m.busy = true
 				m.busyText = "Spawning…"
 				f.step = launchStep
@@ -328,10 +341,10 @@ func (m Model) updateSpawn(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-		if k == "tab" || k == "shift+tab" {
+		if k == "tab" || k == "shift+tab" || k == "up" || k == "down" {
 			f.fields[f.field].Blur()
 			delta := 1
-			if k == "shift+tab" {
+			if k == "shift+tab" || k == "up" {
 				delta = -1
 			}
 			f.field = (f.field + delta + len(f.fields)) % len(f.fields)
@@ -458,9 +471,10 @@ func (m Model) spawnView(height int) string {
 		}
 	case previewStep:
 		lines = append(lines, f.plan.Manifest.Repo+" @ "+f.plan.Manifest.Branch+" · "+f.plan.Manifest.Agent)
+		lines = append(lines, "> "+[]string{"Launch", "Edit prompt", "Cancel"}[f.previewAction]+"  ←/→")
 		v := f.preview
 		v.Width = width
-		v.Height = max(1, height-3)
+		v.Height = max(1, height-4)
 		lines = append(lines, strings.Split(v.View(), "\n")...)
 	case launchStep:
 		log := strings.Split(multiline(f.progress), "\n")
@@ -480,11 +494,11 @@ func (m Model) spawnKeys() string {
 	case repoStep:
 		return " type filter  ↑↓ select  enter next  esc cancel"
 	case identityStep, varsStep:
-		return " tab field  enter next  esc cancel"
+		return " ↑↓/tab field  enter next  esc cancel"
 	case agentStep, blueprintStep:
 		return " ↑↓/jk select  enter next  esc cancel"
 	case previewStep:
-		return " e edit in $EDITOR  pgup/pgdn scroll  enter launch  esc cancel"
+		return " ←/→ action  enter choose  ↑↓ scroll  e edit  esc cancel"
 	default:
 		return " Spawning…"
 	}

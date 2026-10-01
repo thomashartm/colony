@@ -117,6 +117,9 @@ func (m *Model) restoreCrewSelection(key, member string) {
 	}
 	if len(rows) == 0 {
 		m.tableFocus = false
+		if m.panel != actionsPanel {
+			m.panel = listPanel
+		}
 	}
 }
 func (m *Model) sortRows() {
@@ -148,6 +151,9 @@ func (m Model) groupingKey(key string) (Model, tea.Cmd, bool) {
 			m.group = "crew"
 		}
 		m.tableFocus = false
+		if m.panel != actionsPanel {
+			m.panel = listPanel
+		}
 		m.sortRows()
 		for i, r := range m.rows {
 			if r.ID == oldID {
@@ -188,12 +194,19 @@ func (m Model) groupingKey(key string) (Model, tea.Cmd, bool) {
 		case "tab":
 			if e.id == "" && len(m.members(e.crew)) > 0 {
 				m.tableFocus = !m.tableFocus
+				m.panel = listPanel
+				if m.tableFocus {
+					m.panel = detailPanel
+				}
 			}
 		case "esc":
 			m.tableFocus = false
 		case "enter":
 			if !m.tableFocus && e.id == "" {
 				m.tableFocus = len(m.members(e.crew)) > 0
+				if m.tableFocus {
+					m.panel = detailPanel
+				}
 			} else {
 				handled = false
 			}

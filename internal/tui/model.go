@@ -34,14 +34,17 @@ type actionDone struct {
 }
 
 type Model struct {
-	allRows          []member.Row
-	query            textinput.Model
-	searching        bool
-	pickMode, sendID string
-	spawn            *spawnForm
-	spawnCfg         config.Config
-	sendMsg          func(tea.Msg)
-	focusID          string
+	panel, actionCursor int
+	managerActions      bool
+	managerAction       int
+	allRows             []member.Row
+	query               textinput.Model
+	searching           bool
+	pickMode, sendID    string
+	spawn               *spawnForm
+	spawnCfg            config.Config
+	sendMsg             func(tea.Msg)
+	focusID             string
 
 	crews                             []crew.Crew
 	group                             string
@@ -129,6 +132,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.group == "crew" {
 			m.restoreCrewSelection(crewKey, id)
 		}
+		m.actionCursor = max(0, min(m.actionCursor, len(m.actions())-1))
 		m.managerCursor = max(0, min(m.managerCursor, len(m.crews)-1))
 		if m.focusID != "" {
 			for i, r := range m.rows {
@@ -236,6 +240,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m.updateSendPicker(key)
 			}
 			return m.updatePicker(key)
+		}
+		if next, cmd, handled := m.navigationKey(msg); handled {
+			return next, cmd
 		}
 		if key == "esc" && m.query.Value() != "" && (m.group != "crew" || !m.tableFocus) {
 			m.query.SetValue("")
@@ -563,6 +570,9 @@ func (m Model) View() string {
 	if m.group == "crew" && m.currentEntry().id == "" {
 		right = m.crewTable(height, m.detailWidth())
 	}
+	if m.panel == actionsPanel {
+		right = m.actionsView(height)
+	}
 	if m.picking {
 		right = m.pickerView(height)
 	}
@@ -579,8 +589,14 @@ func (m Model) View() string {
 		right = m.spawnView(height)
 	}
 	border := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("8"))
-	left := border.Width(width).Height(height).Render(list)
-	detail := border.Width(m.detailWidth()).Height(height).Render(right)
+	leftBorder, rightBorder := border, border
+	if m.panel == listPanel && m.editor == nil && !m.manager && m.spawn == nil && m.retiring == nil && !m.picking {
+		leftBorder = leftBorder.BorderForeground(lipgloss.Color("6"))
+	} else {
+		rightBorder = rightBorder.BorderForeground(lipgloss.Color("6"))
+	}
+	left := leftBorder.Width(width).Height(height).Render(list)
+	detail := rightBorder.Width(m.detailWidth()).Height(height).Render(right)
 	message := m.message
 	if m.pollError != "" {
 		message = m.pollError
@@ -604,19 +620,35 @@ func (m Model) View() string {
 			keys = " ↑↓/jk member  enter jump  x retire  r revive  e edit  esc list"
 		}
 	}
+	if m.panel == listPanel {
+		if m.group == "crew" {
+			keys = " [List] → expand/details  ← collapse  tab members  H hidden  g group  G crews  q quit"
+		} else {
+			keys = " [List] → details  " + strings.TrimSpace(keys)
+		}
+	}
+	if m.panel == detailPanel || m.tableFocus {
+		keys = " [Details] ← back  → actions  ↑↓ scroll/select  enter jump"
+	}
+	if m.panel == actionsPanel {
+		keys = " [Actions] ↑↓ choose  enter open  ←/esc details"
+	}
 	if m.picking {
 		keys = " ↑↓/jk select work tab  enter pin  esc cancel"
 	}
 	if m.retiring != nil {
-		keys = " y/enter confirm  f force  k keep branch  esc cancel"
+		keys = " ↑↓ choice  enter toggle/confirm  f force  k keep  esc cancel"
 	}
 	if m.manager {
-		keys = " a add  e edit  c colour  x delete  esc back"
+		keys = " ↑↓ crew  enter edit/add  → actions  a add  e edit  esc back"
+		if m.managerActions {
+			keys = " ↑↓ action  enter choose  ←/esc crews"
+		}
 	}
 	if m.editor != nil {
-		keys = " tab field  ctrl+s save  esc cancel"
+		keys = " ↑↓/tab field/action  enter next/choose  ctrl+s save  esc cancel"
 		if m.editor.kind == "delete" {
-			keys = " y delete  f force unassign  esc cancel"
+			keys = " ↑↓ choice  enter toggle/confirm  y delete  f force  esc cancel"
 		}
 	}
 	if m.query.Value() != "" {

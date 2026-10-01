@@ -122,7 +122,7 @@ func TestOverviewAndMonitor(t *testing.T) {
 	eventually(t, func() bool {
 		return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_motley:"), "motley monitor")
 	})
-	overview.send(t, "g\t")
+	overview.send(t, "g\x1b[C\x1b[C")
 	eventually(t, func() bool {
 		return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_motley:"), "MEMBER")
 	})
@@ -195,7 +195,7 @@ func TestOverviewAndMonitor(t *testing.T) {
 		}
 	}()
 	eventually(t, func() bool { return strings.Contains(outside.text(), "Overview fixture") })
-	outside.send(t, "\r")
+	outside.send(t, "\x1b[C\r")
 	eventually(t, func() bool { return f.clientSession(f.clientName(outside)) == id })
 	outside.send(t, "\x02d")
 	eventually(t, func() bool {
@@ -234,9 +234,9 @@ func TestOverviewAndMonitor(t *testing.T) {
 	eventually(t, func() bool {
 		// Titles already contain the name; wait for a loaded popup row.
 		view := ansi.Strip(work.text()[popupOffset:])
-		return strings.Contains(view, "ID  feat-overview") && strings.Contains(view, "pgup/pgdn")
+		return strings.Contains(view, "ID  feat-overview") && strings.Contains(view, "[List]")
 	})
-	work.send(t, "\r")
+	work.send(t, "\x1b[C\r")
 	eventually(t, func() bool { return f.clientSession(workName) == id })
 	if f.clientSession(otherName) != "_motley" {
 		t.Fatal("popup changed monitor client")

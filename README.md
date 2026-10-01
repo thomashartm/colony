@@ -59,7 +59,8 @@ the background. Claude is the default agent. Local `.env`, `.env.*` and
 
 | Key | Action |
 | --- | --- |
-| ↑/↓ or j/k | Select a member |
+| ↑/↓ or j/k | Select a member, option or field |
+| → / ← | Move from list to details to Actions, or back |
 | Enter | Attach or switch to it |
 | s | Spawn a member |
 | i | Send a reply |
@@ -72,9 +73,14 @@ the background. Claude is the default agent. Local `.env`, `.env.*` and
 | Page Up / Page Down | Scroll details |
 | q | Close |
 
-In crew view, **Tab** enters the member table; **Esc** returns. **→/←** expands
-or collapses a crew; **H** shows inactive crews. Detail editors use **Tab** to move,
-**Ctrl-s** to save and **Esc** to cancel.
+Press **→** twice from the list to open **Actions**, then **↑/↓** and **Enter**
+to edit a member, manage crews or spawn. Editors use **↑/↓** to move through
+fields, **Save** and **Cancel**; **Enter** activates and **Esc** cancels. **←/→**
+move the text cursor while editing. **Tab/Shift-Tab** and **Ctrl-s** still work.
+
+In crew view, the first **→** expands a crew; the next enters its member table.
+**←/Esc** returns to the list, where **←** collapses the crew. **Tab** also enters
+the table; **H** shows inactive crews. In the crew manager, **→** opens its actions.
 
 **Ctrl-b h** opens the popup. For a persistent overview in a separate tab, run
 `mtly monitor`: **Enter** switches another work tab, **T** chooses that tab, and

@@ -6,12 +6,16 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// Reserve two rows when there is room, keeping panel sizes stable as focus changes.
+// Reserve up to two hint rows and a navigation row. Keep panel sizes stable
+// when a modal hides the navigation buttons.
 func (m Model) footerRows() int {
 	if m.height < 12 {
 		return 1
 	}
-	return 2
+	if m.height == 12 {
+		return 2
+	}
+	return 3
 }
 
 func (m Model) contentHeight() int { return max(1, m.height-4-m.footerRows()) }
@@ -19,14 +23,25 @@ func (m Model) contentHeight() int { return max(1, m.height-4-m.footerRows()) }
 // Keep whole groups together and leave the last terminal column unused. A compact
 // variant retains navigation and confirm/back controls instead of cutting off keys.
 func (m Model) footer() string {
+	rows := m.footerRows()
+	buttons := m.navigationAvailable()
+	if buttons {
+		rows--
+		if rows == 0 {
+			return navigationBar
+		}
+	}
 	full, compact := m.footerGroups()
 	width := max(1, m.width-2)
 	lines := wrapFooter(full, width)
-	if len(lines) > m.footerRows() {
+	if len(lines) > rows {
 		lines = wrapFooter(compact, width)
 	}
-	for len(lines) < m.footerRows() {
+	for len(lines) < rows {
 		lines = append(lines, "")
+	}
+	if buttons {
+		lines = append(lines, navigationBar)
 	}
 	return strings.Join(lines, "\n")
 }

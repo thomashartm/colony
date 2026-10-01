@@ -86,6 +86,8 @@ func nextPoll() tea.Cmd       { return tea.Tick(time.Second, func(time.Time) tea
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.MouseMsg:
+		return m.mouse(msg)
 	case spawnLoaded, spawnPrepared, spawnProgress, spawnFinished, promptEdited:
 		return m.spawnMessage(msg)
 	case tick:

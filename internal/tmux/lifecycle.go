@@ -31,5 +31,8 @@ func Adopt(session, id, ticket, agent string) error {
 		args = append(args, ";", "set-option", "-t", target, option[0], option[1])
 	}
 	_, err := run(args...)
-	return err
+	if err != nil {
+		return err
+	}
+	return showShortcuts(id)
 }

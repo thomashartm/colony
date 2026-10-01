@@ -561,6 +561,51 @@ including the pending Codex/OpenCode integrations, installer checklist/history,
 roadmap tracking, uninstall script and release updater. Hosted CI and release
 publication are separate from the local validation above.
 
+### Agent navigation guide — 2026-10-01
+
+Added a short README guide for the tmux prefix, Motley popup/details, returning
+to an agent, window/pane navigation, scrollback and detach. Documented opening a
+Ghostty tab and attaching an existing member, including how to move the view and
+the distinction between creating a terminal tab and sending to an attached tab.
+Checked commands against the CLI, popup binding and TUI handlers; checked tmux
+bindings and Ghostty's installed default keybindings. Documentation only.
+
+### Persistent shortcuts and mouse navigation — 2026-10-01
+
+Member sessions now show three help rows below their existing tmux status row,
+using the configured prefix and the current member's attach command. Spawn,
+revive, adopt and attachment install the footer. Prefix H toggles the originating
+client between the persistent monitor and its previous session; prefix h retains
+the popup. Underlined footer controls support mouse clicks for monitor, details,
+detach, windows, previous/next window and scrollback. Clicks dispatch on release
+to avoid tmux's rapid-click key translation. Existing key actions remain the
+fallback outside Motley controls.
+
+The overview supports clickable List/Details/Actions/Enter/q controls, member
+and crew selection, action selection and wheel scrolling. Forms retain keyboard
+input. Navigation callbacks target the originating client and its active session;
+no navigation command is typed into the agent. README documents the controls.
+
+Validation passed: installer, uninstall and plugin checks; full Go suite; vet;
+lint; four platform builds; whitespace check. Real isolated tmux tests cover a
+custom prefix, existing status row and key fallback, reattachment, keyboard and
+mouse monitor round trips, rapid window/scroll clicks and non-destructive detach.
+TUI tests cover navigation buttons, member/crew/action clicks, scrolling, modal
+guards and minimum-size handling. Existing monitors must be restarted to load
+the updated TUI; agent processes need not be restarted for the tmux footer.
+
+### Local navigation rollout and tmux compatibility — 2026-10-01
+
+The installed binary was still `local-a2ac75b`, explaining the popup-only shortcut
+and missing arrow navigation. Hosted macOS CI also exposed tmux 3.7c's single-key
+`list-keys` output going to the status line. Shortcut setup now reads the whole
+key table and extracts the original binding. Focused parser, real-tmux footer and
+overview/monitor tests passed before updating the local installation.
+Installed `local-76fc7f4` with `install.sh --local` (all checklist steps passed),
+closed the old popup and switched the existing client to `_motley`. Readback
+confirmed the full monitor, clickable navigation, enabled mouse support and
+preserved `feat-cleanup-tasks` session. The updated PR's hosted checks are pending.
+
 ### #15 follow-up — Grouped footer — 2026-10-01
 
 - Grouped footer shortcuts by navigation, actions, view and session operations.
@@ -573,3 +618,11 @@ publication are separate from the local validation above.
 
 Validation results are recorded on the follow-up PR. This is a footer correction
 only; the next delivery item waits for feedback.
+
+### PR #18 merge with grouped footer — 2026-10-01
+
+Preserved both delivery histories and combined clickable navigation with the
+grouped footer. Navigation buttons occupy the last reserved footer row; short
+terminals show compact hints or just the buttons. Mouse hit testing uses the
+same content height as rendering, so footer clicks cannot select hidden rows.
+Validation results are recorded on PR #18.

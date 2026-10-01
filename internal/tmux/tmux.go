@@ -99,7 +99,10 @@ func start(id, worktree, ticket, agent string, resume bool) error {
 	}
 	args = append(args, ";", "set-option", "-t", "="+name+":", "status-left", StatusLeft, ";", "set-option", "-t", "="+name+":", "status-left-length", "50", ";", "set-option", "-t", "="+name+":", "status-interval", "2")
 	_, err = run(args...)
-	return err
+	if err != nil {
+		return err
+	}
+	return showShortcuts(id)
 }
 
 // ReportStatus and ReportUpdate together use at most two tmux processes.
@@ -137,11 +140,17 @@ func ReportUpdate(ctx context.Context, id, status, contextText string, changed b
 }
 
 func Switch(id string) error {
+	if err := showShortcuts(id); err != nil {
+		return err
+	}
 	_, err := run("switch-client", "-t", "="+SessionName(id))
 	return err
 }
 
 func Attach(id string) error {
+	if err := showShortcuts(id); err != nil {
+		return err
+	}
 	bin, err := exec.LookPath("tmux")
 	if err != nil {
 		return err
@@ -194,6 +203,9 @@ func SwitchClient(client, id string) error {
 	if client == "" {
 		return fmt.Errorf("no tmux client available; open a tab and run motley attach <id>")
 	}
+	if err := showShortcuts(id); err != nil {
+		return err
+	}
 	_, err := run("switch-client", "-c", client, "-t", "="+SessionName(id))
 	return err
 }
@@ -214,7 +226,7 @@ func EnsureMonitor() error {
 			if !session.Monitor || session.MemberID != "" {
 				return fmt.Errorf("tmux session %s already exists and is not a motley monitor", MonitorSession)
 			}
-			return nil
+			return monitorNavigation()
 		}
 	}
 	self, err := os.Executable()
@@ -227,5 +239,8 @@ func EnsureMonitor() error {
 	}
 	args = append(args, self, "--monitor", ";", "set-option", "-t", "="+MonitorSession+":", "@motley_monitor", "1")
 	_, err = run(args...)
-	return err
+	if err != nil {
+		return err
+	}
+	return monitorNavigation()
 }

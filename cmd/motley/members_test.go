@@ -160,6 +160,9 @@ func TestMemberLifecycle(t *testing.T) {
 if [ "$1" = -u ]; then shift; fi
 if [ "$1" = list-sessions ]; then
   printf 'feat-example_v2\tfeat-example.v2\n'
+elif [ "$1" = list-keys ]; then
+  printf 'unknown key\n'
+  exit 1
 else
   printf '%s\n' "$@" > "$HOME/tmux-args"
 fi

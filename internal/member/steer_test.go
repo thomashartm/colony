@@ -23,6 +23,7 @@ func TestSteerChecksAndLiteralArguments(t *testing.T) {
 	}
 	script := `#!/bin/sh
 case "$*" in
+*list-keys*) echo "unknown key"; exit 1;;
 *list-sessions*) printf 'a\ta\t\t%s\t0\t0\n' "$MOTLEY_TEST_STATUS";;
 *list-clients*) printf '/dev/work\t/dev/work\tshell\t1\n/dev/monitor\t/dev/monitor\t_motley\t2\n';;
 *) for arg do printf '%s\000' "$arg"; done > "$MOTLEY_TEST_RECEIPT";;

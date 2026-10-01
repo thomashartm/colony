@@ -13,7 +13,7 @@ type shortcut struct{ label, action string }
 
 func shortcutRows(prefix string) [][]shortcut {
 	return [][]shortcut{
-		{{" Back to monitor [" + prefix + " H]", "monitor"}, {" | ", ""}, {"Details [" + prefix + " h]", "details"}, {" | ", ""}, {"Detach [" + prefix + " d]", "detach"}},
+		{{" Back to monitor [" + prefix + " m]", "monitor"}, {" | ", ""}, {"Details [" + prefix + " h]", "details"}, {" | ", ""}, {"Detach [" + prefix + " d]", "detach"}},
 		{{" " + prefix + " then: ", ""}, {"w windows", "windows"}, {" | ", ""}, {"p prev", "previous"}, {" / ", ""}, {"n next", "next"}, {" | arrows panes | ", ""}, {"[ scroll (q back)", "scroll"}},
 	}
 }
@@ -57,7 +57,7 @@ func navigationBindings() error {
 		return err
 	}
 	callback := shellQuote(self) + " navigation --client #{q:client_name}"
-	if err := bindNavigation("prefix", "H", "#{||:#{@motley_member},#{@motley_monitor}}", "run-shell -b "+shellQuote(callback+" --action monitor")); err != nil {
+	if err := bindNavigation("prefix", "m", "#{||:#{@motley_member},#{@motley_monitor}}", "run-shell -b "+shellQuote(callback+" --action monitor")); err != nil {
 		return err
 	}
 	guard := "#{&&:#{@motley_member},#{>:#{mouse_status_line},0}}"
@@ -208,7 +208,7 @@ func Navigate(client, action, prefix string, row, column int) error {
 
 func monitorNavigation() error {
 	if _, err := run("set-option", "-t", "="+MonitorSession+":", "mouse", "on",
-		";", "set-option", "-t", "="+MonitorSession+":", "status-right", "#{prefix} H: previous session",
+		";", "set-option", "-t", "="+MonitorSession+":", "status-right", "#{prefix} m: previous session",
 		";", "set-option", "-t", "="+MonitorSession+":", "status-right-length", "60"); err != nil {
 		return err
 	}

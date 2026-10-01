@@ -234,6 +234,9 @@ func newMemberFixture(t *testing.T, bin, base string) *memberFixture {
 	writeFixture(t, filepath.Join(root, "config/motley/config.toml"), string(cfg), 0o600)
 	// Start the server before changing PATH, exercising per-session environment.
 	f.tmux("-f", "/dev/null", "new-session", "-d", "-s", "fixture", "/bin/sh")
+	// Tests write a prefix and its key in one burst, often within a millisecond
+	// of attaching. tmux would treat that as a paste and send the key to the pane.
+	f.tmux("set-option", "-g", "assume-paste-time", "0")
 	t.Cleanup(func() { _ = exec.Command(f.tmuxBin, "-L", f.socket, "kill-server").Run() })
 	socketPath := f.tmux("display-message", "-p", "-t", "fixture", "#{socket_path}")
 	t.Setenv("TMUX", socketPath+","+f.tmux("display-message", "-p", "-t", "fixture", "#{pid}")+",0")

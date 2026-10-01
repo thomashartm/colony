@@ -15,7 +15,7 @@ func TestMemberShortcutFooter(t *testing.T) {
 	f := newMemberFixture(t, bin, "main")
 	f.tmux("set-option", "-g", "status-format[0]", "Custom window list")
 	f.tmux("set-option", "-g", "status-position", "top")
-	f.tmux("bind-key", "-T", "prefix", "H", "set-option", "-g", "@original-H", "kept")
+	f.tmux("bind-key", "-T", "prefix", "m", "set-option", "-g", "@original-m", "kept")
 	f.motley("spawn", "--repo", "api", "--branch", "feat/footer", "--detach")
 	id, target := "feat-footer", "=feat-footer:"
 	if got := f.tmux("show-options", "-A", "-v", "-t", target, "status"); got != "4" {
@@ -29,8 +29,8 @@ func TestMemberShortcutFooter(t *testing.T) {
 	}
 	// The global key binding retains its original action outside Motley.
 	other := f.terminalClient("fixture")
-	other.send(t, "\x02H")
-	eventually(t, func() bool { return f.tmux("show-options", "-gqv", "@original-H") == "kept" })
+	other.send(t, "\x02m")
+	eventually(t, func() bool { return f.tmux("show-options", "-gqv", "@original-m") == "kept" })
 	// Existing sessions gain the footer on reattach, even with status disabled.
 	f.tmux("set-option", "-t", target, "status", "off")
 	f.tmux("set-option", "-t", target, "prefix", "C-a")
@@ -59,16 +59,16 @@ func TestMemberShortcutFooter(t *testing.T) {
 	if got := f.tmux("show-options", "-A", "-v", "-t", target, "status-position"); got != "bottom" {
 		t.Fatalf("footer position: %s", got)
 	}
-	// Prefix H opens the monitor without typing into the agent; H returns.
+	// Prefix m opens the monitor without typing into the agent; m returns.
 	clientName := f.clientName(client)
-	client.send(t, "\x01H")
+	client.send(t, "\x01m")
 	eventually(t, func() bool { return f.clientSession(clientName) == "_motley" })
-	client.send(t, "\x02H") // monitor inherits the default prefix
+	client.send(t, "\x02m") // monitor inherits the default prefix
 	eventually(t, func() bool { return f.clientSession(clientName) == id })
 	// Click the underlined Monitor control on status row 1 (30-row terminal).
 	client.send(t, "\x1b[<0;14;28M\x1b[<0;14;28m")
 	eventually(t, func() bool { return f.clientSession(clientName) == "_motley" })
-	client.send(t, "\x02H")
+	client.send(t, "\x02m")
 	eventually(t, func() bool { return f.clientSession(clientName) == id })
 	// Window and scroll controls target this tab even with another client active.
 	f.tmux("new-window", "-d", "-t", "="+id, "/bin/sh")

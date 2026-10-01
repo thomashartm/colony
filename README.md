@@ -64,7 +64,9 @@ and backup paths are saved under `~/.motley/uninstall-history/`.
 
 ## Start working
 
-Keep main repositories under `~/projects`; worktrees go under `~/worktrees`.
+By default, main repositories live under `~/projects` and worktrees under
+`~/worktrees`. Change these locations with `repos_root` and `worktrees_root` in
+[`~/.config/motley/config.toml`](#configuration).
 Repositories need an `origin` remote and a local `main` or `master` branch.
 
 Run `mtly`, press **s**, choose a repository and agent, then review and launch.
@@ -136,7 +138,7 @@ the next key. Use your own prefix if you changed it.
 - **Details:** **Ctrl-b h** opens Motley. Select a member with **↑/↓**, then
   **→** focuses its details. Scroll with **↑/↓** or **Page Up/Page Down**;
   **←/Esc** returns to the list.
-- **Monitor:** **Ctrl-b H** (uppercase) opens the persistent monitor in this tab;
+- **Monitor:** **Ctrl-b m** opens the persistent monitor in this tab;
   press it again to return to the previous session. The agent keeps running.
 - **Back to the agent:** **q** closes the popup. **Enter** switches to the
   selected member instead.

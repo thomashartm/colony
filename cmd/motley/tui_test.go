@@ -130,7 +130,7 @@ func TestOverviewAndMonitor(t *testing.T) {
 	overview.send(t, "\r")
 	eventually(t, func() bool { return f.clientSession(overviewName) == id })
 	// Return through the visible monitor control; the overview keeps its state.
-	overview.send(t, "\x02H")
+	overview.send(t, "\x02m")
 	eventually(t, func() bool { return f.clientSession(overviewName) == "_motley" })
 	eventually(t, func() bool {
 		return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_motley:"), "[o Open agent]")

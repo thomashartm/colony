@@ -663,3 +663,16 @@ terminates it without losing dirty files, revives it, then force-retires it
 while the monitor stays alive. UI tests cover mouse targeting, confirmation,
 cancellation, changed row order and resized footers. Other session's checkout
 was left untouched.
+
+### Visible panel shortcuts — 2026-10-01
+
+The bottom bar now labels direct keys: [o Open agent] [1 List] [2 Details]
+[3 Actions] [q Close]. Number keys focus their panel without a tmux prefix;
+Actions says Enter runs the selected command. Text editors retain numeric input.
+
+Full tests, vet, lint, cross-builds and whitespace checks passed. Real tmux tests
+click all three panel buttons and exercise their number keys. The user's live
+mouse failure is not yet reproduced: mouse reporting was enabled, but the client
+detached before the requested click trace. Temporary tracing was removed and
+the original MouseDown1Pane binding restored. Do not consider that report fixed
+based only on automated mouse tests.

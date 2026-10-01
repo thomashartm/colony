@@ -36,6 +36,19 @@ func (m Model) actions() []navigationAction {
 // navigationKey runs after modal editors, so arrows in text remain caret keys.
 func (m Model) navigationKey(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 	key := msg.String()
+	// Direct panel keys are handled after text inputs and confirmation dialogs.
+	switch key {
+	case "1":
+		m.panel, m.tableFocus = listPanel, false
+		return m, nil, true
+	case "2":
+		m.panel = detailPanel
+		m.tableFocus = m.group == "crew" && m.currentEntry().id == "" && len(m.members(m.currentEntry().crew)) > 0
+		return m, nil, true
+	case "3":
+		m.panel, m.actionCursor = actionsPanel, 0
+		return m, nil, true
+	}
 	if m.panel == actionsPanel {
 		actions := m.actions()
 		m.actionCursor = max(0, min(m.actionCursor, len(actions)-1))

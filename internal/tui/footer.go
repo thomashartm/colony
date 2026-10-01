@@ -111,7 +111,7 @@ func (m Model) footerGroups() (full, compact []string) {
 		return []string{"[Tabs] Nav: ↑↓/jk select", "Act: enter " + action + " · esc cancel"}, []string{"[Tabs] ↑↓ select", "enter " + action + " · esc cancel"}
 	}
 	if m.panel == actionsPanel {
-		return []string{"[Actions] Nav: ↑↓/jk choose", "Act: enter open · ←/esc details"}, []string{"[Actions] ↑↓ choose", "enter open · esc back"}
+		return []string{"[Actions] Nav: ↑↓/jk choose", "Act: enter run · ←/esc details"}, []string{"[Actions] ↑↓ choose", "enter run · esc back"}
 	}
 	if m.panel == detailPanel || m.tableFocus {
 		movement := "scroll"

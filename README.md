@@ -97,6 +97,7 @@ only the buttons are shown while navigating the overview.
 | Key | Action |
 | --- | --- |
 | ↑/↓ or j/k | Select a member, option or field |
+| 1 / 2 / 3 | Focus List / Details / Actions (or click the footer button) |
 | → / ← | Move from list to details to Actions, or back |
 | Enter / o | Open the selected agent (Enter runs the selected action in Actions) |
 | s | Spawn a member |
@@ -111,7 +112,7 @@ only the buttons are shown while navigating the overview.
 | Page Up / Page Down | Scroll details |
 | q | Close |
 
-Press **→** twice from the list to open **Actions**, then **↑/↓** and **Enter**
+Press **3** or click **3 Actions**, then **↑/↓** and **Enter**
 to run an action on the selected member. **Terminate agent** stops its session
 and keeps the worktree, branch and history; **Revive** restarts it.
 Editors use **↑/↓** to move through fields, **Save** and **Cancel**; **Enter** activates and **Esc** cancels. **←/→**

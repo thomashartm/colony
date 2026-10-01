@@ -110,7 +110,7 @@ func (m Model) footerGroups() (full, compact []string) {
 		if m.tableFocus {
 			movement = "member"
 		}
-		return []string{"[Details] Nav: ↑↓ " + movement + " · ← back · → actions", "Act: enter jump · esc list"}, []string{"[Details] ← back · → actions", "↑↓ " + movement + " · enter jump"}
+		return []string{"[Details] Nav: ↑↓ " + movement + " · ← back · → actions", "Act: enter open · esc list"}, []string{"[Details] ← back · → actions", "↑↓ " + movement + " · enter open"}
 	}
 	quit := "q quit"
 	tabs := "Run: t tab"
@@ -121,5 +121,5 @@ func (m Model) footerGroups() (full, compact []string) {
 	if m.group == "crew" {
 		return []string{"[List] Nav: ↑↓ move · → expand/details · ← collapse", "View: tab members · H hidden · g group · G crews", quit}, []string{"[List] → expand/details · ← collapse", "↑↓ move · " + quit}
 	}
-	return []string{"[List] Nav: ↑↓/jk · → details", "Act: enter jump · s spawn · e edit · i reply", "View: / filter · g group · G crews", tabs + " · x retire · r revive · " + quit}, []string{"[List] ↑↓ move · → details", "enter jump · " + quit}
+	return []string{"[List] Nav: ↑↓/jk · → details", "Act: enter open · s spawn · e edit · i reply", "View: / filter · g group · G crews", tabs + " · x retire · r revive · " + quit}, []string{"[List] ↑↓ move · → details", "enter open · " + quit}
 }

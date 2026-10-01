@@ -54,7 +54,7 @@ func TestMemberShortcutFooter(t *testing.T) {
 	})
 	eventually(t, func() bool {
 		out := ansi.Strip(client.text())
-		return strings.Contains(out, "H monitor") && strings.Contains(out, "mtly attach "+id)
+		return strings.Contains(out, "Back to monitor") && strings.Contains(out, "mtly attach "+id)
 	})
 	if got := f.tmux("show-options", "-A", "-v", "-t", target, "status-position"); got != "bottom" {
 		t.Fatalf("footer position: %s", got)

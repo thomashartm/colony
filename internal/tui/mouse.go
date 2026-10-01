@@ -6,7 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const navigationBar = " [List] [Details] [Actions] [Enter] [q]"
+const navigationBar = "[Open agent: o] [List] [Details] [Actions] [Close: q]"
 
 func (m Model) navigationAvailable() bool {
 	return !m.busy && !m.searching && m.spawn == nil && m.editor == nil && !m.manager && m.retiring == nil && !m.picking
@@ -41,7 +41,7 @@ func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if msg.Y == m.height-1 {
-		for _, button := range []string{"[List]", "[Details]", "[Actions]", "[Enter]", "[q]"} {
+		for _, button := range []string{"[Open agent: o]", "[List]", "[Details]", "[Actions]", "[Close: q]"} {
 			start := strings.Index(navigationBar, button)
 			if msg.X < start || msg.X >= start+len(button) {
 				continue
@@ -54,9 +54,9 @@ func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 				m.tableFocus = m.group == "crew" && m.currentEntry().id == "" && len(m.members(m.currentEntry().crew)) > 0
 			case "[Actions]":
 				m.panel, m.actionCursor = actionsPanel, 0
-			case "[Enter]":
-				return m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-			case "[q]":
+			case "[Open agent: o]":
+				return m.jump()
+			case "[Close: q]":
 				return m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
 			}
 			return m, nil

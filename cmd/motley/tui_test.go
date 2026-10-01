@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -127,12 +128,22 @@ func TestOverviewAndMonitor(t *testing.T) {
 		return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_motley:"), "MEMBER")
 	})
 	overview.send(t, "\r")
+	eventually(t, func() bool { return f.clientSession(overviewName) == id })
+	// Return through the visible monitor control; the overview keeps its state.
+	overview.send(t, "\x02H")
+	eventually(t, func() bool { return f.clientSession(overviewName) == "_motley" })
 	eventually(t, func() bool {
-		return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_motley:"), "open another tab")
+		return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_motley:"), "[Open agent: o]")
 	})
-	if f.clientSession(overviewName) != "_motley" {
-		t.Fatal("monitor took over its only client")
+	paneHeight, err := strconv.Atoi(f.tmux("display-message", "-p", "-t", "=_motley:", "#{pane_height}"))
+	if err != nil {
+		t.Fatal(err)
 	}
+	// Open and return using visible buttons, with no tmux key sequence.
+	overview.send(t, fmt.Sprintf("\x1b[<0;5;%dM\x1b[<0;5;%dm", paneHeight, paneHeight))
+	eventually(t, func() bool { return f.clientSession(overviewName) == id })
+	overview.send(t, "\x1b[<0;14;28M\x1b[<0;14;28m")
+	eventually(t, func() bool { return f.clientSession(overviewName) == "_motley" })
 	work := f.terminalClient("fixture")
 	defer func() {
 		if t.Failed() {

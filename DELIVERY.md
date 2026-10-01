@@ -424,5 +424,8 @@ only; checked local links, command examples and diff whitespace.
 
 Validation: `make check` passed (installer tests, all Go tests including real
 tmux/terminal integration, vet, lint and all four cross-builds). Focused model
-tests also passed after the final crew focus/footer adjustment. Hosted CI is
-pending on the review branch. Stop after this ticket for navigation feedback.
+tests also passed after the final crew focus/footer adjustment.
+[Hosted CI](https://github.com/thomashartm/motley/actions/runs/36838983647) passed
+for code commit `d3fe63f`, including Linux/macOS tests and release snapshots.
+[PR #17](https://github.com/thomashartm/motley/pull/17) is ready for review.
+Stop after this ticket for navigation feedback.

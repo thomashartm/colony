@@ -676,3 +676,12 @@ mouse failure is not yet reproduced: mouse reporting was enabled, but the client
 detached before the requested click trace. Temporary tracing was removed and
 the original MouseDown1Pane binding restored. Do not consider that report fixed
 based only on automated mouse tests.
+
+### Monitor shortcut — 2026-10-01
+
+Changed the monitor toggle to prefix m (Ctrl-b m with the default prefix).
+Updated the member footer, monitor return hint and README. Prefix h still opens
+Details. The real-tmux shortcut test now exercises m in both directions with
+custom/default prefixes and preserves the user's m binding outside Motley.
+
+Validation: binding parser and real-tmux shortcut integration tests passed.

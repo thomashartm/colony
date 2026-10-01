@@ -4,9 +4,9 @@ import "testing"
 
 func TestBindingCommandFromWholeTable(t *testing.T) {
 	table := "bind-key -T prefix h display-popup 'motley'\n" +
-		"bind-key -r -T prefix H display-message 'my custom binding'\n" +
+		"bind-key -r -T prefix m display-message 'my custom binding'\n" +
 		"bind-key -T prefix M select-pane -M\n"
-	if got := bindingCommand(table, "H"); got != "display-message 'my custom binding'" {
+	if got := bindingCommand(table, "m"); got != "display-message 'my custom binding'" {
 		t.Fatalf("lost existing binding: %q", got)
 	}
 	if got := bindingCommand(table, "MouseUp1StatusLeft"); got != "" {

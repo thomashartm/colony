@@ -136,7 +136,7 @@ the next key. Use your own prefix if you changed it.
 - **Details:** **Ctrl-b h** opens Motley. Select a member with **↑/↓**, then
   **→** focuses its details. Scroll with **↑/↓** or **Page Up/Page Down**;
   **←/Esc** returns to the list.
-- **Monitor:** **Ctrl-b H** (uppercase) opens the persistent monitor in this tab;
+- **Monitor:** **Ctrl-b m** opens the persistent monitor in this tab;
   press it again to return to the previous session. The agent keeps running.
 - **Back to the agent:** **q** closes the popup. **Enter** switches to the
   selected member instead.

@@ -13,7 +13,7 @@ type shortcut struct{ label, action string }
 
 func shortcutRows(prefix string) [][]shortcut {
 	return [][]shortcut{
-		{{" " + prefix + " then: ", ""}, {"H monitor", "monitor"}, {" | ", ""}, {"h details", "details"}, {" | ", ""}, {"d detach", "detach"}, {" | popup: q back / Enter switch", ""}},
+		{{" Back to monitor [" + prefix + " H]", "monitor"}, {" | ", ""}, {"Details [" + prefix + " h]", "details"}, {" | ", ""}, {"Detach [" + prefix + " d]", "detach"}},
 		{{" " + prefix + " then: ", ""}, {"w windows", "windows"}, {" | ", ""}, {"p prev", "previous"}, {" / ", ""}, {"n next", "next"}, {" | arrows panes | ", ""}, {"[ scroll (q back)", "scroll"}},
 	}
 }

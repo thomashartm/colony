@@ -27,7 +27,7 @@ func TestArrowEditorTerminal(t *testing.T) {
 	eventually(t, func() bool { return strings.Contains(terminal.text(), "Arrow fixture") })
 	send("\x1b[C", "[Details]")
 	send("\x1b[C", "[Actions]")
-	send("\r", "Edit feat-arrows")
+	send("\x1b[B\r", "Edit feat-arrows")
 	send(" changed\x1b[B\x1b[B\x1b[B\x1b[B", "> Save")
 	send("\r", "Saved")
 	eventually(t, func() bool { return f.manifest("feat-arrows").Name == "Arrow fixture changed" })

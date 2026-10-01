@@ -78,7 +78,7 @@ func TestFooterGroupsAndEssentialControls(t *testing.T) {
 		}
 	}
 	m = update(m, tea.WindowSizeMsg{Width: 60, Height: 10})
-	for _, want := range []string{"[Details]", "[Actions]", "[Enter]", "[q]"} {
+	for _, want := range []string{"[Details]", "[Actions]", "[Open agent: o]", "[Close: q]"} {
 		if !strings.Contains(m.footer(), want) {
 			t.Fatalf("missing essential %q", want)
 		}
@@ -87,5 +87,17 @@ func TestFooterGroupsAndEssentialControls(t *testing.T) {
 	m.panel = actionsPanel
 	if !strings.Contains(m.footer(), "enter open") || !strings.Contains(m.footer(), "esc") {
 		t.Fatal("action controls hidden")
+	}
+}
+
+func TestOpenAgentAlwaysVisible(t *testing.T) {
+	for _, height := range []int{10, 12, 24} {
+		m := update(newModel(true, true, "", nil), tea.WindowSizeMsg{Width: 60, Height: height})
+		for _, panel := range []int{listPanel, detailPanel, actionsPanel} {
+			m.panel = panel
+			if !strings.Contains(m.footer(), "[Open agent: o]") {
+				t.Fatal("Open agent control hidden")
+			}
+		}
 	}
 }

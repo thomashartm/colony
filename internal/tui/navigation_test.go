@@ -21,13 +21,14 @@ func TestArrowPanelsAndEditor(t *testing.T) {
 		t.Fatal("detail scroll moved list selection")
 	}
 	m = arrow(m, tea.KeyRight)
-	if !strings.Contains(m.View(), "> Edit member") {
+	if !strings.Contains(m.View(), "> Open agent (o)") {
 		t.Fatal("actions selection invisible")
 	}
 	m = update(m, snap)
 	if m.panel != actionsPanel {
 		t.Fatal("refresh lost focus")
 	}
+	m = arrow(m, tea.KeyDown)
 	m = arrow(m, tea.KeyEnter)
 	if m.editor == nil || m.editor.id != "alpha" {
 		t.Fatal("arrow route did not open editor")
@@ -84,8 +85,8 @@ func TestArrowCrewAndEmptyNavigation(t *testing.T) {
 		t.Fatal("crew table selection")
 	}
 	m = arrow(m, tea.KeyEnter)
-	if m.attachID != "" || !strings.Contains(m.message, "open another tab") {
-		t.Fatal("monitor took over its own client")
+	if m.attachID != "" || !strings.Contains(m.message, "no longer attached") {
+		t.Fatal("disconnected monitor must refuse opening")
 	}
 	m = arrow(m, tea.KeyRight)
 	m = update(m, crewSnapshot())

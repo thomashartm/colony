@@ -63,8 +63,8 @@ func TestJumpRoutesAndRefusals(t *testing.T) {
 	m.monitor = true
 	m.attachID = ""
 	m = update(m, tea.KeyMsg{Type: tea.KeyEnter})
-	if !strings.Contains(m.message, "open another tab") || m.attachID != "" {
-		t.Fatal("monitor without a work client must stay put")
+	if !strings.Contains(m.message, "no longer attached") || m.attachID != "" {
+		t.Fatal("disconnected monitor must stay put")
 	}
 }
 func TestMonitorTargetAndPin(t *testing.T) {
@@ -114,6 +114,32 @@ func TestViewFitsTerminal(t *testing.T) {
 		view := m.View()
 		if lipgloss.Width(view) > size[0] || lipgloss.Height(view) > size[1] {
 			t.Fatalf("view overflow at %v: %dx%d", size, lipgloss.Width(view), lipgloss.Height(view))
+		}
+	}
+}
+
+func TestOpenClientUsesMonitorWithoutWorkTab(t *testing.T) {
+	monitor := tmux.Client{Name: "monitor", Session: tmux.MonitorSession}
+	target, err := openClient([]tmux.Client{monitor}, "")
+	if err != nil || target.Name != "monitor" {
+		t.Fatalf("one-tab target: %+v %v", target, err)
+	}
+	work := tmux.Client{Name: "work", Session: "agent"}
+	target, err = openClient([]tmux.Client{monitor, work}, "")
+	if err != nil || target.Name != "work" {
+		t.Fatalf("separate work target: %+v %v", target, err)
+	}
+	if _, err = openClient([]tmux.Client{monitor}, "missing"); err == nil {
+		t.Fatal("lost pin silently switched monitor")
+	}
+	if _, err = openClient([]tmux.Client{monitor, {Name: "second", Session: tmux.MonitorSession}}, ""); err == nil {
+		t.Fatal("ambiguous monitor client")
+	}
+	m := update(newModel(true, true, "", nil), snapshot{rows: []member.Row{row("a", true)}, clients: []tmux.Client{monitor}})
+	for _, input := range []tea.KeyMsg{{Type: tea.KeyEnter}, key("o")} {
+		next, cmd := m.Update(input)
+		if !next.(Model).busy || cmd == nil {
+			t.Fatal("open action did not switch single monitor tab")
 		}
 	}
 }

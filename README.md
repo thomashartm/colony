@@ -85,6 +85,10 @@ the background. Claude is the default agent. Local `.env`, `.env.*` and
 
 ## Overview
 
+Select a member and click **Open agent** (or press **o** / **Enter**). With one
+tab, it opens there; with a separate work tab, it opens in that tab. Click
+**Back to monitor** in the agent footer to return. No tmux shortcuts are needed.
+
 The footer groups controls by purpose and fits them into up to two rows. Small
 windows show essential controls; use **→** to reach the full Actions menu.
 Clickable navigation buttons have their own bottom row; at minimum height,
@@ -94,7 +98,7 @@ only the buttons are shown while navigating the overview.
 | --- | --- |
 | ↑/↓ or j/k | Select a member, option or field |
 | → / ← | Move from list to details to Actions, or back |
-| Enter | Attach or switch to it |
+| Enter / o | Open the selected agent (Enter runs the selected action in Actions) |
 | s | Spawn a member |
 | i | Send a reply |
 | t | Send the member to another work tab |
@@ -120,7 +124,7 @@ the table; **H** shows inactive crews. In the crew manager, **→** opens its ac
 Shortcuts stay visible at the bottom, below the normal tmux status row. Existing
 sessions gain the footer when you attach or switch to them with the updated Motley.
 Click the underlined footer controls, or use the keys below. In the overview,
-click **List**, **Details**, **Actions**, a member or an action; the mouse wheel
+click **Open agent**, **List**, **Details**, **Actions**, a member or an action; the mouse wheel
 scrolls lists and details. Forms still use the keyboard.
 
 With the default tmux prefix, press **Ctrl-b**, release both keys, then press
@@ -150,7 +154,8 @@ Motley's **t** sends a member to an already attached work tab; it does not creat
 a Ghostty tab. Ghostty shortcuts are [configurable](https://ghostty.org/docs/config/keybind).
 
 For a persistent overview in a separate tab, run
-`mtly monitor`: **Enter** switches another work tab, **T** chooses that tab, and
+`mtly monitor`: **Open agent** uses an attached work tab, or the current tab if
+it is the only monitor tab. **T** chooses a work tab, and
 **q** detaches the monitor. After upgrading, restart it with
 `tmux kill-session -t _motley`, then `mtly monitor`.
 

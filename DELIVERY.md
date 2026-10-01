@@ -626,3 +626,21 @@ grouped footer. Navigation buttons occupy the last reserved footer row; short
 terminals show compact hints or just the buttons. Mouse hit testing uses the
 same content height as rendering, so footer clicks cannot select hidden rows.
 Validation results are recorded on PR #18.
+
+### Open agents directly from the monitor — 2026-10-01
+
+Added a persistent Open agent button and o shortcut, plus Open agent as the first
+Actions item. A monitor with no separate work client opens the selected member
+in its own tab; another attached work tab remains preferred and a missing pin
+still refuses rather than redirecting. The agent footer labels its clickable
+return control Back to monitor. No shell command or tmux prefix is needed for
+the normal open/return route.
+
+Implemented in an isolated worktree, leaving the other session's checkout
+untouched. Rebased onto its merged footer work, preserving the grouped layout
+and bottom-row mouse controls.
+
+Validation passed: full Go suite, vet, lint, four platform builds and whitespace
+checks. Real tmux tests cover opening with Enter and clicking Open agent, then
+clicking Back to monitor, with no separate work tab. Tests also retain the
+separate/pinned work-tab behavior and guard ambiguous monitor clients.

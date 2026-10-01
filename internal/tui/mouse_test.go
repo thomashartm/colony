@@ -15,11 +15,11 @@ func click(m Model, x, y int) Model {
 func TestMouseNavigation(t *testing.T) {
 	m := update(newModel(false, false, "", nil), tea.WindowSizeMsg{Width: 80, Height: 20})
 	m = update(m, snapshot{rows: []member.Row{row("alpha", true), row("beta", true)}})
-	m = click(m, strings.Index(navigationBar, "[Details]")+1, 19)
+	m = click(m, strings.Index(navigationBar, "[Details]")+1, m.height-1)
 	if m.panel != detailPanel {
 		t.Fatal("details button")
 	}
-	m = click(m, strings.Index(navigationBar, "[List]")+1, 19)
+	m = click(m, strings.Index(navigationBar, "[List]")+1, m.height-1)
 	if m.panel != listPanel {
 		t.Fatal("list button")
 	}
@@ -27,21 +27,21 @@ func TestMouseNavigation(t *testing.T) {
 	if m.selectedID() != "beta" {
 		t.Fatalf("clicked member: %s", m.selectedID())
 	}
-	m = click(m, strings.Index(navigationBar, "[Actions]")+1, 19)
+	m = click(m, strings.Index(navigationBar, "[Actions]")+1, m.height-1)
 	if m.panel != actionsPanel {
 		t.Fatal("actions button")
 	}
-	m = click(m, m.listWidth()+4, 3) // Edit member, below actions heading
+	m = click(m, m.listWidth()+4, 4) // Edit member, below Open agent
 	if m.editor == nil || m.editor.id != "beta" {
 		t.Fatal("action click")
 	}
-	m = click(m, strings.Index(navigationBar, "[List]")+1, 19)
+	m = click(m, strings.Index(navigationBar, "[List]")+1, m.height-1)
 	if m.editor == nil || m.panel != actionsPanel {
 		t.Fatal("click escaped editor")
 	}
 	m = update(m, tea.KeyMsg{Type: tea.KeyEsc})
-	m = click(m, strings.Index(navigationBar, "[Details]")+1, 19)
-	m = click(m, strings.Index(navigationBar, "[Enter]")+1, 19)
+	m = click(m, strings.Index(navigationBar, "[Details]")+1, m.height-1)
+	m = click(m, strings.Index(navigationBar, "[Open agent: o]")+1, m.height-1)
 	if m.attachID != "beta" {
 		t.Fatal("explicit Enter button did not jump")
 	}

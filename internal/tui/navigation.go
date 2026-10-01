@@ -17,7 +17,7 @@ type navigationAction struct{ label, key string }
 func (m Model) actions() []navigationAction {
 	actions := []navigationAction{}
 	if m.selectedID() != "" {
-		actions = append(actions, navigationAction{"Edit member", "e"})
+		actions = append(actions, navigationAction{"Open agent (o)", "o"}, navigationAction{"Edit member", "e"})
 	}
 	actions = append(actions, navigationAction{"Manage crews", "G"}, navigationAction{"Spawn member", "s"})
 	if m.selectedID() != "" {

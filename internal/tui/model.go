@@ -309,7 +309,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 			}
-		case "enter":
+		case "enter", "o":
 			m.alert = false
 			return m.jump()
 		}
@@ -400,6 +400,29 @@ func WorkClient(clients []tmux.Client, pinned string) (tmux.Client, error) {
 	}
 	return work[0], nil
 }
+
+// A separate work tab stays the preferred destination. With a single monitor
+// tab, opening a member uses that tab and keeps the monitor session alive.
+func openClient(clients []tmux.Client, pinned string) (tmux.Client, error) {
+	if pinned != "" || len(workClients(clients)) > 0 {
+		return WorkClient(clients, pinned)
+	}
+	var monitor tmux.Client
+	for _, client := range clients {
+		if client.Session != tmux.MonitorSession {
+			continue
+		}
+		if monitor.Name != "" {
+			return tmux.Client{}, fmt.Errorf("multiple monitor tabs are open; choose a work tab with t")
+		}
+		monitor = client
+	}
+	if monitor.Name == "" {
+		return tmux.Client{}, fmt.Errorf("monitor tab is no longer attached")
+	}
+	return monitor, nil
+}
+
 func (m Model) jump() (tea.Model, tea.Cmd) {
 	id := m.selectedID()
 	if id == "" {
@@ -415,7 +438,7 @@ func (m Model) jump() (tea.Model, tea.Cmd) {
 	}
 	client := m.client
 	if m.monitor {
-		target, err := WorkClient(m.clients, m.pinned)
+		target, err := openClient(m.clients, m.pinned)
 		if err != nil {
 			m.message = err.Error()
 			return m, nil
@@ -432,7 +455,7 @@ func (m Model) jump() (tea.Model, tea.Cmd) {
 			return actionDone{err: err}
 		}
 		if monitor {
-			target, err := WorkClient(clients, pinned)
+			target, err := openClient(clients, pinned)
 			if err != nil {
 				return actionDone{err: err}
 			}
@@ -563,7 +586,7 @@ func (m Model) View() string {
 				header += " (pinned)"
 			}
 		} else {
-			header += "  no work tab"
+			header += "  Open agent: this tab"
 		}
 	}
 	height, width := m.contentHeight(), m.listWidth()

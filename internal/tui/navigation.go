@@ -19,9 +19,16 @@ func (m Model) actions() []navigationAction {
 	if m.selectedID() != "" {
 		actions = append(actions, navigationAction{"Open agent (o)", "o"}, navigationAction{"Edit member", "e"})
 	}
-	actions = append(actions, navigationAction{"Manage crews", "G"}, navigationAction{"Spawn member", "s"})
+	actions = append(actions, navigationAction{"Manage crews", "G"}, navigationAction{"Spawn member", "s"}, navigationAction{"Add existing Claude (a)", "a"})
 	if m.selectedID() != "" {
-		actions = append(actions, navigationAction{"Reply", "i"}, navigationAction{"Send to work tab", "t"}, navigationAction{"Terminate agent (X)", "X"}, navigationAction{"Retire member + worktree (x)", "x"}, navigationAction{"Revive member", "r"})
+		if !m.selectedRow().External {
+			actions = append(actions, navigationAction{"Reply", "i"}, navigationAction{"Send to work tab", "t"})
+		}
+		retire := "Retire member + worktree (x)"
+		if m.selectedRow().ClaudeSession != "" {
+			retire = "Retire member; keep files (x)"
+		}
+		actions = append(actions, navigationAction{"Terminate agent (X)", "X"}, navigationAction{retire, "x"}, navigationAction{"Revive member", "r"})
 	}
 	actions = append(actions, navigationAction{"Change grouping", "g"}, navigationAction{"Filter members", "/"})
 	if m.group == "crew" {

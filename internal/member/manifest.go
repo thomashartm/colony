@@ -15,6 +15,9 @@ import (
 )
 
 type Manifest struct {
+	// Imported checkouts are borrowed: retirement never removes files or branches.
+	ClaudeSession string `toml:"claude_session,omitempty"`
+
 	Prompt    bool       `toml:"prompt,omitempty"`
 	Blueprint string     `toml:"blueprint,omitempty"`
 	AgentArgs []string   `toml:"agent_args,omitempty"`
@@ -60,6 +63,9 @@ func Load(dir, id string) (Manifest, error) {
 	if m.Schema != 1 || m.ID != id {
 		return Manifest{}, fmt.Errorf("invalid manifest %s: expected schema 1 and id %q", path, id)
 	}
+	if m.ClaudeSession != "" && (m.Agent != "claude" || CheckID(m.ClaudeSession) != nil) {
+		return Manifest{}, fmt.Errorf("invalid imported Claude session in %s", path)
+	}
 	return m, nil
 }
 
@@ -86,6 +92,7 @@ func loadAll(dir string) ([]Manifest, error) {
 }
 
 type Row struct {
+	External bool
 	Manifest
 	Alive  bool
 	Status string
@@ -119,7 +126,7 @@ func List() ([]Row, error) {
 	if err != nil {
 		return nil, err
 	}
-	return Join(manifests, sessions), nil
+	return RefreshExternal(Join(manifests, sessions))
 }
 
 func RequireLive(id string) error {

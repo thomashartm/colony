@@ -9,8 +9,9 @@ import (
 )
 
 type terminateDialog struct {
-	id      string
-	confirm bool
+	id       string
+	confirm  bool
+	external bool
 }
 
 func (m Model) beginTerminate() (tea.Model, tea.Cmd) {
@@ -22,7 +23,7 @@ func (m Model) beginTerminate() (tea.Model, tea.Cmd) {
 		m.message = "This agent session is already stopped. Use Revive to restart it."
 		return m, nil
 	}
-	m.terminating = &terminateDialog{id: id}
+	m.terminating = &terminateDialog{id: id, external: m.selectedRow().External}
 	m.message = ""
 	return m, nil
 }
@@ -59,7 +60,11 @@ func (m Model) terminateButtons() string {
 }
 
 func (m Model) terminateView(height int) string {
-	text := "Terminate " + clean(m.terminating.id) + "?\nStops all processes in this agent session.\nKeeps worktree, branch and history. Use Revive to restart."
+	action := "Stops all processes in this agent session."
+	if m.terminating.external {
+		action = "Stops Claude in its original terminal."
+	}
+	text := "Terminate " + clean(m.terminating.id) + "?\n" + action + "\nKeeps worktree, branch and history. Use Revive to restart."
 	lines := strings.Split(ansi.Hardwrap(text, m.detailWidth(), true), "\n")
 	return strings.Join(lines[:min(len(lines), height)], "\n")
 }

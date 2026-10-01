@@ -16,6 +16,15 @@ func Send(id, client string) error {
 	if err := RequireLive(id); err != nil {
 		return err
 	}
+	rows, err := List()
+	if err != nil {
+		return err
+	}
+	for _, r := range rows {
+		if r.ID == id && r.External {
+			return fmt.Errorf("session runs in its original terminal; use motley attach %s to focus it", id)
+		}
+	}
 	clients, err := tmux.Clients()
 	if err != nil {
 		return err
@@ -52,5 +61,5 @@ func Reply(id, text string) error {
 			return tmux.SendText(id, text)
 		}
 	}
-	return fmt.Errorf("member %s is dead", id)
+	return fmt.Errorf("member %s has no managed terminal; open its original terminal to reply", id)
 }

@@ -698,3 +698,17 @@ non-Git directories, discovery failure, duplicates, resumed conversation IDs,
 file/branch preservation and the real terminal picker. Read-only discovery
 found six local running sessions. Ghostty scripting compiled and its directory
 inventory was verified; no live Claude sessions were imported or interrupted.
+
+### First-run configuration — 2026-10-01
+
+Configuration now lives at ~/.motley/config.toml. The first config load or
+`mtly init` creates it with defaults, or copies an existing XDG config verbatim.
+Existing files, including invalid TOML, are never reset or overwritten. A
+complete temporary file is linked into place atomically so concurrent first
+launches cannot expose partial content or overwrite each other. Tmux snippets
+and blueprint paths retain their current locations.
+
+Validation passed: full Go suite, vet, lint, four cross-builds and whitespace
+checks. Tests cover defaults, legacy settings and comments, concurrent first
+loads, unchanged modification times, invalid-file preservation and CLI loading
+from the new location.

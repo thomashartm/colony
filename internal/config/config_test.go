@@ -60,11 +60,16 @@ func TestLoad(t *testing.T) {
 			if cfg.Schema != 1 || cfg.ReposRoot != wantRepos || cfg.WorktreesRoot != wantWork {
 				t.Fatalf("got %+v; want schema 1, roots %q and %q", cfg, wantRepos, wantWork)
 			}
+			created := filepath.Join(home, ".motley", "config.toml")
+			if _, err := os.Stat(created); err != nil {
+				t.Fatalf("config was not created: %v", err)
+			}
 			if tt.missing {
 				if _, err := os.Stat(path); !os.IsNotExist(err) {
-					t.Fatalf("loading defaults must not create a config file: %v", err)
+					t.Fatal("created a legacy config")
 				}
 			}
+
 		})
 	}
 }

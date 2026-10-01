@@ -276,6 +276,7 @@ func TestOverviewAndMonitor(t *testing.T) {
 }
 
 func TestOverviewNonTerminal(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	cmd := newRootCommand()
 	cmd.SetArgs(nil)

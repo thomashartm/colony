@@ -404,3 +404,28 @@ controls, configuration and development checks. Removed repeated walkthroughs
 and implementation detail while retaining launch/retirement side effects,
 agent reporting limits, adoption and pre-v1 setup instructions. Documentation
 only; checked local links, command examples and diff whitespace.
+
+### #15 — Arrow-key navigation — 2026-10-01
+
+- Added a visible List → Details → Actions focus path. Actions exposes the
+  existing member editor, crew manager, spawn, reply, tab and lifecycle actions.
+  Left/Esc returns focus; existing letter shortcuts remain available.
+- Crew Right expands first, then enters the member table; another Right opens
+  Actions. Crew management has an arrow-accessible action menu. Up/Down moves
+  through editor fields and Save/Cancel; Left/Right remains caret movement.
+- Retirement and crew deletion expose selectable confirmation, force and cancel
+  controls. Spawn fields support Up/Down; prompt preview has selectable launch,
+  edit and cancel actions. Polling preserves focus and member identity.
+- Updated the README controls. Added model coverage at 60×10 and a real terminal
+  edit/save/cancel test; overview integration exercises arrows in standalone,
+  popup and monitor modes, including monitor work-client routing.
+- Kept this ticket on `feat/15-arrow-navigation`, separate from the pending W8
+  changes. No mouse support, configurable keymaps or new configuration subsystem.
+
+Validation: `make check` passed (installer tests, all Go tests including real
+tmux/terminal integration, vet, lint and all four cross-builds). Focused model
+tests also passed after the final crew focus/footer adjustment.
+[Hosted CI](https://github.com/thomashartm/motley/actions/runs/36838983647) passed
+for code commit `d3fe63f`, including Linux/macOS tests and release snapshots.
+[PR #17](https://github.com/thomashartm/motley/pull/17) is ready for review.
+Stop after this ticket for navigation feedback.

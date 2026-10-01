@@ -11,6 +11,7 @@ import (
 )
 
 type retireDialog struct {
+	focus               int
 	id                  string
 	check               member.RetireCheck
 	err                 error
@@ -54,6 +55,16 @@ func (m Model) updateRetire(key string) (tea.Model, tea.Cmd) {
 	dialog := *m.retiring
 	m.retiring = &dialog
 	switch key {
+	case "up", "shift+tab":
+		dialog.focus = (dialog.focus + 3) % 4
+		return m, nil
+	case "down", "tab":
+		dialog.focus = (dialog.focus + 1) % 4
+		return m, nil
+	case "enter":
+		key = []string{"y", "f", "k", "esc"}[dialog.focus]
+	}
+	switch key {
 	case "esc", "q":
 		m.retiring = nil
 		m.message = ""
@@ -68,7 +79,7 @@ func (m Model) updateRetire(key string) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		if len(dialog.check.Risks()) > 0 && !dialog.force {
-			m.message = "Work would be discarded. Press f to enable force, or esc to cancel."
+			m.message = "Work would be discarded. Select Force to enable it, or Esc to cancel."
 			return m, nil
 		}
 		m.busy = true
@@ -105,5 +116,10 @@ func (m Model) retireView(height int) string {
 		lines = append(lines, "Local branch: "+action, "", "Removes the tmux session and worktree:", clean(d.check.Manifest.Worktree), "Archives its manifest and history.", "Remote branches are kept.")
 	}
 	wrapped := strings.Split(ansi.Hardwrap(strings.Join(lines, "\n"), m.detailWidth(), true), "\n")
+	wrapped = wrapped[:min(len(wrapped), max(1, height-4))]
+	labels := []string{"Confirm retirement", fmt.Sprintf("Force: %t", d.force), fmt.Sprintf("Keep branch: %t", d.keep), "Cancel"}
+	for i, label := range labels {
+		wrapped = append(wrapped, fit(control(label, d.focus == i), m.detailWidth()))
+	}
 	return strings.Join(wrapped[:min(len(wrapped), height)], "\n")
 }

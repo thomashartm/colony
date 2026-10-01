@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/thomashartm/motley/internal/agents"
 	"github.com/thomashartm/motley/internal/blueprint"
 	"github.com/thomashartm/motley/internal/member"
 	"github.com/thomashartm/motley/internal/tmux"
@@ -142,12 +143,65 @@ func TestSpawnViewsFit(t *testing.T) {
 	for _, size := range [][2]int{{60, 10}, {80, 24}, {140, 40}} {
 		for step := repoStep; step <= launchStep; step++ {
 			m := update(newModel(false, true, "", nil), tea.WindowSizeMsg{Width: size[0], Height: size[1]})
-			m.spawn = &spawnForm{step: step, repos: []string{strings.Repeat("repo", 50)}, query: inputs("")[0], fields: inputs("412", strings.Repeat("界", 100), "feat/test"), vars: []string{"a", "b", "c"}, preview: viewport.New(30, 10), progress: strings.Repeat("long progress", 100), err: "an error\nsecond line"}
+			m.spawn = &spawnForm{step: step, opts: member.SpawnOptions{Agent: "claude"}, repos: []string{strings.Repeat("repo", 50)}, query: inputs("")[0], fields: inputs("412", strings.Repeat("界", 100), "feat/test"), vars: []string{"a", "b", "c"}, preview: viewport.New(30, 10), progress: strings.Repeat("long progress", 100), err: "an error\nsecond line"}
 			m.spawn.preview.SetContent(strings.Repeat("prompt\n", 50))
 			view := m.View()
 			if lipgloss.Width(view) > size[0] || lipgloss.Height(view) > size[1] {
 				t.Fatalf("overflow %v step %d: %dx%d", size, step, lipgloss.Width(view), lipgloss.Height(view))
 			}
 		}
+	}
+}
+
+func TestSpawnFormPermissionMode(t *testing.T) {
+	atBlueprints := func(t *testing.T) Model {
+		t.Helper()
+		m := update(newModel(false, true, "", nil), tea.WindowSizeMsg{Width: 120, Height: 30})
+		m.spawn = &spawnForm{step: agentStep, opts: member.SpawnOptions{Repo: "api", Name: "FX", Branch: "feat/fx"}}
+		next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		m = next.(Model)
+		if cmd == nil || m.spawn.opts.Agent != "claude" {
+			t.Fatal("agent selection")
+		}
+		return update(m, spawnLoaded{forBlueprint: true, blueprints: []blueprint.Blueprint{
+			{Name: "plan-first", Agent: "claude", Args: []string{"--permission-mode=plan"}},
+			{Name: "opus", Agent: "claude", Args: []string{"--model", "opus"}},
+		}})
+	}
+	choose := func(t *testing.T, m Model, index int) (Model, tea.Cmd) {
+		t.Helper()
+		for i := 0; i < index; i++ {
+			m = update(m, key("j"))
+		}
+		next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		return next.(Model), cmd
+	}
+	// Claude without a permission-setting blueprint offers the presets.
+	m, _ := choose(t, atBlueprints(t), 2)
+	if m.spawn.step != modeStep || m.spawn.opts.Blueprint != "opus" {
+		t.Fatal("mode step not offered")
+	}
+	view := m.View()
+	for _, want := range []string{"Permission mode", "default from claude settings", "sandbox — accept edits"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("mode view lacks %q:\n%s", want, view)
+		}
+	}
+	m, cmd := choose(t, m, len(agents.Modes("claude"))+5) // clamps to the last preset
+	if cmd == nil || !m.busy || m.spawn.opts.Mode != "sandbox" {
+		t.Fatalf("sandbox selection: %+v", m.spawn.opts)
+	}
+	m = update(m, spawnPrepared{plan: member.Prepared{Manifest: member.Manifest{Repo: "api", Branch: "feat/fx", Agent: "claude", Mode: "sandbox"}}})
+	if !strings.Contains(m.View(), "feat/fx · claude · sandbox") {
+		t.Fatal("preview hides the mode")
+	}
+	// The first entry keeps Claude's own default and passes no mode.
+	m, _ = choose(t, atBlueprints(t), 0)
+	if m, cmd = choose(t, m, 0); cmd == nil || m.spawn.opts.Mode != "" {
+		t.Fatalf("settings default: %+v", m.spawn.opts)
+	}
+	// A blueprint that already sets the permission mode skips the step.
+	if m, cmd = choose(t, atBlueprints(t), 1); cmd == nil || m.spawn.step == modeStep || m.spawn.opts.Mode != "" {
+		t.Fatal("blueprint permission mode was overridable")
 	}
 }

@@ -18,6 +18,7 @@ type Manifest struct {
 	Prompt    bool       `toml:"prompt,omitempty"`
 	Blueprint string     `toml:"blueprint,omitempty"`
 	AgentArgs []string   `toml:"agent_args,omitempty"`
+	Mode      string     `toml:"mode,omitempty"`
 	Schema    int        `toml:"schema"`
 	ID        string     `toml:"id"`
 	Name      string     `toml:"name"`

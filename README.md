@@ -85,6 +85,24 @@ mtly attach 412-fx-cache
 the background. Claude is the default agent. Local `.env`, `.env.*` and
 `graphify-out` artifacts are copied into the worktree.
 
+### Claude permission modes
+
+Pick a mode with `--mode`, or in the spawn form after choosing a blueprint:
+`manual`, `acceptEdits`, `plan`, `auto`, `dontAsk`, `bypassPermissions` or
+`sandbox`. Without one, Claude uses its own configured default. A blueprint that
+sets `--permission-mode` keeps its choice; adding `--mode` to it is refused.
+
+`sandbox` accepts edits and runs Bash in Claude Code's sandbox. Commands can
+write inside the worktree and temp only; `git commit` still works. The settings
+are passed with `--settings`, so nothing is written to the worktree. Claude won't
+start if the sandbox is unavailable (Linux needs `bubblewrap` and `socat`). Claude
+can still ask to rerun a blocked command outside the sandbox; approve that only
+if you mean it.
+
+```sh
+mtly spawn --repo api --branch feat/412-fx-cache --mode sandbox
+```
+
 ## Overview
 
 Select a member and click **Open agent** (or press **o** / **Enter**). With one

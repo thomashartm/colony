@@ -20,8 +20,8 @@ import (
 )
 
 type SpawnOptions struct {
-	Repo, Branch, Agent, Ticket, Name, Crew, Color, Blueprint string
-	Vars                                                      []string
+	Repo, Branch, Agent, Ticket, Name, Crew, Color, Blueprint, Mode string
+	Vars                                                            []string
 }
 
 func Prepare(cfg config.Config, opts SpawnOptions) (Prepared, error) {
@@ -66,6 +66,17 @@ func Prepare(cfg config.Config, opts SpawnOptions) (Prepared, error) {
 	if opts.Agent == "" {
 		opts.Agent = "claude"
 	}
+	args := bp.Args
+	if opts.Mode != "" {
+		modeArgs, err := agents.ModeArgs(opts.Agent, opts.Mode)
+		if err != nil {
+			return Prepared{}, err
+		}
+		if arg := agents.ConflictingArg(bp.Args, modeArgs); arg != "" {
+			return Prepared{}, fmt.Errorf("blueprint %s already sets %s; omit the mode or choose another blueprint", bp.Name, arg)
+		}
+		args = append(append([]string(nil), bp.Args...), modeArgs...)
+	}
 	if _, err := agents.Binary(opts.Agent); err != nil {
 		return Prepared{}, err
 	}
@@ -100,7 +111,7 @@ func Prepare(cfg config.Config, opts SpawnOptions) (Prepared, error) {
 	if name == "" {
 		name = filepath.Base(opts.Branch)
 	}
-	m := Manifest{Schema: 1, Name: name, Repo: opts.Repo, RepoPath: repo, Worktree: path, Branch: opts.Branch, Base: base, RemoteURL: remote, Ticket: opts.Ticket, Agent: opts.Agent, Blueprint: opts.Blueprint, AgentArgs: bp.Args, Crew: opts.Crew, Color: opts.Color}
+	m := Manifest{Schema: 1, Name: name, Repo: opts.Repo, RepoPath: repo, Worktree: path, Branch: opts.Branch, Base: base, RemoteURL: remote, Ticket: opts.Ticket, Agent: opts.Agent, Mode: opts.Mode, Blueprint: opts.Blueprint, AgentArgs: args, Crew: opts.Crew, Color: opts.Color}
 	p := Prepared{Manifest: m, HasPrompt: opts.Blueprint != ""}
 	if p.HasPrompt {
 		c, _ := crew.Find(crews, opts.Crew)

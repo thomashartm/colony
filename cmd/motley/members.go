@@ -46,6 +46,7 @@ func spawnCommand() *cobra.Command {
 	cmd.Flags().StringVar(&opts.Crew, "crew", "", "Crew id")
 	cmd.Flags().StringVar(&opts.Color, "color", "", "Colour override (otherwise inherit crew colour)")
 	cmd.Flags().StringVar(&opts.Agent, "agent", "", "Agent: claude, codex or opencode (default: blueprint agent, then claude)")
+	cmd.Flags().StringVar(&opts.Mode, "mode", "", "Claude permission mode: "+agents.ModeNames("claude")+" (default: Claude's own setting)")
 	cmd.Flags().StringVar(&opts.Blueprint, "blueprint", "", "Blueprint name")
 	cmd.Flags().StringArrayVar(&opts.Vars, "var", nil, "Blueprint variable key=value (repeatable)")
 	cmd.Flags().StringVar(&opts.Ticket, "ticket", "", "Ticket identifier")

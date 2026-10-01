@@ -76,16 +76,20 @@ func TestSpawnFormTerminal(t *testing.T) {
 	send("api\r", "Ticket and name")
 	send("412\tFX cache\r", "Agent")
 	send("\r", "Blueprint")
-	send("\r", "Prompt preview") // none: an edited prompt still works without a blueprint
+	send("\r", "Permission mode") // none: an edited prompt still works without a blueprint
+	send("j", "> manual")
+	send("j", "> acceptEdits")
+	send("j", "> plan")
+	send("\r", "feat/412-fx-cache · claude · plan")
 	send("e", "Edited prompt from terminal")
 	send("\r", "Created 412-fx-cache")
 	m := f.manifest("412-fx-cache")
-	if !m.Prompt || m.Blueprint != "" || m.Branch != "feat/412-fx-cache" {
+	if !m.Prompt || m.Blueprint != "" || m.Branch != "feat/412-fx-cache" || m.Mode != "plan" {
 		t.Fatal(m)
 	}
 	eventually(t, func() bool {
 		data, _ := os.ReadFile(filepath.Join(f.home, "received-prompt"))
-		return string(data) == "--\nEdited prompt from terminal\n\n"
+		return string(data) == "--permission-mode\nplan\n--\nEdited prompt from terminal\n\n"
 	})
 	terminal.send(t, "q")
 	eventually(t, func() bool {

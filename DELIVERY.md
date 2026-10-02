@@ -453,7 +453,7 @@ W7 is implemented and CI-green; its release tag is tracked separately.
 | W6 — Blueprints | [#9](https://github.com/thomashartm/motley/issues/9) | Done |
 | W7 — Spawn and steer from the TUI | [#10](https://github.com/thomashartm/motley/issues/10) | Done |
 | W8 — Codex and OpenCode | [#11](https://github.com/thomashartm/motley/issues/11) | Done |
-| W9 — GitHub on demand and links | [#12](https://github.com/thomashartm/motley/issues/12) | In review |
+| W9 — GitHub on demand and links | [#12](https://github.com/thomashartm/motley/issues/12) | Done |
 | W10 — Full worktree tooling; retire wt and wt-clean | [#13](https://github.com/thomashartm/motley/issues/13) | Open |
 | W11 — Pop out and hardening | [#14](https://github.com/thomashartm/motley/issues/14) | Open |
 
@@ -1104,8 +1104,17 @@ built TUI in an isolated tmux server: `u` on branch `feat/w9-github` →
 details `PR #41 open · checks ✔ passing`; a
 `fix/crew-selector` member showed `PR #38 merged`; `U` → `Refreshed 2 members
 in 1 repo`; `P` → `Open PR #41 in browser`. `member.OpenPR` returned #41 for
-the retire warning. Creating and readying a PR was verified with fake gh only;
-a live `gh pr create` was not run.
+the retire warning.
+
+Live PR check, 2026-10-02, on a throwaway branch with one pushed and one
+unpushed commit: **P** → Create PR printed `Created
+https://github.com/thomashartm/motley/pull/47 · 1 local commit is not pushed;
+the PR shows pushed commits only`, and details showed `PR #47 open · checks …
+pending`. After `gh pr ready 47 --undo`, **u** showed `PR #47 open · draft ·
+checks … pending`; **P** offered Mark ready for review and Open PR, and Mark
+ready printed `PR #47 is ready for review` (GitHub: not a draft). `motley
+retire` printed `warning: PR #47 is still open: …` before refusing the
+unpushed work. #47 and its branch were then closed and deleted.
 
 Final review fixes: editing a ticket drops the issue recorded for the old one,
 and `u` applies an issue title only while the ticket still matches; a failed
@@ -1117,3 +1126,9 @@ U only when one exists; a PR with no available action shows a message instead
 of an empty menu; a created or readied PR is reported even if the follow-up
 refresh fails; GitHub titles are stripped of control characters before they
 reach manifests, crews or CLI output; `u` reports draft, checks and review.
+
+Release: merged in [#41](https://github.com/thomashartm/motley/pull/41) as
+`f76e73a`; release tag: `v0.9.0`. All nine
+[main CI jobs](https://github.com/thomashartm/motley/actions/runs/37041383867)
+and all nine [release-tag CI jobs](https://github.com/thomashartm/motley/actions/runs/37041671700)
+passed. v0.7.0 and v0.8.0 remain untagged, as agreed.

@@ -1,7 +1,7 @@
 # motley — Requirements
 
 Document schema: `1`  
-Status: W0–W7 implemented (Done); W8 implementation in progress; W9–W11 pending. See DELIVERY.md for roadmap tickets, validation and release checkpoints.
+Status: W0–W8 implemented (Done); W9–W11 pending. See DELIVERY.md for roadmap tickets, validation and release checkpoints.
 Source: user specification, 2026-09-30.
 
 ## Delivery agreement: MVP mode
@@ -897,7 +897,7 @@ they do not authorize expanding an earlier work item.
 | W6 (resolved) | Installed Claude 2.1.286 and Codex 0.159.2 accept positional prompts; OpenCode 1.18.21 accepts --prompt. Use these native arguments now, bringing initial prompt delivery forward from W8; no idle-hook or send-keys fallback is needed. Revive preserves blueprint args without replaying the prompt. CLI agent wins; conflicting agent-specific blueprint args are refused. |
 | W6 (resolved) | Prompt files use a schema-1 Markdown comment, stripped on delivery. Render/validate known fields and missing Vars keys as empty strings; unknown struct fields are template errors. Vars are optional, with repeated CLI values taking the last value. Render before worktree creation, then save the prompt before the manifest/session; cap prompts at 64 KiB for portable argv delivery. |
 | W7 (implementation) | Use a fixed feat/{ticket}-{slug} form branch with an editable override, and a case-insensitive subsequence matcher preserving attention order. The planned sahilm/fuzzy module is unavailable in this network-restricted environment; defer ranking/dependency changes. Preparing a spawn is read-only; launch uses the reviewed prompt snapshot. Manual prompts without a blueprint set prompt=true in the schema-1 manifest. Reply targets the active pane and refuses permission/ended/dead states. |
-| W8 (implementation) | Codex 0.159.2 has native hooks enabled; use hooks.json and its /hooks trust review, preserving approval settings. No legacy notify/capture fallback in this slice. Launch Codex with --no-daemon so hooks inherit the member environment. OpenCode 1.18.21 uses its plugin event API, native --prompt and --session flags. Installer backups and recorded session ids support both agents. Synthetic contract fixtures are present; live payload recordings and the real tmux gate remain outstanding. |
+| W8 (implementation) | Codex 0.159.2 has native hooks enabled; use hooks.json and its /hooks trust review, preserving approval settings. No legacy notify/capture fallback in this slice. Launch Codex with --no-daemon so hooks inherit the member environment. OpenCode 1.18.21 uses its plugin event API, native --prompt and --session flags. Installer backups and recorded session ids support both agents. Live acceptance 2026-10-02 (Codex 0.159.3, OpenCode 1.18.21): recorded fixtures, statuses and resume verified; agent exit and crash record `ended` via `agent-exited`; OpenCode aborts read as interrupted. See internal/agents/testdata/w8-contracts.md. |
 | W9 | R and Shift+R are ordinarily the same uppercase terminal key. Choose distinguishable selected/all refresh bindings. |
 | W10 | Legacy wt worktree_dir means a root directory; motley worktree_dir is a relative template. Specify import mapping, consistent with WT_WORKTREE_DIR → worktrees_root. |
 | W10 | Env copying requires basename-only parity, while the example `config/*.local.yaml` contains a path. Choose whether to correct the example or explicitly change matching semantics. |

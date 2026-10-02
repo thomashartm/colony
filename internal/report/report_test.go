@@ -44,7 +44,7 @@ func TestOtherAgentReports(t *testing.T) {
 	// Two invocations per event: status lookup then a batched update.
 	log := filepath.Join(dir, "calls")
 	t.Setenv("REPORT_TEST_CALLS", log)
-	script := "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$REPORT_TEST_CALLS\"\nif [ \"$1\" = -u ]; then printf 'fixture\\tquestion\\t{\"agent\":\"opencode\",\"agent_session_id\":\"session-1\"}\\n'; fi\n"
+	script := "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$REPORT_TEST_CALLS\"\nif [ \"$1\" = -u ]; then printf 'fixture\\topencode\\tquestion\\t{\"agent\":\"opencode\",\"agent_session_id\":\"session-1\"}\\n'; fi\n"
 	if err := os.WriteFile(filepath.Join(dir, "tmux"), []byte(script), 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -96,5 +96,44 @@ func TestRunBoundsTmuxAndLogsFlagErrors(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join(os.Getenv("XDG_STATE_HOME"), "motley/report.log"))
 	if err != nil || !strings.Contains(string(data), "flag provided but not defined") {
 		t.Fatal("missing flag diagnostic", err)
+	}
+}
+
+func TestExitedEndsTheMemberOnce(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	dir := t.TempDir()
+	t.Setenv("PATH", dir)
+	shim := func(status string) {
+		t.Helper()
+		script := "#!/bin/sh\nif [ \"$1\" = -u ]; then printf 'fixture\\topencode\\t" + status + "\\t{\"agent_session_id\":\"session-1\"}\\n'; fi\n"
+		if err := os.WriteFile(filepath.Join(dir, "tmux"), []byte(script), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := exec.Command(filepath.Join(dir, "tmux"), "-V").Run(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	path := filepath.Join(os.Getenv("XDG_STATE_HOME"), "motley/members/fixture.events.jsonl")
+	for _, previous := range []string{"ready", "ended"} {
+		shim(previous)
+		Exited("fixture")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The second exit follows an end already recorded, so it adds nothing.
+	if n := strings.Count(string(data), "\n"); n != 1 {
+		log, _ := os.ReadFile(filepath.Join(os.Getenv("XDG_STATE_HOME"), "motley/report.log"))
+		t.Fatalf("events: %s\n%s", data, log)
+	}
+	e, err := state.LatestEvent(path)
+	if err != nil || e.Agent != "opencode" || e.Event != "AgentExit" || e.Status != "ended" || e.AgentSessionID != "" {
+		t.Fatal(e, err)
+	}
+	Exited("../escape")
+	log, _ := os.ReadFile(filepath.Join(os.Getenv("XDG_STATE_HOME"), "motley/report.log"))
+	if !strings.Contains(string(log), "ReportError") {
+		t.Fatal("invalid id not diagnosed")
 	}
 }

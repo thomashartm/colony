@@ -88,9 +88,11 @@ func start(id, worktree, ticket, agent string, resume bool) error {
 	}
 	// Multiple shell-command arguments bypass tmux's shell-string interpretation.
 	// User-controlled values are positional arguments, never interpolated code.
-	command := `"$1" exec-agent "$2"; exec "$3" -l`
+	// agent-exited marks the member ended however the agent stopped, so steering
+	// never types into the shell that replaces it.
+	command := `"$1" exec-agent "$2"; "$1" agent-exited "$2"; exec "$3" -l`
 	if resume {
-		command = `"$1" exec-agent "$2" --resume; exec "$3" -l`
+		command = `"$1" exec-agent "$2" --resume; "$1" agent-exited "$2"; exec "$3" -l`
 	}
 	args = append(args, "/bin/sh", "-c", command, "motley", self, id, shell)
 	now := strconv.FormatInt(time.Now().Unix(), 10)
@@ -107,20 +109,21 @@ func start(id, worktree, ticket, agent string, resume bool) error {
 
 // ReportStatus and ReportUpdate together use at most two tmux processes.
 type HookState struct {
+	Agent   string
 	Status  string
 	Context string
 }
 
 func ReportStatus(ctx context.Context, id string) (HookState, error) {
-	out, err := exec.CommandContext(ctx, "tmux", "-u", "display-message", "-p", "-t", "="+SessionName(id)+":", "#{@motley_member}\t#{@motley_status}\t#{@motley_context}").CombinedOutput()
+	out, err := exec.CommandContext(ctx, "tmux", "-u", "display-message", "-p", "-t", "="+SessionName(id)+":", "#{@motley_member}\t#{@motley_agent}\t#{@motley_status}\t#{@motley_context}").CombinedOutput()
 	if err != nil {
 		return HookState{}, fmt.Errorf("tmux report lookup: %w: %s", err, strings.TrimSpace(string(out)))
 	}
-	fields := strings.SplitN(strings.TrimSuffix(string(out), "\n"), "\t", 3)
-	if len(fields) != 3 || fields[0] != id {
+	fields := strings.SplitN(strings.TrimSuffix(string(out), "\n"), "\t", 4)
+	if len(fields) != 4 || fields[0] != id {
 		return HookState{}, fmt.Errorf("session is not marked as member %q", id)
 	}
-	return HookState{Status: fields[1], Context: fields[2]}, nil
+	return HookState{Agent: fields[1], Status: fields[2], Context: fields[3]}, nil
 }
 func ReportUpdate(ctx context.Context, id, status, contextText string, changed bool, seen int64) error {
 	target := "=" + SessionName(id) + ":"

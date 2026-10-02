@@ -11,6 +11,7 @@ import (
 	"github.com/thomashartm/motley/internal/blueprint"
 	"github.com/thomashartm/motley/internal/config"
 	"github.com/thomashartm/motley/internal/member"
+	"github.com/thomashartm/motley/internal/report"
 	"github.com/thomashartm/motley/internal/state"
 	"github.com/thomashartm/motley/internal/tmux"
 )
@@ -152,4 +153,12 @@ func execAgentCommand() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&resume, "resume", false, "Resume the agent's latest recorded session")
 	return cmd
+}
+
+func agentExitedCommand() *cobra.Command {
+	return &cobra.Command{
+		Use: "agent-exited <id>", Short: "Record that the member's agent returned to the shell (silent)", Hidden: true,
+		Args: cobra.ExactArgs(1),
+		Run:  func(_ *cobra.Command, args []string) { report.Exited(args[0]) },
+	}
 }

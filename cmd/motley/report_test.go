@@ -32,6 +32,7 @@ func TestClaudeReportingEndToEnd(t *testing.T) {
 	bin := filepath.Join(t.TempDir(), "motley")
 	commandOutput(t, "go", "build", "-o", bin, ".")
 	f := newMemberFixture(t, bin, "main")
+	f.keepAgentRunning("claude")
 	f.motley("spawn", "--repo", "api", "--branch", "feat/hooks", "--detach")
 	id := "feat-hooks"
 	dir := filepath.Join(f.state, "motley/members")

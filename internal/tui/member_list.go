@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/thomashartm/motley/internal/gitx"
 	"github.com/thomashartm/motley/internal/member"
 	"github.com/thomashartm/motley/internal/palette"
 )
@@ -98,22 +99,8 @@ func ticketLink(r member.Row) (string, string) {
 	if !digits(number) {
 		return clean(ticket), ""
 	}
-	remote := r.RemoteURL
-	if strings.HasPrefix(remote, "git@") {
-		host, path, ok := strings.Cut(strings.TrimPrefix(remote, "git@"), ":")
-		if ok {
-			remote = "https://" + host + "/" + path
-		}
-	} else if strings.HasPrefix(remote, "ssh://git@") {
-		remote = "https://" + strings.TrimPrefix(remote, "ssh://git@")
-	}
-	u := safeWebURL(remote)
-	if u == nil {
-		return "#" + number, ""
-	}
-	u.Path = strings.TrimSuffix(strings.TrimRight(u.Path, "/"), ".git")
-	u.RawPath, u.RawQuery, u.Fragment = "", "", ""
-	if len(strings.Split(strings.Trim(u.Path, "/"), "/")) < 2 {
+	u, ok := gitx.Web(r.RemoteURL)
+	if !ok {
 		return "#" + number, ""
 	}
 	switch u.Host {

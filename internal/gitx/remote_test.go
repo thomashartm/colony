@@ -41,3 +41,30 @@ func TestBranchAndCompareURLs(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+func TestWeb(t *testing.T) {
+	for _, tt := range []struct{ remote, want string }{
+		{"git@github.com:o/r.git", "https://github.com/o/r"},
+		{"ssh://git@github.com:22/o/r.git", "https://github.com/o/r"},
+		{"https://gitlab.com/group/sub/repo.git", "https://gitlab.com/group/sub/repo"},
+		{"https://unknown.example/owner/repo/", "https://unknown.example/owner/repo"},
+		{"http://GitHub.com/o/r", "https://github.com/o/r"},
+		{"https://secret@github.com/o/r", ""},
+		{"https://github.com/o", ""},
+		{"/tmp/origin.git", ""},
+		{"file:///tmp/origin.git", ""},
+		{"git@github.com:o/r\x1b]52", ""},
+		{"", ""},
+	} {
+		got := ""
+		if u, ok := Web(tt.remote); ok {
+			got = u.String()
+		}
+		if got != tt.want {
+			t.Errorf("Web(%q) = %q; want %q", tt.remote, got, tt.want)
+		}
+	}
+	if _, ok := WebURL("https://secret@github.com/o/r"); ok {
+		t.Fatal("credentials in a remote must not yield GitHub links")
+	}
+}

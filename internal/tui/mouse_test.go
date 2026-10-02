@@ -30,11 +30,11 @@ func listScreenY(t *testing.T, m Model, text string) int {
 func TestMouseNavigation(t *testing.T) {
 	m := update(newModel(false, false, "", nil), tea.WindowSizeMsg{Width: 80, Height: 20})
 	m = update(m, snapshot{rows: []member.Row{row("alpha", true), row("beta", true)}})
-	m = click(m, strings.Index(navigationBar, "[2 Details]")+1, m.height-1)
+	m = click(m, ansi.StringWidth(m.navigationBar()[:strings.Index(m.navigationBar(), "[2 Details]")])+1, m.height-1)
 	if m.panel != detailPanel {
 		t.Fatal("details button")
 	}
-	m = click(m, strings.Index(navigationBar, "[1 List]")+1, m.height-1)
+	m = click(m, ansi.StringWidth(m.navigationBar()[:strings.Index(m.navigationBar(), "[1 List]")])+1, m.height-1)
 	if m.panel != listPanel {
 		t.Fatal("list button")
 	}
@@ -42,7 +42,7 @@ func TestMouseNavigation(t *testing.T) {
 	if m.selectedID() != "beta" {
 		t.Fatalf("clicked member: %s", m.selectedID())
 	}
-	m = click(m, strings.Index(navigationBar, "[3 Actions]")+1, m.height-1)
+	m = click(m, ansi.StringWidth(m.navigationBar()[:strings.Index(m.navigationBar(), "[3 Actions]")])+1, m.height-1)
 	if m.panel != actionsPanel {
 		t.Fatal("actions button")
 	}
@@ -50,13 +50,13 @@ func TestMouseNavigation(t *testing.T) {
 	if m.editor == nil || m.editor.id != "beta" {
 		t.Fatal("action click")
 	}
-	m = click(m, strings.Index(navigationBar, "[1 List]")+1, m.height-1)
+	m = click(m, ansi.StringWidth(m.navigationBar()[:strings.Index(m.navigationBar(), "[1 List]")])+1, m.height-1)
 	if m.editor == nil || m.panel != actionsPanel {
 		t.Fatal("click escaped editor")
 	}
 	m = update(m, tea.KeyMsg{Type: tea.KeyEsc})
-	m = click(m, strings.Index(navigationBar, "[2 Details]")+1, m.height-1)
-	m = click(m, strings.Index(navigationBar, "[o Open agent]")+1, m.height-1)
+	m = click(m, ansi.StringWidth(m.navigationBar()[:strings.Index(m.navigationBar(), "[2 Details]")])+1, m.height-1)
+	m = click(m, ansi.StringWidth(m.navigationBar()[:strings.Index(m.navigationBar(), "[o Open agent]")])+1, m.height-1)
 	if m.attachID != "beta" {
 		t.Fatal("explicit Enter button did not jump")
 	}
@@ -101,14 +101,26 @@ func TestMouseCrewAndScrolling(t *testing.T) {
 }
 
 func TestMouseUsesMergedFooterBounds(t *testing.T) {
-	for _, height := range []int{10, 12, 20} {
-		m := update(newModel(false, false, "", nil), tea.WindowSizeMsg{Width: 80, Height: height})
+	for _, size := range [][2]int{{60, 10}, {80, 10}, {80, 12}, {80, 20}} {
+		height := size[1]
+		m := update(newModel(false, false, "", nil), tea.WindowSizeMsg{Width: size[0], Height: height})
 		m = update(m, snapshot{rows: []member.Row{row("alpha", true), row("beta", true)}})
 		lines := strings.Split(m.View(), "\n")
-		if lines[height-1] != navigationBar {
+		if lines[height-1] != m.navigationBar() {
 			t.Fatal("navigation not on last row")
 		}
-		m = click(m, strings.Index(navigationBar, "[3 Actions]")+1, height-1)
+		if strings.Count(lines[height-1], "·") != 4 {
+			t.Fatal("navigation items are missing separators")
+		}
+		for x, ch := range lines[height-1] {
+			if ch == '·' {
+				next, cmd := m.Update(tea.MouseMsg{X: ansi.StringWidth(lines[height-1][:x]), Y: height - 1, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+				if cmd != nil || next.(Model).panel != m.panel {
+					t.Fatal("separator activated a navigation button")
+				}
+			}
+		}
+		m = click(m, ansi.StringWidth(m.navigationBar()[:strings.Index(m.navigationBar(), "[3 Actions]")])+1, height-1)
 		if m.panel != actionsPanel {
 			t.Fatal("visible Actions button missed")
 		}

@@ -267,11 +267,11 @@ func (m Model) rowsSafeSelected() member.Row {
 	}
 	return member.Row{}
 }
-func (m Model) crewEntryLine(e crewEntry, width int) string {
+func (m Model) crewEntryLine(e crewEntry, width int, selected bool) string {
 	if e.id != "" {
 		for _, r := range m.rows {
 			if r.ID == e.id {
-				return m.memberTableRow(r, width)
+				return m.memberTableRow(r, width, selected)
 			}
 		}
 		return ""
@@ -287,7 +287,7 @@ func (m Model) crewEntryLine(e crewEntry, width int) string {
 	if c.URL != "" {
 		title = fit(clean(c.Title), max(1, width-lipgloss.Width(counts)-7)) + " ↗"
 	}
-	return colored("▌", color) + " " + arrow + " " + colored(link(title, c.URL), color) + " " + counts
+	return colored(selectionMarker(selected), color) + arrow + " " + colored(link(title, c.URL), color) + " " + counts
 }
 func (m Model) crewTable(height, width int) string {
 	e := m.currentEntry()

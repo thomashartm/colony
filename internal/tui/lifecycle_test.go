@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/thomashartm/motley/internal/member"
 )
 
@@ -64,7 +65,7 @@ func TestTerminateSelectedMemberAndCancel(t *testing.T) {
 	m = update(m, snapshot{rows: []member.Row{row("alpha", true), row("beta", true)}})
 	// Select beta by clicking its list row, then Actions in the bottom bar.
 	m = update(m, tea.MouseMsg{X: 5, Y: listScreenY(t, m, "beta"), Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
-	m = update(m, tea.MouseMsg{X: strings.Index(navigationBar, "[3 Actions]") + 1, Y: 24, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	m = update(m, tea.MouseMsg{X: ansi.StringWidth(m.navigationBar()[:strings.Index(m.navigationBar(), "[3 Actions]")]) + 1, Y: 24, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
 	if m.selectedID() != "beta" || !strings.Contains(m.View(), "Actions: beta") {
 		t.Fatal("action target is not selected member")
 	}

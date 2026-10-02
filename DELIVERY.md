@@ -1019,3 +1019,19 @@ overview and monitor keep a single header row.
 
 Validation: TUI tests, real-terminal overview/monitor checks, TUI vet, build and
 diff checks passed.
+
+### Footer menu separators — 2026-10-02
+
+Added middle-dot separators between the Open agent, List, Details, Actions and
+Close buttons. Narrow terminals omit padding around separators to keep every
+button visible on one row. Mouse targets use the displayed layout; separators
+do not activate adjacent buttons. Hit testing measures terminal columns so the
+Unicode dots do not offset mouse targets.
+
+Left-panel selection uses two colour blocks in a fixed two-column marker area,
+replacing reverse-video highlighting. The first block, status and text stay in
+place when selection changes, including crew entries and Overview.
+
+Validation: TUI tests, narrow/wide footer bounds and mouse checks, real-terminal
+overview/monitor checks, TUI vet, build and diff checks passed. The tmux ticket
+link test initially timed out opening its popup and passed on a targeted rerun.

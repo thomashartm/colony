@@ -174,6 +174,18 @@ func TestGroupedTableLinksAndMouseTargets(t *testing.T) {
 		if m.selectedID() != id {
 			t.Fatal("mouse selected wrong row", id, m.selectedID())
 		}
+		for _, line := range m.listLayout(m.contentHeight(), m.listWidth()).body {
+			if line.index < 0 {
+				continue
+			}
+			marker := "▌ "
+			if line.index == m.selected {
+				marker = "▌▌"
+			}
+			if !strings.HasPrefix(ansi.Strip(line.text), marker) {
+				t.Fatal("selection did not retain the fixed colour-marker columns")
+			}
+		}
 	}
 	for _, heading := range []string{"WORKING", "Operations", "TITLE"} {
 		previous := m.selectedID()

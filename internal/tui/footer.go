@@ -46,7 +46,7 @@ func (m Model) footer() string {
 	if buttons {
 		rows--
 		if rows == 0 {
-			return navigationBar
+			return m.navigationBar()
 		}
 	}
 	full, compact := m.footerGroups()
@@ -59,7 +59,7 @@ func (m Model) footer() string {
 		lines = append(lines, "")
 	}
 	if buttons {
-		lines = append(lines, navigationBar)
+		lines = append(lines, m.navigationBar())
 	}
 	return strings.Join(lines, "\n")
 }

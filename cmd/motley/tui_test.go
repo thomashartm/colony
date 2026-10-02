@@ -157,10 +157,11 @@ func TestOverviewAndMonitor(t *testing.T) {
 	for _, test := range []struct{ button, hint string }{{"[1 List]", "[List] Nav:"}, {"[2 Details]", "[Details] Nav:"}, {"[3 Actions]", "[Actions] Nav:"}} {
 		view := f.tmux("capture-pane", "-p", "-t", "=_motley:")
 		lines := strings.Split(view, "\n")
-		x := strings.Index(lines[len(lines)-1], test.button) + 2
-		if x < 2 {
+		at := strings.Index(lines[len(lines)-1], test.button)
+		if at < 0 {
 			t.Fatalf("button missing: %s\n%s", test.button, view)
 		}
+		x := ansi.StringWidth(lines[len(lines)-1][:at]) + 2
 		overview.send(t, fmt.Sprintf("\x1b[<0;%d;%dM\x1b[<0;%d;%dm", x, paneHeight, x, paneHeight))
 		eventually(t, func() bool { return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_motley:"), test.hint) })
 	}

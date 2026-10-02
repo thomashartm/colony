@@ -34,7 +34,11 @@ func (c RetireCheck) Risks() []string {
 		risks = append(risks, "uncommitted or untracked files")
 	}
 	if c.Ahead > 0 {
-		risks = append(risks, fmt.Sprintf("%d commits not on %s", c.Ahead, c.ComparedTo))
+		noun := "commits"
+		if c.Ahead == 1 {
+			noun = "commit"
+		}
+		risks = append(risks, fmt.Sprintf("%d %s not on %s", c.Ahead, noun, c.ComparedTo))
 	}
 	return risks
 }

@@ -48,7 +48,7 @@ func TestFinishAndResume(t *testing.T) {
 		assertListState(t, f.motley("ls"), id, "alive")
 		f.git(m.Worktree, "add", "dirty.txt")
 		f.git(m.Worktree, "commit", "-m", "Unpushed work")
-		if out := f.refused("retire", id); !strings.Contains(out, "1 commits") {
+		if out := f.refused("retire", id); !strings.Contains(out, "1 commit not on") {
 			t.Fatal(out)
 		}
 		f.git(m.Worktree, "branch", "--unset-upstream")

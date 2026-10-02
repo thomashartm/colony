@@ -1181,3 +1181,51 @@ refresh`. Policy check of the action menus: member and session actions act on
 the selected member; main and view actions appear only in Overview. Copy
 message (`c`) stays in both menus because it copies the status line, not
 member data.
+
+### Copy drag selections to the macOS clipboard (#29) — 2026-10-03
+
+Member and monitor sessions now pipe drag selections to `/usr/bin/pbcopy` on
+macOS, in both Emacs and vi copy modes. Drags enter tmux copy mode even when
+an agent or the monitor requests mouse events. Ordinary clicks, wheel events
+and the member footer retain their navigation behavior. Existing members gain
+the bindings on reattachment; `mtly monitor` reapplies monitor setup.
+
+The bindings use the existing Motley session guards and preserve the user's
+original actions elsewhere, including chained commands. Repeated setup does
+not nest wrappers. No global mouse, copy-command, set-clipboard, terminal
+feature or override settings are changed, and no configuration files are
+rewritten. As with navigation, tmux's server-wide key tables contain guarded
+wrappers and Motley metadata remembers their fallbacks. There is no AppleScript
+runtime dependency.
+
+Validation: the full `make test` suite and `go vet ./...` passed. `make check`
+stopped at its lint step because the executable was absent; running the CI-pinned
+`golangci-lint` v2.14.0 with `go run` then reported 0 issues. `make cross-build`
+passed for Darwin/Linux on amd64/arm64. New isolated real-tmux tests send mouse
+press/drag/release sequences for member, monitor and unrelated sessions in both
+copy modes, verify the pipe contents and tmux buffer, exercise custom chained
+fallbacks, and check idempotence and unchanged clipboard/click/wheel options.
+The pipe writes a temporary file so automated tests do not change the user's
+clipboard. Existing real-tmux footer, monitor and clipboard-message tests pass.
+
+Ghostty check: agent-operated GUI smoke test with Ghostty 1.3.1 and tmux 3.6a,
+using a throwaway server and fixture member. With `set-clipboard off`, dragging
+`CLIPBOARD_FIXTURE` in the member pane put that exact text in `pbpaste` and the
+tmux buffer. Clicking **Back to monitor** opened the actual monitor; dragging
+its `MOTLEY` heading reached the macOS clipboard, and clicking **Actions** still
+changed the monitor panel. Ghostty's AppleScript mouse API was used only by the
+validation harness, outside the repository. The fixture session/window was
+closed and the previous plain-text clipboard restored afterward.
+
+Human manual check still pending: in Ghostty, drag text in a member and the
+monitor, then press Cmd-V in another app and confirm the text; check the footer
+and monitor clicks and wheel scrolling. The agent-driven check above verifies
+the clipboard contents but does not claim a human cross-app Cmd-V check.
+iTerm2 and Terminal.app were not exercised interactively; local macOS uses the
+same terminal-independent pbcopy path, so OSC 52 support/settings are not needed.
+Linux retains its existing copy bindings. For remote macOS sessions, pbcopy
+writes to the host Mac's clipboard, not the SSH client's clipboard.
+
+PR preparation: rebased `fix/29-macos-clipboard` onto main at `1373916`,
+preserving both delivery entries. Focused real-tmux clipboard/footer/monitor
+and TUI GitHub/navigation tests passed again after the rebase.

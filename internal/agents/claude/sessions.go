@@ -24,8 +24,11 @@ type Session struct {
 	StartedAt  int64  `json:"startedAt"`
 }
 
+// discoveryTimeout bounds every caller, including the monitor's refresh.
+var discoveryTimeout = 3 * time.Second
+
 func Sessions() ([]Session, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), discoveryTimeout)
 	defer cancel()
 	out, err := exec.CommandContext(ctx, "claude", "agents", "--json").Output()
 	if err != nil {

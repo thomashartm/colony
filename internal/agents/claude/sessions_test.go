@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestSessionDiscoveryContract(t *testing.T) {
@@ -16,6 +17,10 @@ func TestSessionDiscoveryContract(t *testing.T) {
 		}
 	}
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	// The contract, not the bound: a loaded machine can take seconds to start a fresh script.
+	old := discoveryTimeout
+	discoveryTimeout = time.Minute
+	t.Cleanup(func() { discoveryTimeout = old })
 	write(`test "$1 $2 $3" = 'agents --json ' || exit 2
 printf '%s' '[{"sessionId":"session","cwd":"/repo","kind":"interactive","pid":123,"status":"waiting","waitingFor":"permission prompt","startedAt":1},{"sessionId":"incomplete","cwd":"relative","kind":"interactive"}]'
 `)

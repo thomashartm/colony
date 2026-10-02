@@ -126,8 +126,8 @@ only the buttons are shown while navigating the overview.
 | / | Filter members |
 | g | Group by attention, crew or repository |
 | e | Edit member details |
-| G | Manage crews |
-| X | Terminate session (keep work) |
+| m | Manage crews |
+| d | Terminate session (keep work) |
 | x / r | Retire / revive |
 | Page Up / Page Down | Scroll details |
 | c | Copy the message above the footer (or click it) |
@@ -145,11 +145,15 @@ Press **3** or click **3 Actions**, then **↑/↓** and **Enter**
 to run an action on the selected member. **Terminate agent** stops its session
 and keeps the worktree, branch and history; **Revive** restarts it.
 Editors use **↑/↓** to move through fields, **Save** and **Cancel**; **Enter** activates and **Esc** cancels. **←/→**
-move the text cursor while editing. **Tab/Shift-Tab** and **Ctrl-s** still work.
+move the text cursor while editing. Click a field to focus it, or click the
+highlighted **Save**, **Send**, **Delete** or **Cancel** buttons. **Tab/Shift-Tab**
+and **Ctrl-s** still work. Colour fields are selectors: use **←/→** or click
+the arrows to cycle through colour swatches, including **Inherit** for members
+and **Automatic** for crews.
 
 In crew view, the first **→** expands a crew; the next enters its member table.
 **←/Esc** returns to the list, where **←** collapses the crew. **Tab** also enters
-the table; **H** shows inactive crews. In the crew manager, **→** opens its actions.
+the table; **h** shows inactive crews. In the crew manager, **→** opens its actions.
 
 ### Inside an agent's tmux session
 
@@ -187,7 +191,7 @@ a Ghostty tab. Ghostty shortcuts are [configurable](https://ghostty.org/docs/con
 
 For a persistent overview in a separate tab, run
 `mtly monitor`: **Open agent** uses an attached work tab, or the current tab if
-it is the only monitor tab. **T** chooses a work tab, and
+it is the only monitor tab. **p** chooses a work tab, and
 **q** detaches the monitor. After upgrading, restart it with
 `tmux kill-session -t _motley`, then `mtly monitor`.
 

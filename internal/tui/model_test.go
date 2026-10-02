@@ -87,14 +87,14 @@ func TestMonitorTargetAndPin(t *testing.T) {
 	}
 	m := newModel(true, true, "", nil)
 	m = update(m, snapshot{clients: clients})
-	m = update(m, key("T"))
+	m = update(m, key("p"))
 	m = update(m, key("j"))
 	m = update(m, key("j"))
 	m = update(m, tea.KeyMsg{Type: tea.KeyEnter})
 	if m.pinned != "older" || m.picking {
 		t.Fatal("pin picker did not choose client")
 	}
-	m = update(m, key("T"))
+	m = update(m, key("p"))
 	m = update(m, key("k"))
 	m = update(m, key("k"))
 	m = update(m, tea.KeyMsg{Type: tea.KeyEnter})

@@ -16,6 +16,16 @@ func Protected(branch string) bool {
 // Linked verifies ownership before any removal, even for --force. A missing
 // directory/registration is allowed so retirement can resume after partial cleanup.
 func Linked(repo, path, branch string) (bool, error) {
+	return registered(repo, path, branch, true)
+}
+
+// Registered verifies checkout identity without authorizing removal. Unlike
+// Linked, it accepts the main checkout, which can safely host a resumed agent.
+func Registered(repo, path, branch string) (bool, error) {
+	return registered(repo, path, branch, false)
+}
+
+func registered(repo, path, branch string, removal bool) (bool, error) {
 	rows, err := gitx.Worktrees(repo)
 	if err != nil {
 		return false, err
@@ -28,10 +38,10 @@ func Linked(repo, path, branch string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if target == main || target == string(filepath.Separator) {
+	if removal && (target == main || target == string(filepath.Separator)) {
 		return false, fmt.Errorf("refusing to remove the main worktree: %s", path)
 	}
-	for _, r := range rows[1:] {
+	for _, r := range rows {
 		p, err := Physical(r.Path)
 		if err != nil {
 			return false, err
@@ -45,7 +55,10 @@ func Linked(repo, path, branch string) (bool, error) {
 		return true, nil
 	}
 	if _, err := os.Lstat(path); !os.IsNotExist(err) {
-		return false, fmt.Errorf("%s is not a registered linked worktree; refusing removal", path)
+		if removal {
+			return false, fmt.Errorf("%s is not a registered linked worktree; refusing removal", path)
+		}
+		return false, fmt.Errorf("%s is not a registered worktree", path)
 	}
 	return false, nil
 }

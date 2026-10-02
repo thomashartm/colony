@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 const (
@@ -12,34 +14,51 @@ const (
 	actionsPanel
 )
 
-type navigationAction struct{ label, key string }
+type navigationAction struct {
+	label, key, group, description string
+	warning                        bool
+}
 
 func (m Model) actions() []navigationAction {
 	actions := []navigationAction{}
-	if m.selectedID() != "" {
-		actions = append(actions, navigationAction{"Open agent (o)", "o"}, navigationAction{"Edit member", "e"})
+	add := func(group, label, key, description string, warning bool) {
+		actions = append(actions, navigationAction{label, key, group, description, warning})
 	}
-	actions = append(actions, navigationAction{"Manage crews", "G"}, navigationAction{"Spawn member", "s"}, navigationAction{"Add existing Claude (a)", "a"})
 	if m.selectedID() != "" {
+		openHelp := "Switches to this member's running agent so you can interact with it directly."
+		if m.selectedRow().External {
+			openHelp = "Shows where the agent is running in its original terminal. Switch there yourself, or terminate and revive it to run it in Motley."
+		}
+		add("Member", "Open agent (o)", "o", openHelp, false)
+		add("Member", "Edit member (e)", "e", "Opens an editor for the member's name, ticket, crew and colour. Changes apply when you save.", false)
 		if !m.selectedRow().External {
-			actions = append(actions, navigationAction{"Reply", "i"}, navigationAction{"Send to work tab", "t"})
+			add("Member", "Reply (i)", "i", "Opens a reply field. Submitting sends your text and Enter to the running agent. Permission decisions must be made in the agent.", false)
+			add("Member", "Send to work tab (t)", "t", "Choose an attached work tab to display this member's running session there.", false)
 		}
-		retire := "Retire member + worktree (x)"
-		if m.selectedRow().ClaudeSession != "" {
-			retire = "Retire member; keep files (x)"
-		}
-		actions = append(actions, navigationAction{"Terminate agent (X)", "X"}, navigationAction{retire, "x"}, navigationAction{"Revive member", "r"})
 	}
-	actions = append(actions, navigationAction{"Change grouping", "g"}, navigationAction{"Filter members", "/"})
+	add("Crews & members", "Manage crews (m)", "m", "Opens crew management to add, edit, recolour or delete crews and organise their members.", false)
+	add("Crews & members", "Spawn member (s)", "s", "Opens setup for a new member. Launch creates its worktree and starts the chosen agent after you review the preview.", false)
+	add("Crews & members", "Add existing Claude (a)", "a", "Lists running Claude sessions to add to Motley. Import keeps the agent in its original terminal and leaves its files in place.", false)
+	if m.selectedID() != "" {
+		add("Session & cleanup", "Revive member (r)", "r", "Immediately restarts a stopped member in its existing worktree, resuming its saved agent session when available. Does not restore retired members or deleted worktrees.", false)
+		add("Session & cleanup", "Terminate agent (d)", "d", "Asks for confirmation, then stops all processes in this member's session. Keeps its worktree, branch and history so you can revive it.", true)
+		if m.selectedRow().ClaudeSession != "" {
+			add("Session & cleanup", "Retire member; keep files (x)", "x", "Asks for confirmation, then stops the agent and archives the member and history. Keeps the imported checkout, files and branches.", true)
+		} else {
+			add("Session & cleanup", "Retire member + worktree (x)", "x", "Removes the worktree and stops the session after cleanup checks and confirmation. Archives the member and history. Deletes the local branch unless kept or protected; remote branches stay. Force can discard uncommitted work and unpushed commits.", true)
+		}
+	}
+	add("View", "Change grouping (g)", "g", "Cycles the member list between attention, crew and repository grouping.", false)
+	add("View", "Filter members (/)", "/", "Opens search to narrow the member list. Enter keeps the filter; Esc clears it.", false)
 	if m.group == "crew" {
-		actions = append(actions, navigationAction{"Show/hide inactive crews", "H"})
+		add("View", "Show/hide inactive crews (h)", "h", "Toggles whether inactive crews appear in the list.", false)
 	}
 	if m.monitor {
-		actions = append(actions, navigationAction{"Pin work tab", "T"})
+		add("View", "Pin work tab (p)", "p", "Choose the work tab used when opening agents from the monitor. Automatic selection can be restored in the picker.", false)
 	}
-	// Last, so a message appearing never shifts the cursor onto another action.
+	// Keep Copy last so a message appearing does not change existing action indices.
 	if m.copyableMessage() != "" {
-		actions = append(actions, navigationAction{"Copy message (c)", "c"})
+		add("View", "Copy message (c)", "c", "Copies the full status or error message to the clipboard, including text truncated on screen.", false)
 	}
 	return actions
 }
@@ -57,7 +76,7 @@ func (m Model) navigationKey(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 		m.tableFocus = m.group == "crew" && m.currentEntry().id == "" && len(m.members(m.currentEntry().crew)) > 0
 		return m, nil, true
 	case "3":
-		m.panel, m.actionCursor = actionsPanel, 0
+		m.panel, m.actionCursor, m.actionScroll = actionsPanel, 0, 0
 		return m, nil, true
 	}
 	if m.panel == actionsPanel {
@@ -79,6 +98,7 @@ func (m Model) navigationKey(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 		default:
 			return m, nil, false
 		}
+		m.actionScroll = m.layoutActions(m.contentHeight()).start
 		return m, nil, true
 	}
 	if m.tableFocus {
@@ -87,7 +107,7 @@ func (m Model) navigationKey(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 	switch key {
 	case "right":
 		if m.panel == detailPanel {
-			m.panel, m.actionCursor = actionsPanel, 0
+			m.panel, m.actionCursor, m.actionScroll = actionsPanel, 0, 0
 		} else {
 			e := m.currentEntry()
 			if m.group == "crew" && e.id == "" && e.crew != "" && !m.expanded[e.crew] {
@@ -111,7 +131,7 @@ func (m Model) navigationKey(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 		} else {
 			m.panel = (m.panel + 2) % 3
 		}
-		m.actionCursor = 0
+		m.actionCursor, m.actionScroll = 0, 0
 		return m, nil, true
 	case "up", "down", "j", "k":
 		if m.panel == detailPanel && !m.tableFocus {
@@ -122,19 +142,102 @@ func (m Model) navigationKey(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 	return m, nil, false
 }
 
+// The renderer and mouse handler share rows so headings, gaps and help never
+// become clickable actions. Keep the scroll position stable while hovering.
+type actionRow struct {
+	text  string
+	index int // -1 for a heading or gap
+}
+type actionLayout struct {
+	rows                          []actionRow
+	start, menuHeight, helpHeight int
+}
+
+func (m Model) layoutActions(height int) actionLayout {
+	actions := m.actions()
+	cursor := max(0, min(m.actionCursor, len(actions)-1))
+	layout := actionLayout{}
+	selectedLine := 0
+	for i, action := range actions {
+		if i == 0 || action.group != actions[i-1].group {
+			if i > 0 {
+				layout.rows = append(layout.rows, actionRow{"", -1})
+			}
+			layout.rows = append(layout.rows, actionRow{action.group, -1})
+		}
+		if i == cursor {
+			selectedLine = len(layout.rows)
+		}
+		layout.rows = append(layout.rows, actionRow{action.label, i})
+	}
+	// Reserve a fixed help height across selections to prevent pointer targets
+	// moving when descriptions wrap differently.
+	helpWidth := m.detailWidth()
+	for _, action := range actions {
+		lines := strings.Count(ansi.Wrap(action.description, helpWidth, ""), "\n") + 1
+		layout.helpHeight = max(layout.helpHeight, lines+1)
+	}
+	layout.helpHeight = min(layout.helpHeight, max(2, height/2))
+	layout.menuHeight = max(1, height-1-layout.helpHeight)
+	layout.start = max(0, min(m.actionScroll, len(layout.rows)-layout.menuHeight))
+	if selectedLine < layout.start {
+		layout.start = selectedLine
+	}
+	if selectedLine >= layout.start+layout.menuHeight {
+		layout.start = selectedLine - layout.menuHeight + 1
+	}
+	return layout
+}
+
 func (m Model) actionsView(height int) string {
 	actions := m.actions()
 	cursor := max(0, min(m.actionCursor, len(actions)-1))
+	layout := m.layoutActions(height)
+	width := m.detailWidth()
 	title := "Actions / settings"
 	if id := m.selectedID(); id != "" {
 		title = "Actions: " + clean(id)
 	}
-	lines := []string{fit(title, m.detailWidth())}
-	start := max(0, cursor-max(1, height-1)+1)
-	for i := start; i < len(actions) && len(lines) < height; i++ {
-		lines = append(lines, control(actions[i].label, i == cursor))
+	if layout.start > 0 {
+		title += " ↑"
 	}
+	if layout.start+layout.menuHeight < len(layout.rows) {
+		title += " ↓"
+	}
+	lines := []string{fit(title, width)}
+	for y := 0; y < layout.menuHeight; y++ {
+		line := ""
+		if i := layout.start + y; i < len(layout.rows) {
+			row := layout.rows[i]
+			if row.index >= 0 {
+				line = fit(control(row.text, row.index == cursor), width)
+				if row.index == cursor {
+					line = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6")).Render(line)
+				}
+			} else {
+				line = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("8")).Render(fit(row.text, width))
+			}
+		}
+		lines = append(lines, line)
+	}
+	lines = append(lines, actionHelp(actions[cursor], width, layout.helpHeight))
 	return strings.Join(lines, "\n")
+}
+
+func actionHelp(action navigationAction, width, height int) string {
+	colour := lipgloss.Color("6")
+	if action.warning {
+		colour = lipgloss.Color("3")
+	}
+	body := strings.Split(ansi.Wrap(action.description, width, ""), "\n")
+	bodyHeight := height - 1
+	if len(body) > bodyHeight {
+		body = body[:bodyHeight]
+		body[bodyHeight-1] = ansi.Truncate(body[bodyHeight-1]+" …", width, "…")
+	}
+	message := panelDivider(width) + "\n" + lipgloss.NewStyle().Foreground(colour).Render(strings.Join(body, "\n"))
+	// Keep unused reserved space above the message, never inside or below it.
+	return strings.Repeat("\n", max(0, height-lipgloss.Height(message))) + message
 }
 
 func control(label string, focused bool) string {
@@ -142,4 +245,32 @@ func control(label string, focused bool) string {
 		return "> " + label
 	}
 	return "  " + label
+}
+
+// panelHeading gives every panel the same divider and breathing room without
+// changing the content renderers' row coordinates.
+func (m Model) panelHeading(content string, width int) string {
+	if m.panelHeadingGap() == 0 {
+		return content
+	}
+	title, body, _ := strings.Cut(content, "\n")
+	divider := panelDivider(width)
+	return title + "\n" + divider + "\n\n" + body
+}
+
+// panelContentY maps screen coordinates back to the unadorned panel content.
+// The divider and blank row are not interactive.
+func (m Model) panelContentY(screenY int) int {
+	y := screenY - 2 // app header and top border
+	if y > 0 {
+		if y <= m.panelHeadingGap() {
+			return -1
+		}
+		y -= m.panelHeadingGap()
+	}
+	return y
+}
+
+func panelDivider(width int) string {
+	return lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Render(strings.Repeat("┄", width))
 }

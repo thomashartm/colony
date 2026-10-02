@@ -170,7 +170,7 @@ func (m Model) groupingKey(key string) (Model, tea.Cmd, bool) {
 			}
 			m.restoreCrewSelection("", "")
 		}
-	case "H":
+	case "h":
 		key := m.currentEntry().key()
 		m.showHidden = !m.showHidden
 		m.restoreCrewSelection(key, oldID)
@@ -262,7 +262,7 @@ func (m Model) memberLine(r member.Row, width int) string {
 func (m Model) crewList(height, width int) string {
 	entries := m.crewEntries()
 	if len(entries) == 0 {
-		return "No live crews.\nH shows inactive crews.\nG manages crews."
+		return "No live crews.\nh shows inactive crews.\nm manages crews."
 	}
 	var lines []string
 	for i, e := range entries {

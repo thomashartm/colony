@@ -834,3 +834,113 @@ isolated tmux pane with a pty client: the client receives OSC 52 with the payloa
 `show-buffer` matches and `set-clipboard off` reports the paste-buffer-only result.
 Four mutations (no `-w`, no off check, truncated copy, wrong monitor tab) each fail.
 
+### Actions panel grouping and consequence help — 2026-10-02
+
+Grouped actions under Member, Crews & members, Session & cleanup, and View,
+with headings and blank lines between groups. Keyboard selection and mouse
+hover update a highlighted explanation at the bottom of the panel. Terminate
+and Retire use caution styling and explain confirmation, file/branch retention
+or removal, and the effect of Force; Revive explains immediate restart and
+its requirement for an existing worktree.
+
+Enabled mouse motion without holding a button. Hover never executes an action;
+click and Enter retain existing dispatch and confirmation behavior. Rendering
+and mouse hit testing share the grouped rows, excluding headings, gaps and the
+help box. Scrolling retains stable pointer targets. Small terminals use compact,
+truncated help while keeping the selected action reachable.
+
+Validation: TUI tests cover grouping, consequences, hover versus click, scrolling,
+resize, empty selection, footer clicks and 60x10 bounds. The real-tmux overview
+test verifies no-button hover and the resulting explanation. Installer,
+uninstaller, plugin and all Go tests passed, as did vet, golangci-lint 2.14.0
+(0 issues), formatting and four cross-builds. The linter was absent from PATH;
+the pinned release was run from a temporary directory after make check reached
+that missing-tool step. No manual visual acceptance is claimed.
+
+Follow-up: removed the help heading. The box now fits only its explanation,
+with no vertical padding and one character of horizontal padding. Reserved
+space stays above the box so its bottom edge remains flush with the panel
+interior without moving menu rows on hover. Updated layout assertions and
+all TUI tests passed; rebuilt `bin/motley`.
+
+### Panel dividers, Revive validation and lowercase shortcuts — 2026-10-02
+
+Panel headings now have a dotted divider and a blank row beneath them. The
+minimum-height layout remains compact to preserve controls. Mouse coordinates
+account for the added rows, and the Actions explanation remains at the bottom.
+Its enclosing box and heading are gone: a dotted divider above the highlighted
+text matches the panel heading style, with no side or bottom borders.
+
+Revive was using the pre-removal worktree validator, so a member recorded in the
+main checkout failed with “refusing to remove the main worktree.” It now checks
+registered checkout identity without applying deletion restrictions. Both main
+and linked checkouts must match the recorded branch. Retirement still uses the
+strict removal check and refuses the main checkout, including with Force.
+
+Replaced case-only shortcut distinctions: d terminates, x retires, r revives,
+c manages crews, g changes grouping, p pins a work tab, t sends to a tab, and
+h toggles inactive crews. Menus, footer hints, README and terminal tests use the
+new bindings.
+
+Targeted validation passed: all three Revive input routes, real-tmux lifecycle,
+crew and overview tests, main-checkout restart with saved session and preserved
+files/HEAD/worktree registrations, and unchanged main-checkout retirement
+refusal. Layout assertions cover dotted headings, spacing, borderless help,
+bottom anchoring and compact terminal bounds.
+
+Final validation: full `make check` passed with the pinned golangci-lint 2.14.0
+binary: installer/uninstaller/plugin tests, all Go and real-tmux tests, vet,
+lint (0 issues), and four cross-builds. Rebuilt the local `bin/motley` executable.
+
+### Edit panel field and action styling — 2026-10-02
+
+Editor labels are bold with trailing colons, above indented values; empty
+fields show a muted placeholder. Fields have blank rows between them. Actions
+use clearly bracketed, coloured buttons with a filled focus highlight and
+spacing between controls. Save/Send/Delete and Cancel remain at the bottom,
+while the fields scroll to keep the active label and value visible.
+
+Clicking a label or value focuses that field. Buttons and the Force unassign
+toggle are clickable; blank rows and hints do not activate actions, and a
+pending save blocks further clicks. Crew deletion uses the same styling.
+
+Validation: all TUI tests, real-terminal crew editing and overview tests, vet,
+golangci-lint (0 issues) and build passed. The crew terminal test now saves
+through an actual mouse event as well as Ctrl-s. Layout/mouse tests cover
+field selection, Save/Cancel/Send/Delete, the force toggle, pending writes,
+spacing, resize and 60x10 bounds. Rebuilt `bin/motley`.
+
+### Colour selector in editors — 2026-10-02
+
+Member and crew colour fields now render a swatch/name selector with visible
+left/right arrows. Arrow keys and mouse clicks cycle through the shared palette
+and wrap through Inherit (member) or Automatic (crew). The default choice stores
+an empty override, preserving the existing inheritance behaviour. Existing
+colours initialise the selector; text entry, paste and deletion do not mutate
+it. Tab/up/down/Enter retain field navigation, and colours apply on Save.
+
+Validation: all TUI tests, real-terminal crew/member saves using arrow-selected
+blue/yellow colours, vet, lint (0 issues), formatting and build passed. Selector
+tests cover every palette entry, wrapping, inherited/automatic defaults, saved
+values, mouse arrows, rejection of text input and the minimum terminal size.
+Rebuilt `bin/motley`.
+
+### PR integration checkpoint — 2026-10-02
+
+Rebased the UI and Revive changes onto current main, preserving Claude import,
+clipboard copying and the wider panel split. Manage crews now uses m so c keeps
+its existing Copy message action. Imported-member help explains that retirement
+keeps files, and that Open agent reports the original terminal location. Import
+picker mouse targets account for heading dividers. Compact Delete/Cancel spacing
+fits the narrower detail panel, and terminal mouse tests use the new split.
+
+The prior validation entries above describe the earlier branch snapshots;
+validation of this integrated revision is recorded below.
+
+Integrated revision validation: all Go tests passed, including the updated
+terminal Save/Cancel assertions, real mouse/colour editing, clipboard and import
+flows, and the main-checkout Revive regression. Installer and uninstaller tests,
+vet, golangci-lint (0 issues), and four cross-builds passed. The unchanged
+OpenCode plugin reporter test missed its first event on the initial make check
+and a focused rerun; the baseline copy and a subsequent branch rerun passed.
+No plugin implementation or test was changed for that intermittent failure.

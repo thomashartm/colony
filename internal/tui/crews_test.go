@@ -33,7 +33,7 @@ func TestCrewNavigationAndRefresh(t *testing.T) {
 	if !strings.Contains(m.crewTable(20, 73), "Gig  Ship FX caching") {
 		t.Fatal("missing crew gig")
 	}
-	m = update(m, key("H"))
+	m = update(m, key("h"))
 	if len(m.crewEntries()) != 3 || m.currentEntry().crew != "fx" {
 		t.Fatal("hidden crew insertion lost selection")
 	}
@@ -111,7 +111,7 @@ func TestCrewViewsFitAndColumnsShrink(t *testing.T) {
 		m = update(m, key("e"))
 		views = append(views, m.View())
 		m = update(m, tea.KeyMsg{Type: tea.KeyEsc})
-		m = update(m, key("G"))
+		m = update(m, key("m"))
 		views = append(views, m.View())
 		m = update(m, key("a"))
 		views = append(views, m.View())

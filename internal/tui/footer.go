@@ -18,7 +18,17 @@ func (m Model) footerRows() int {
 	return 3
 }
 
-func (m Model) contentHeight() int { return max(1, m.height-4-m.footerRows()) }
+func (m Model) panelHeight() int { return max(1, m.height-4-m.footerRows()) }
+
+// Preserve the compact layout when heading spacing would crowd out controls.
+func (m Model) panelHeadingGap() int {
+	if m.panelHeight() < 8 {
+		return 0
+	}
+	return 2
+}
+
+func (m Model) contentHeight() int { return m.panelHeight() - m.panelHeadingGap() }
 
 // Keep whole groups together and leave the last terminal column unused. A compact
 // variant retains navigation and confirm/back controls instead of cutting off keys.
@@ -89,6 +99,9 @@ func (m Model) footerGroups() (full, compact []string) {
 		return []string{"[Filter] Type to search", "Act: enter keep · esc clear"}, []string{"[Filter] type", "enter keep · esc clear"}
 	}
 	if m.editor != nil {
+		if m.editor.colourField(m.editor.focus) {
+			return []string{"[Colour] Nav: ←→ choose · ↑↓/tab field/action", "Act: enter next · ctrl+s save · esc cancel"}, []string{"[Colour] ←→ choose · ↑↓ field", "enter next · esc cancel"}
+		}
 		if m.editor.kind == "reply" {
 			return []string{"[Reply] Edit: ←→ cursor", "Act: enter send · esc cancel"}, []string{"[Reply] ←→ cursor", "enter send · esc cancel"}
 		}
@@ -130,10 +143,10 @@ func (m Model) footerGroups() (full, compact []string) {
 	tabs := "Run: t tab"
 	if m.monitor {
 		quit = "q detach"
-		tabs += " · T pin"
+		tabs += " · p pin"
 	}
 	if m.group == "crew" {
-		return []string{"[List] Nav: ↑↓ move · → expand/details · ← collapse", "View: tab members · H hidden · g group · G crews", quit}, []string{"[List] → expand/details · ← collapse", "↑↓ move · " + quit}
+		return []string{"[List] Nav: ↑↓ move · → expand/details · ← collapse", "View: tab members · h hidden · g group · m crews", quit}, []string{"[List] → expand/details · ← collapse", "↑↓ move · " + quit}
 	}
-	return []string{"[List] Nav: ↑↓/jk · → details", "Act: enter open · s spawn · e edit · i reply", "View: / filter · g group · G crews", tabs + " · x retire · r revive · " + quit}, []string{"[List] ↑↓ move · → details", "enter open · " + quit}
+	return []string{"[List] Nav: ↑↓/jk · → details", "Act: enter open · s spawn · e edit · i reply", "View: / filter · g group · m crews", tabs + " · x retire · r revive · " + quit}, []string{"[List] ↑↓ move · → details", "enter open · " + quit}
 }

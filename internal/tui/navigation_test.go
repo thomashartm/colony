@@ -45,7 +45,7 @@ func TestArrowPanelsAndEditor(t *testing.T) {
 	for i := 0; i < 4; i++ {
 		m = arrow(m, tea.KeyDown)
 	}
-	if !strings.Contains(m.View(), "> Save") {
+	if !strings.Contains(m.View(), "> [ Save ]") {
 		t.Fatal("save control invisible at minimum size")
 	}
 	view := m.View()
@@ -58,7 +58,7 @@ func TestArrowPanelsAndEditor(t *testing.T) {
 	}
 	// Cancel is reachable without saving or using a letter shortcut.
 	m = arrow(m, tea.KeyDown)
-	if !strings.Contains(m.View(), "> Cancel") {
+	if !strings.Contains(m.View(), "> [ Cancel ]") {
 		t.Fatal("cancel control invisible")
 	}
 	m = arrow(m, tea.KeyEnter)

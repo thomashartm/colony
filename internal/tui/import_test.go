@@ -27,7 +27,7 @@ func TestImportPicker(t *testing.T) {
 		t.Fatal("cancel failed")
 	}
 	m = update(m, importLoaded{sessions: []claude.Session{{SessionID: "one", Name: "First", Cwd: "/repo"}}})
-	next, cmd = m.Update(tea.MouseMsg{X: m.listWidth() + 4, Y: 3, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	next, cmd = m.Update(tea.MouseMsg{X: m.listWidth() + 4, Y: 3 + m.panelHeadingGap(), Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
 	if cmd == nil || !next.(Model).busy {
 		t.Fatal("click did not import")
 	}

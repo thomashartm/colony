@@ -13,6 +13,10 @@ func (m Model) navigationAvailable() bool {
 }
 
 func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+	if m.editor != nil && !m.busy && m.width >= 60 && m.height >= 10 {
+		return m.editorMouse(msg)
+	}
+
 	if m.terminating != nil && !m.busy && m.width >= 60 && m.height >= 10 && msg.Y == m.height-1 && msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress {
 		for _, b := range []struct{ label, key string }{{"[Cancel: esc]", "esc"}, {"[Terminate: y]", "y"}} {
 			start := strings.Index(m.terminateButtons(), b.label)
@@ -27,7 +31,7 @@ func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		// Choices follow the wrapped explanation in the right panel.
 		count := len(m.retireChoices())
 		first := len(lines) - count
-		index := msg.Y - 2 - first
+		index := m.panelContentY(msg.Y) - first
 		if first >= 1 && index >= 0 && index < count {
 			dialog := *m.retiring
 			dialog.focus = index
@@ -37,9 +41,9 @@ func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if m.importing != nil && !m.busy && m.width >= 60 && m.height >= 10 && msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress && msg.X > m.listWidth()+2 && msg.X < m.width-1 {
-		y := msg.Y - 3
+		y := m.panelContentY(msg.Y) - 1
 		index := m.importStart(m.contentHeight()) + y/2
-		if y >= 0 && msg.Y < 2+m.contentHeight() && index < len(m.importing.sessions) {
+		if y >= 0 && msg.Y < 2+m.panelHeight() && index < len(m.importing.sessions) {
 			d := *m.importing
 			d.cursor = index
 			m.importing = &d
@@ -51,7 +55,7 @@ func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if msg.Button == tea.MouseButtonWheelUp || msg.Button == tea.MouseButtonWheelDown {
-		if msg.Y < 2 || msg.Y >= 2+m.contentHeight() {
+		if msg.Y < 2 || msg.Y >= 2+m.panelHeight() {
 			return m, nil
 		}
 		if msg.X > m.listWidth()+2 && m.group == "crew" && m.currentEntry().id == "" && m.panel != actionsPanel {
@@ -70,6 +74,22 @@ func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 			key = tea.KeyUp
 		}
 		return m.Update(tea.KeyMsg{Type: key})
+	}
+	// Hover only changes selection and help; a left click activates the action.
+	if m.panel == actionsPanel && msg.X > m.listWidth()+2 && msg.X < m.width-1 &&
+		msg.Y >= 2 && msg.Y < 2+m.panelHeight() &&
+		(msg.Action == tea.MouseActionMotion || (msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress)) {
+		layout := m.layoutActions(m.contentHeight())
+		y := m.panelContentY(msg.Y) - 1 // exclude the panel title
+		if y >= 0 && y < layout.menuHeight && layout.start+y < len(layout.rows) {
+			if index := layout.rows[layout.start+y].index; index >= 0 {
+				m.actionCursor, m.actionScroll = index, layout.start
+				if msg.Action == tea.MouseActionPress {
+					return m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+				}
+			}
+		}
+		return m, nil
 	}
 	if msg.Button != tea.MouseButtonLeft || msg.Action != tea.MouseActionPress {
 		return m, nil
@@ -91,7 +111,7 @@ func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 				m.panel = detailPanel
 				m.tableFocus = m.group == "crew" && m.currentEntry().id == "" && len(m.members(m.currentEntry().crew)) > 0
 			case "[3 Actions]":
-				m.panel, m.actionCursor = actionsPanel, 0
+				m.panel, m.actionCursor, m.actionScroll = actionsPanel, 0, 0
 			case "[o Open agent]":
 				return m.jump()
 			case "[q Close]":
@@ -101,7 +121,7 @@ func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 	height := m.contentHeight()
-	y := msg.Y - 2 // header and top border
+	y := m.panelContentY(msg.Y)
 	if y < 0 || y >= height {
 		return m, nil
 	}
@@ -146,15 +166,6 @@ func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		return m, m.requestDetail(old != m.selectedID())
 	}
 	if msg.X > m.listWidth()+2 && msg.X < m.width-1 {
-		if m.panel == actionsPanel {
-			actions := m.actions()
-			index := max(0, m.actionCursor-max(1, height-1)+1) + y - 1
-			if y == 0 || index < 0 || index >= len(actions) {
-				return m, nil
-			}
-			m.actionCursor = index
-			return m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-		}
 		m.panel = detailPanel
 		if m.group == "crew" && m.currentEntry().id == "" {
 			e := m.currentEntry()

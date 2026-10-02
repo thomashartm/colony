@@ -155,6 +155,23 @@ func TestOverviewAndMonitor(t *testing.T) {
 		overview.send(t, fmt.Sprintf("\x1b[<0;%d;%dM\x1b[<0;%d;%dm", x, paneHeight, x, paneHeight))
 		eventually(t, func() bool { return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_motley:"), test.hint) })
 	}
+	// Real no-button motion must reach the TUI (all-motion tracking, not drag-only).
+	view := f.tmux("capture-pane", "-p", "-t", "=_motley:")
+	hovered := false
+	for y, line := range strings.Split(view, "\n") {
+		if x := strings.Index(line, "Edit member (e)"); x >= 0 {
+			overview.send(t, fmt.Sprintf("\x1b[<35;%d;%dM", x+1, y+1))
+			hovered = true
+			break
+		}
+	}
+	if !hovered {
+		t.Fatalf("Edit member action missing:\n%s", view)
+	}
+	eventually(t, func() bool {
+		view := f.tmux("capture-pane", "-p", "-t", "=_motley:")
+		return strings.Contains(view, "> Edit member (e)") && strings.Contains(view, "Opens an editor")
+	})
 	for _, test := range []struct{ key, hint string }{{"1", "[List] Nav:"}, {"2", "[Details] Nav:"}, {"3", "[Actions] Nav:"}} {
 		overview.send(t, test.key)
 		eventually(t, func() bool { return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_motley:"), test.hint) })
@@ -177,7 +194,7 @@ func TestOverviewAndMonitor(t *testing.T) {
 
 	// Pin the older client, then attach another work client. Enter must still
 	// switch the pinned one, and the second work tab must remain untouched.
-	overview.send(t, "T")
+	overview.send(t, "p")
 	eventually(t, func() bool { return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_motley:"), "Pin work tab") })
 	overview.send(t, "j")
 	eventually(t, func() bool { return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_motley:"), "> "+workName) })

@@ -26,11 +26,11 @@ func TestCrewEditorTerminal(t *testing.T) {
 		eventually(t, func() bool { return strings.Contains(ansi.Strip(terminal.text()[offset:]), want) })
 	}
 	eventually(t, func() bool { return strings.Contains(terminal.text(), "Crew fixture") })
-	terminal.send(t, "G")
+	terminal.send(t, "m")
 	eventually(t, func() bool { return strings.Contains(terminal.text(), "a add") })
 	terminal.send(t, "a")
 	eventually(t, func() bool { return strings.Contains(terminal.text(), "Add crew") })
-	send("Banking\t\tblue\tShip payments\x13", "Saved")
+	send("Banking\t\t"+strings.Repeat("\x1b[C", 5)+"\tShip payments\x13", "Saved")
 	eventually(t, func() bool {
 		cs, err := crew.Load()
 		return err == nil && len(cs) == 1 && cs[0].ID == "banking" && cs[0].Color == "blue" && cs[0].Gig == "Ship payments"
@@ -40,20 +40,22 @@ func TestCrewEditorTerminal(t *testing.T) {
 	// Select a member's identity editor, keeping its name and ticket.
 	terminal.send(t, "e")
 	eventually(t, func() bool { return strings.Contains(terminal.text(), "Edit feat-crews") })
-	send("\t\tbanking\tyellow\x13", "Saved")
+	// The 120x30 terminal keeps Save at column 67, row 25, above the footer.
+	// Exercise a real mouse click as well as the Ctrl-s save above.
+	send("\t\tbanking\t"+strings.Repeat("\x1b[C", 3)+"\x1b[<0;67;25M\x1b[<0;67;25m", "Saved")
 	eventually(t, func() bool { m := f.manifest("feat-crews"); return m.Crew == "banking" && m.Color == "yellow" })
 	// The terminal remains responsive and grouping displays the member table.
 	terminal.send(t, "g")
 	eventually(t, func() bool {
 		return strings.Contains(terminal.text(), "MEMBER") && strings.Contains(terminal.text(), "1 members")
 	})
-	send("G", "a add")
+	send("m", "a add")
 	terminal.send(t, "x")
 	eventually(t, func() bool { return strings.Contains(terminal.text(), "Delete crew banking?") })
 	terminal.send(t, "y")
 	eventually(t, func() bool { return strings.Contains(terminal.text(), "referenced by 1 members") })
 	terminal.send(t, "f")
-	eventually(t, func() bool { return strings.Contains(terminal.text(), "Force unassign: true") })
+	eventually(t, func() bool { return strings.Contains(terminal.text(), "Force unassign: on") })
 	send("y", "Saved")
 	eventually(t, func() bool {
 		cs, err := crew.Load()

@@ -313,7 +313,7 @@ func Revive(id string) error {
 			return fmt.Errorf("the Claude session is still running in its original terminal; open or terminate it first")
 		}
 	} else {
-		registered, err := worktree.Linked(m.RepoPath, m.Worktree, m.Branch)
+		registered, err := worktree.Registered(m.RepoPath, m.Worktree, m.Branch)
 		if err != nil {
 			return err
 		}

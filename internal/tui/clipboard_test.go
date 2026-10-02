@@ -94,7 +94,7 @@ func TestCopyMessageWithoutMessage(t *testing.T) {
 		t.Fatalf("message %q calls %v", m.message, *calls)
 	}
 	actions := m.actions()
-	if last := actions[len(actions)-1]; last != (navigationAction{"Copy message (c)", "c"}) {
+	if last := actions[len(actions)-1]; last.label != "Copy message (c)" || last.key != "c" {
 		t.Fatalf("copy action must be last: %v", actions)
 	}
 }

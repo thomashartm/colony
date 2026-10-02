@@ -23,7 +23,7 @@ func TestMouseNavigation(t *testing.T) {
 	if m.panel != listPanel {
 		t.Fatal("list button")
 	}
-	m = click(m, 3, 4) // section heading, alpha, beta
+	m = click(m, 3, 4+m.panelHeadingGap()) // section heading, alpha, beta
 	if m.selectedID() != "beta" {
 		t.Fatalf("clicked member: %s", m.selectedID())
 	}
@@ -31,7 +31,7 @@ func TestMouseNavigation(t *testing.T) {
 	if m.panel != actionsPanel {
 		t.Fatal("actions button")
 	}
-	m = click(m, m.listWidth()+4, 4) // Edit member, below Open agent
+	m = click(m, m.listWidth()+4, actionScreenY(t, m, "Edit member (e)"))
 	if m.editor == nil || m.editor.id != "beta" {
 		t.Fatal("action click")
 	}
@@ -68,7 +68,7 @@ func TestMouseCrewAndScrolling(t *testing.T) {
 	if !m.expanded["fx"] {
 		t.Fatal("crew click did not expand")
 	}
-	m = click(m, m.listWidth()+4, 6)
+	m = click(m, m.listWidth()+4, 6+m.panelHeadingGap())
 	if !m.tableFocus || m.selectedID() != "busy" {
 		t.Fatalf("crew member click: %s", m.selectedID())
 	}
@@ -99,11 +99,11 @@ func TestMouseUsesMergedFooterBounds(t *testing.T) {
 		}
 		// The border and grouped hint rows must never scroll/select an action.
 		before := m.actionCursor
-		m = update(m, tea.MouseMsg{X: m.listWidth() + 4, Y: 2 + m.contentHeight(), Button: tea.MouseButtonWheelDown})
+		m = update(m, tea.MouseMsg{X: m.listWidth() + 4, Y: 2 + m.panelHeight(), Button: tea.MouseButtonWheelDown})
 		if m.actionCursor != before {
 			t.Fatal("footer wheel moved selection")
 		}
-		m = click(m, m.listWidth()+4, 2+m.contentHeight())
+		m = click(m, m.listWidth()+4, 2+m.panelHeight())
 		if m.editor != nil || m.manager || m.actionCursor != before {
 			t.Fatal("footer click activated a hidden action")
 		}

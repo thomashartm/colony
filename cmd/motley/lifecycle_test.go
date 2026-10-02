@@ -148,6 +148,63 @@ func TestFinishAndResume(t *testing.T) {
 	})
 }
 
+func TestReviveMainCheckoutPreservesWork(t *testing.T) {
+	bin := buildLifecycleBinary(t)
+	f := newMemberFixture(t, bin, "main")
+	f.motley("spawn", "--repo", "api", "--branch", "feat/main-resume", "--detach")
+	id := "feat-main-resume"
+	f.tmux("kill-session", "-t", "="+id)
+	m := f.manifest(id)
+	m.Worktree = m.RepoPath
+	save := func() {
+		t.Helper()
+		data, err := toml.Marshal(m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		writeFixture(t, filepath.Join(f.state, "motley/members", id+".toml"), string(data), 0600)
+	}
+	save()
+	// A main checkout is allowed only when it still matches the recorded branch.
+	if out := f.refused("revive", id); !strings.Contains(out, "identity changed") || strings.Contains(out, "remov") {
+		t.Fatal("revive reused cleanup validation", out)
+	}
+	assertListState(t, f.motley("ls"), id, "dead")
+	m.Branch = "main"
+	save()
+	writeFixture(t, filepath.Join(f.repo, "unfinished.txt"), "keep this work", 0600)
+	beforeStatus := f.git(f.repo, "status", "--porcelain")
+	beforeHead := f.git(f.repo, "rev-parse", "HEAD")
+	beforeTrees := f.git(f.repo, "worktree", "list", "--porcelain")
+	sessionID := "11111111-1111-4111-8111-111111111111"
+	writeFixture(t, filepath.Join(f.state, "motley/members", id+".events.jsonl"),
+		fmt.Sprintf("{\"schema\":1,\"agent\":\"claude\",\"agent_session_id\":%q}\n", sessionID), 0600)
+	receipt := filepath.Join(f.home, "main-resume-receipt")
+	writeFixture(t, filepath.Join(f.home, "fake agents", "claude"),
+		"#!/bin/sh\nprintf '%s\n' \"$PWD\" \"$@\" > "+quoteShell(receipt)+"\n", 0755)
+	f.motley("revive", id)
+	eventually(t, func() bool { _, err := os.Stat(receipt); return err == nil })
+	got, err := os.ReadFile(receipt)
+	if err != nil || string(got) != m.Worktree+"\n--resume="+sessionID+"\n" {
+		t.Fatalf("resume did not use main checkout and saved session: %q, %v", got, err)
+	}
+	assertListState(t, f.motley("ls"), id, "alive")
+	// Allowing a restart must not weaken the main-checkout deletion safeguard.
+	if out := f.refused("retire", id, "--force"); !strings.Contains(out, "main worktree") {
+		t.Fatal(out)
+	}
+	assertListState(t, f.motley("ls"), id, "alive")
+	if f.git(f.repo, "status", "--porcelain") != beforeStatus ||
+		f.git(f.repo, "rev-parse", "HEAD") != beforeHead ||
+		f.git(f.repo, "worktree", "list", "--porcelain") != beforeTrees {
+		t.Fatal("revive changed files, branch or worktree registration")
+	}
+	data, err := os.ReadFile(filepath.Join(f.repo, "unfinished.txt"))
+	if err != nil || string(data) != "keep this work" {
+		t.Fatal("main checkout work was lost", err)
+	}
+}
+
 func TestAdoptAndRetireSafeguards(t *testing.T) {
 	bin := buildLifecycleBinary(t)
 	t.Run("adopt linked worktree and protected branch", func(t *testing.T) {
@@ -291,7 +348,7 @@ func TestLifecycleTUI(t *testing.T) {
 	}()
 	eventually(t, func() bool { return strings.Contains(screen(), "1 alive") })
 	writeFixture(t, filepath.Join(m.Worktree, "dirty.txt"), "unfinished", 0600)
-	terminal.send(t, "X")
+	terminal.send(t, "d")
 	eventually(t, func() bool { return strings.Contains(screen(), "Terminate "+id+"?") })
 	terminal.send(t, "y")
 	eventually(t, func() bool {

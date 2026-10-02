@@ -67,6 +67,15 @@ func assertFooterFits(t *testing.T, m Model) {
 			t.Fatalf("footer overflows %d columns: %q", m.width, line)
 		}
 	}
+	if m.panelHeadingGap() > 0 {
+		lines := strings.Split(ansi.Strip(m.View()), "\n")
+		if strings.Count(lines[3], "┄") != m.listWidth()+m.detailWidth() {
+			t.Fatal("panel headings are missing dotted dividers")
+		}
+		if strings.TrimSpace(strings.ReplaceAll(lines[4], "│", "")) != "" {
+			t.Fatal("panel dividers need a blank row below")
+		}
+	}
 	if lipgloss.Width(m.View()) > m.width || lipgloss.Height(m.View()) > m.height {
 		t.Fatalf("view overflows %dx%d: %dx%d", m.width, m.height, lipgloss.Width(m.View()), lipgloss.Height(m.View()))
 	}

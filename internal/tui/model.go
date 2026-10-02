@@ -35,6 +35,7 @@ type actionDone struct {
 
 type Model struct {
 	panel, actionCursor int
+	actionScroll        int
 	managerActions      bool
 	managerAction       int
 	allRows             []member.Row
@@ -294,7 +295,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.query.SetValue("")
 			m.applyFilter()
 			return m, m.requestDetail(true)
-		case "G":
+		case "m":
 			m.manager = true
 			m.managerCursor = 0
 			return m, nil
@@ -315,13 +316,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.selectRow(max(0, m.selected-1))
 		case "pgdown", "pgup":
 			m.detail, _ = m.detail.Update(msg)
-		case "X":
+		case "d":
 			return m.beginTerminate()
 		case "x":
 			return m.beginRetire()
 		case "r":
 			return m.beginRevive()
-		case "T":
+		case "p":
 			if m.monitor {
 				m.pickMode = "pin"
 				m.choices, m.choice, m.picking = workClients(m.clients), 0, true
@@ -660,8 +661,8 @@ func (m Model) View() string {
 	} else {
 		rightBorder = rightBorder.BorderForeground(lipgloss.Color("6"))
 	}
-	left := leftBorder.Width(width).Height(height).Render(list)
-	detail := rightBorder.Width(m.detailWidth()).Height(height).Render(right)
+	left := leftBorder.Width(width).Height(m.panelHeight()).Render(m.panelHeading(list, width))
+	detail := rightBorder.Width(m.detailWidth()).Height(m.panelHeight()).Render(m.panelHeading(right, m.detailWidth()))
 	message := m.message
 	if m.pollError != "" {
 		message = m.pollError

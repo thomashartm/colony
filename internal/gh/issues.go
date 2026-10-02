@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
+	"unicode"
 )
 
 // Ref is a titled GitHub link, such as a parent issue or milestone.
@@ -38,7 +40,26 @@ func (c *Client) Issue(ctx context.Context, owner, repo string, number int) (Iss
 	if resp.Data.Repository.Issue == nil {
 		return Issue{}, fmt.Errorf("issue #%d not found in %s/%s", number, owner, repo)
 	}
-	return *resp.Data.Repository.Issue, nil
+	issue := *resp.Data.Repository.Issue
+	issue.Title = plainTitle(issue.Title)
+	for _, ref := range []*Ref{issue.Parent, issue.Milestone} {
+		if ref != nil {
+			ref.Title = plainTitle(ref.Title)
+		}
+	}
+	return issue, nil
+}
+
+// plainTitle makes a GitHub title safe to print: control characters such as
+// ESC become spaces and whitespace runs collapse, so no terminal control ends
+// up in manifests, crews or CLI output.
+func plainTitle(title string) string {
+	return strings.Join(strings.Fields(strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return ' '
+		}
+		return r
+	}, title)), " ")
 }
 
 // ProjectTitle fetches the title of project number owned by owner.
@@ -48,8 +69,8 @@ func (c *Client) ProjectTitle(ctx context.Context, owner string, number int) (st
 		return "", err
 	}
 	var p struct{ Title string }
-	if err := json.Unmarshal(out, &p); err != nil || p.Title == "" {
+	if err := json.Unmarshal(out, &p); err != nil || plainTitle(p.Title) == "" {
 		return "", fmt.Errorf("read gh project %s/%d: no title", owner, number)
 	}
-	return p.Title, nil
+	return plainTitle(p.Title), nil
 }

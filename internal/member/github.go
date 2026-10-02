@@ -64,35 +64,42 @@ func loadMember(id string) (Manifest, error) {
 }
 
 // RefreshGitHub records the member's newest PR and, for a numeric ticket, the
-// issue's current title. A failed gh call leaves the manifest unchanged.
-func RefreshGitHub(ctx context.Context, client *gh.Client, id string) (Manifest, error) {
-	m, err := loadMember(id)
+// issue's current title. A failed PR read leaves the manifest unchanged; a
+// failed issue read keeps the recorded issue and is reported in note.
+func RefreshGitHub(ctx context.Context, client *gh.Client, id string) (m Manifest, note string, err error) {
+	m, err = loadMember(id)
 	if err != nil {
-		return Manifest{}, err
+		return Manifest{}, "", err
 	}
 	r, err := githubRemote(m)
 	if err != nil {
-		return m, err
+		return m, "", err
 	}
 	pr, found, err := client.PRForBranch(ctx, r.Owner, r.Name, m.Branch, "all")
 	if err != nil {
-		return m, err
+		return m, "", err
 	}
+	ticket := m.Ticket
 	var issue *IssueRef
-	if n, ok := IssueNumber(m.Ticket); ok {
+	if n, ok := IssueNumber(ticket); ok {
 		got, err := client.Issue(ctx, r.Owner, r.Name, n)
 		if err != nil {
-			return m, err
+			note = fmt.Sprintf("issue #%d not refreshed: %s", n, gh.Hint(err))
+		} else {
+			issue = &IssueRef{Title: got.Title, URL: got.URL}
 		}
-		issue = &IssueRef{Title: got.Title, URL: got.URL}
 	}
 	info := prInfo(pr, found, time.Now().UTC())
-	return updateManifest(id, func(m *Manifest) {
+	m, err = updateManifest(id, func(m *Manifest) {
 		m.GH = info
-		if issue != nil {
+		switch _, numeric := IssueNumber(m.Ticket); {
+		case !numeric:
+			m.Issue = nil
+		case issue != nil && m.Ticket == ticket: // the ticket may change while gh runs
 			m.Issue = issue
 		}
 	})
+	return m, note, err
 }
 
 // RefreshSummary reports a refresh of every GitHub member.
@@ -131,7 +138,12 @@ func RefreshAllGitHub(ctx context.Context, client *gh.Client) (RefreshSummary, e
 	}
 	now := time.Now().UTC()
 	for _, key := range order {
-		prs, err := client.PRsForRepo(ctx, remotes[key].Owner, remotes[key].Name)
+		owner, name := remotes[key].Owner, remotes[key].Name
+		var prs []gh.PR
+		err := bounded(ctx, func(ctx context.Context) (err error) {
+			prs, err = client.PRsForRepo(ctx, owner, name)
+			return err
+		})
 		if errors.Is(err, gh.ErrMissing) || errors.Is(err, gh.ErrAuth) {
 			return sum, err
 		}
@@ -147,6 +159,17 @@ func RefreshAllGitHub(ctx context.Context, client *gh.Client) (RefreshSummary, e
 		}
 		for _, m := range byRepo[key] {
 			pr, found := newest[m.Branch]
+			if !found && len(prs) >= gh.RepoPRLimit {
+				// The batch is full, so an older PR may be missing from it.
+				err := bounded(ctx, func(ctx context.Context) (err error) {
+					pr, found, err = client.PRForBranch(ctx, owner, name, m.Branch, "all")
+					return err
+				})
+				if err != nil {
+					sum.Failures = append(sum.Failures, m.ID+": "+gh.Hint(err))
+					continue
+				}
+			}
 			if _, err := updateManifest(m.ID, func(m *Manifest) { m.GH = prInfo(pr, found, now) }); err != nil {
 				sum.Failures = append(sum.Failures, m.ID+": "+err.Error())
 				continue
@@ -156,6 +179,13 @@ func RefreshAllGitHub(ctx context.Context, client *gh.Client) (RefreshSummary, e
 		sum.Repos++
 	}
 	return sum, nil
+}
+
+// bounded gives one gh call its own LookupTimeout within ctx.
+func bounded(ctx context.Context, call func(context.Context) error) error {
+	ctx, cancel := context.WithTimeout(ctx, LookupTimeout)
+	defer cancel()
+	return call(ctx)
 }
 
 // unpushedWarning says how many commits in worktree its upstream lacks; it is
@@ -175,8 +205,9 @@ func unpushedWarning(worktree string) string {
 }
 
 // CreatePR opens a PR from the member's branch against its base with --fill,
-// then refreshes the member. The warning reports unpushed commits.
-func CreatePR(ctx context.Context, client *gh.Client, id string) (url, warning string, err error) {
+// then refreshes the member. The note reports unpushed commits and a refresh
+// that failed after the PR was created; err means no PR was created.
+func CreatePR(ctx context.Context, client *gh.Client, id string) (url, note string, err error) {
 	m, err := loadMember(id)
 	if err != nil {
 		return "", "", err
@@ -184,33 +215,52 @@ func CreatePR(ctx context.Context, client *gh.Client, id string) (url, warning s
 	if _, err := githubRemote(m); err != nil {
 		return "", "", err
 	}
-	warning = unpushedWarning(m.Worktree)
+	warning := unpushedWarning(m.Worktree)
 	url, err = client.CreatePR(ctx, m.Worktree, m.Base, m.Branch)
 	if err != nil {
 		return "", warning, err
 	}
-	_, err = RefreshGitHub(ctx, client, id)
-	return url, warning, err
+	return url, joinNotes(warning, refreshAfter(ctx, client, id)), nil
 }
 
 // MarkPRReady marks the member's recorded draft PR ready, then refreshes it.
-func MarkPRReady(ctx context.Context, client *gh.Client, id string) error {
+// The note reports a refresh that failed after the PR was marked ready.
+func MarkPRReady(ctx context.Context, client *gh.Client, id string) (note string, err error) {
 	m, err := loadMember(id)
 	if err != nil {
-		return err
+		return "", err
 	}
 	r, err := githubRemote(m)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if m.GH == nil || m.GH.PR == 0 {
-		return errors.New("no known PR; refresh with u first")
+		return "", errors.New("no known PR; refresh with u first")
 	}
 	if err := client.MarkReady(ctx, r.Owner, r.Name, m.GH.PR); err != nil {
-		return err
+		return "", err
 	}
-	_, err = RefreshGitHub(ctx, client, id)
-	return err
+	return refreshAfter(ctx, client, id), nil
+}
+
+// refreshAfter refreshes id after a successful PR action and describes what
+// could not be refreshed, so the action's own success is never lost.
+func refreshAfter(ctx context.Context, client *gh.Client, id string) string {
+	_, note, err := RefreshGitHub(ctx, client, id)
+	if err != nil {
+		return "refresh failed: " + gh.Hint(err)
+	}
+	return note
+}
+
+func joinNotes(notes ...string) string {
+	var kept []string
+	for _, n := range notes {
+		if n != "" {
+			kept = append(kept, n)
+		}
+	}
+	return strings.Join(kept, " · ")
 }
 
 // OpenPR returns the member's open PR for the retire warning. It is best

@@ -141,3 +141,19 @@ func TestHint(t *testing.T) {
 		t.Fatal(Hint(ErrMissing))
 	}
 }
+
+func TestTitlesCannotCarryTerminalControls(t *testing.T) {
+	c, _ := fake(t, `{"data":{"repository":{"issue":{"title":"\u001b[2J\u001b]8;;https://evil\u0007Fix\nit\t","body":"line 1\nline 2","url":"u","parent":{"title":"Epic\r\u001b[31m","url":"p"},"milestone":{"title":"Q4\u0000","url":"m"}}}}}`, nil)
+	issue, err := c.Issue(context.Background(), "o", "r", 1)
+	if err != nil || issue.Title != "[2J ]8;;https://evil Fix it" || issue.Parent.Title != "Epic [31m" || issue.Milestone.Title != "Q4" || issue.Body != "line 1\nline 2" {
+		t.Fatalf("%q %q %q %q %v", issue.Title, issue.Parent.Title, issue.Milestone.Title, issue.Body, err)
+	}
+	c, _ = fake(t, `{"title":"Q4\u001b[0m plan"}`, nil)
+	if title, err := c.ProjectTitle(context.Background(), "acme", 7); err != nil || title != "Q4 [0m plan" {
+		t.Fatalf("%q %v", title, err)
+	}
+	c, _ = fake(t, `{"title":"\u001b\u0007"}`, nil)
+	if _, err := c.ProjectTitle(context.Background(), "acme", 7); err == nil {
+		t.Fatal("a title of only controls is no title")
+	}
+}

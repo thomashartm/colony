@@ -453,7 +453,7 @@ W7 is implemented and CI-green; its release tag is tracked separately.
 | W6 — Blueprints | [#9](https://github.com/thomashartm/motley/issues/9) | Done |
 | W7 — Spawn and steer from the TUI | [#10](https://github.com/thomashartm/motley/issues/10) | Done |
 | W8 — Codex and OpenCode | [#11](https://github.com/thomashartm/motley/issues/11) | Done |
-| W9 — GitHub on demand and links | [#12](https://github.com/thomashartm/motley/issues/12) | Done |
+| W9 — GitHub on demand and links | [#12](https://github.com/thomashartm/motley/issues/12) | In review |
 | W10 — Full worktree tooling; retire wt and wt-clean | [#13](https://github.com/thomashartm/motley/issues/13) | Open |
 | W11 — Pop out and hardening | [#14](https://github.com/thomashartm/motley/issues/14) | Open |
 
@@ -1100,8 +1100,20 @@ key/menu/column tests and CLI retire warnings with and without gh; golangci-lint
 0 issues; cross-build and goreleaser snapshot ok. Live read-only check against
 this repository with scratch members (`XDG_STATE_HOME`) driven through the
 built TUI in an isolated tmux server: `u` on branch `feat/w9-github` →
-`PR #41 open · open`, details `PR #41 open · checks ✔ passing`; a
+`PR #41 open · checks ✔ passing · open` (rechecked after the review fixes),
+details `PR #41 open · checks ✔ passing`; a
 `fix/crew-selector` member showed `PR #38 merged`; `U` → `Refreshed 2 members
 in 1 repo`; `P` → `Open PR #41 in browser`. `member.OpenPR` returned #41 for
 the retire warning. Creating and readying a PR was verified with fake gh only;
 a live `gh pr create` was not run.
+
+Final review fixes: editing a ticket drops the issue recorded for the old one,
+and `u` applies an issue title only while the ticket still matches; a failed
+issue read no longer discards the PR refresh (it is reported after the PR
+state); `U` bounds each gh call by the 10 s lookup limit and, when a
+repository's 200-PR batch is full, looks up unmatched branches individually
+instead of recording "No PR"; P and u are offered only for GitHub members and
+U only when one exists; a PR with no available action shows a message instead
+of an empty menu; a created or readied PR is reported even if the follow-up
+refresh fails; GitHub titles are stripped of control characters before they
+reach manifests, crews or CLI output; `u` reports draft, checks and review.

@@ -52,6 +52,12 @@ func prLong(g *member.PRInfo, now time.Time) string {
 	if g.PR == 0 {
 		return "No PR" + age
 	}
+	return prSummary(g) + age
+}
+
+// prSummary describes a known PR: number, state and, while open, draft,
+// checks and review.
+func prSummary(g *member.PRInfo) string {
 	parts := []string{fmt.Sprintf("PR #%d %s", g.PR, strings.ToLower(g.State))}
 	if g.State == "OPEN" {
 		if g.Draft {
@@ -64,7 +70,7 @@ func prLong(g *member.PRInfo, now time.Time) string {
 			parts = append(parts, "review "+g.Review)
 		}
 	}
-	return strings.Join(parts, " · ") + age
+	return strings.Join(parts, " · ")
 }
 
 func onGitHub(r member.Row) bool {
@@ -94,14 +100,15 @@ func (m Model) refreshSelected() (tea.Model, tea.Cmd) {
 	client := m.github
 	m.busy, m.busyText = true, "Refreshing GitHub data for "+id+"…"
 	return m, githubCommand(member.LookupTimeout, func(ctx context.Context) (string, error) {
-		got, err := member.RefreshGitHub(ctx, client, id)
+		got, note, err := member.RefreshGitHub(ctx, client, id)
 		if err != nil {
 			return "", err
 		}
+		text := prSummary(got.GH) + " · " + id
 		if got.GH.PR == 0 {
-			return "No PR for " + got.Branch, nil
+			text = "No PR for " + got.Branch
 		}
-		return fmt.Sprintf("PR #%d %s · %s", got.GH.PR, strings.ToLower(got.GH.State), id), nil
+		return withNote(text, note), nil
 	})
 }
 
@@ -123,6 +130,15 @@ func (m Model) refreshAll() (tea.Model, tea.Cmd) {
 		}
 		return text, nil
 	})
+}
+
+// withNote appends a secondary note, such as a refresh that failed after
+// the main action succeeded.
+func withNote(text, note string) string {
+	if note == "" {
+		return text
+	}
+	return text + " · " + note
 }
 
 func plural(n int, word string) string {
@@ -153,29 +169,41 @@ func (m Model) beginPRMenu() (tea.Model, tea.Cmd) {
 	d := &menuDialog{title: "Pull request · " + clean(r.Branch)}
 	if g == nil || g.PR == 0 || g.State != "OPEN" {
 		d.items = append(d.items, menuItem{label: "Create PR (gh pr create --fill)", run: action("Creating PR…", member.CreateTimeout, func(ctx context.Context) (string, error) {
-			url, warning, err := member.CreatePR(ctx, client, id)
+			url, note, err := member.CreatePR(ctx, client, id)
 			if err != nil {
 				return "", err
 			}
-			if warning != "" {
-				return "Created " + url + " · " + warning, nil
-			}
-			return "Created " + url, nil
+			return withNote("Created "+url, note), nil
 		})})
 	}
 	if g != nil && g.State == "OPEN" && g.Draft {
 		number := g.PR
 		d.items = append(d.items, menuItem{label: "Mark ready for review", run: action("Marking ready…", member.LookupTimeout, func(ctx context.Context) (string, error) {
-			if err := member.MarkPRReady(ctx, client, id); err != nil {
+			note, err := member.MarkPRReady(ctx, client, id)
+			if err != nil {
 				return "", err
 			}
-			return fmt.Sprintf("PR #%d is ready for review", number), nil
+			return withNote(fmt.Sprintf("PR #%d is ready for review", number), note), nil
 		})})
 	}
 	if g != nil && g.PR != 0 && safeWebURL(g.URL) != nil {
 		target := g.URL
 		d.items = append(d.items, menuItem{label: fmt.Sprintf("Open PR #%d in browser", g.PR), run: func(m Model) (tea.Model, tea.Cmd) { return m.openLink(target) }})
 	}
+	if len(d.items) == 0 {
+		m.message = fmt.Sprintf("PR #%d is %s; nothing to do until it changes (refresh with u)", g.PR, strings.ToLower(g.State))
+		return m, nil
+	}
 	m.menu, m.message = d, ""
 	return m, nil
+}
+
+// anyOnGitHub reports whether U has a member to refresh.
+func (m Model) anyOnGitHub() bool {
+	for _, r := range m.rows {
+		if onGitHub(r) {
+			return true
+		}
+	}
+	return false
 }

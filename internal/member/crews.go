@@ -255,8 +255,9 @@ func EditIdentity(id string, edit IdentityEdit) error {
 			return fmt.Errorf("name must not be empty")
 		}
 	}
-	if edit.Ticket != nil {
-		m.Ticket = *edit.Ticket
+	if edit.Ticket != nil && *edit.Ticket != m.Ticket {
+		// The recorded issue belongs to the old ticket; u fetches the new one.
+		m.Ticket, m.Issue = *edit.Ticket, nil
 	}
 	if edit.Crew != nil {
 		m.Crew = *edit.Crew

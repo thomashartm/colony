@@ -32,9 +32,13 @@ func (m Model) actions() []navigationAction {
 		add("Member", "Open agent (o)", "o", openHelp, false)
 		add("Member", "Edit member (e)", "e", "Opens an editor for the member's name, ticket, crew and colour. Changes apply when you save.", false)
 		add("Member", "Open in browser (b)", "b", "Choose the branch, compare view, issue, PR or crew link to open in your browser. Only links that exist are offered.", false)
-		add("Member", "Pull request (P)", "P", "Create a PR with gh pr create --fill, mark a draft ready for review, or open the PR. Offers follow the last refreshed PR state.", false)
-		add("Member", "Refresh GitHub (u)", "u", "Fetches this member's PR state and issue title with gh. Nothing refreshes automatically.", false)
-		add("Member", "Refresh all GitHub (U)", "U", "Fetches PR state for every member, one gh call per repository.", false)
+		if onGitHub(m.selectedRow()) {
+			add("Member", "Pull request (P)", "P", "Create a PR with gh pr create --fill, mark a draft ready for review, or open the PR. Offers follow the last refreshed PR state.", false)
+			add("Member", "Refresh GitHub (u)", "u", "Fetches this member's PR state and issue title with gh. Nothing refreshes automatically.", false)
+		}
+		if m.anyOnGitHub() {
+			add("Member", "Refresh all GitHub (U)", "U", "Fetches PR state for every member on GitHub, one gh call per repository.", false)
+		}
 		if !m.selectedRow().External {
 			add("Member", "Reply (i)", "i", "Opens a reply field. Submitting sends your text and Enter to the running agent. Permission decisions must be made in the agent.", false)
 			add("Member", "Send to work tab (t)", "t", "Choose an attached work tab to display this member's running session there.", false)

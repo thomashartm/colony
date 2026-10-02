@@ -230,3 +230,74 @@ func TestRetireDialogShowsOpenPR(t *testing.T) {
 		t.Fatal(view)
 	}
 }
+
+func TestGitHubActionsFollowTheRemote(t *testing.T) {
+	keys := func(m Model) string {
+		var out []string
+		for _, a := range m.actions() {
+			if a.key == "P" || a.key == "u" || a.key == "U" || a.key == "b" {
+				out = append(out, a.key)
+			}
+		}
+		return strings.Join(out, "")
+	}
+	m := update(newModel(false, false, "", nil), tea.WindowSizeMsg{Width: 200, Height: 40})
+	m = update(m, snapshot{rows: []member.Row{row("a", true)}})
+	if got := keys(m); got != "b" {
+		t.Fatalf("no GitHub member: actions %q", got)
+	}
+	if extra := m.footerExtra(); strings.Contains(extra, "PR") || strings.Contains(extra, "refresh") {
+		t.Fatalf("footer offers GitHub actions off GitHub: %q", extra)
+	}
+	// A local member selected while another member is on GitHub: only U applies.
+	m = update(m, snapshot{rows: []member.Row{row("a", true), githubRow("b")}})
+	if m.selectedID() != "a" {
+		t.Fatal(m.selectedID())
+	}
+	if got := keys(m); got != "bU" {
+		t.Fatalf("mixed: actions %q", got)
+	}
+	m = update(m, key("j"))
+	if got := keys(m); got != "bPuU" || !strings.Contains(m.footerExtra(), "P PR · u/U refresh") {
+		t.Fatalf("GitHub member: actions %q footer %q", got, m.footerExtra())
+	}
+}
+
+func TestPRMenuWithNothingToOffer(t *testing.T) {
+	m := update(newModel(false, false, "", nil), tea.WindowSizeMsg{Width: 140, Height: 40})
+	m.github = prClient("[]", nil)
+	r := githubRow("alpha")
+	r.GH = &member.PRInfo{PR: 7, State: "OPEN"}
+	m = update(m, snapshot{rows: []member.Row{r}})
+	m = update(m, key("P"))
+	if m.menu != nil || m.message != "PR #7 is open; nothing to do until it changes (refresh with u)" {
+		t.Fatalf("menu %+v message %q", m.menu, m.message)
+	}
+	// An empty menu never divides by zero or indexes past its items.
+	m.menu = &menuDialog{title: "empty"}
+	for _, k := range []string{"down", "up", "enter"} {
+		m = update(m, key(k))
+	}
+	if m.menu != nil {
+		t.Fatal("Enter on an empty menu must close it")
+	}
+}
+
+func TestRefreshMessageCarriesPRStateAndNotes(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	r := githubRow("alpha")
+	r.Ticket = "412"
+	writeManifest(t, r.Manifest)
+	m := update(newModel(false, false, "", nil), tea.WindowSizeMsg{Width: 140, Height: 40})
+	m = update(m, snapshot{rows: []member.Row{r}})
+	m.github = gh.New(gh.RunnerFunc(func(_ context.Context, _ string, args ...string) ([]byte, error) {
+		if args[0] == "api" {
+			return nil, errors.New("gh: GraphQL: Could not resolve to an Issue with the number of 412.")
+		}
+		return []byte(`[{"number":7,"url":"https://github.com/acme/api/pull/7","state":"OPEN","isDraft":true,"headRefName":"feat/alpha","statusCheckRollup":[{"__typename":"CheckRun","status":"COMPLETED","conclusion":"SUCCESS"}]}]`), nil
+	}))
+	next, cmd := m.Update(key("u"))
+	if m = update(next.(Model), cmd()); m.message != "PR #7 open · draft · checks ✔ passing · alpha · issue #412 not refreshed: gh: GraphQL: Could not resolve to an Issue with the number of 412." {
+		t.Fatalf("message %q", m.message)
+	}
+}

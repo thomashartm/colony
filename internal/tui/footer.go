@@ -80,6 +80,9 @@ func (m Model) footerExtra() string {
 	if !m.navigationAvailable() || m.panel != listPanel || m.tableFocus || m.selectedID() == "" {
 		return ""
 	}
+	if !onGitHub(m.selectedRow()) {
+		return "b browser"
+	}
 	return "GitHub: b browser · P PR · u/U refresh"
 }
 

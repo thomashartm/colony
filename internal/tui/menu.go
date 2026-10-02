@@ -24,6 +24,10 @@ type menuItem struct {
 func (m Model) updateMenu(key string) (tea.Model, tea.Cmd) {
 	d := *m.menu
 	m.menu = &d
+	if len(d.items) == 0 {
+		m.menu = nil
+		return m, nil
+	}
 	switch key {
 	case "up", "k", "shift+tab":
 		d.focus = (d.focus + len(d.items) - 1) % len(d.items)

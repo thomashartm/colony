@@ -80,10 +80,13 @@ func (c *Client) PRForBranch(ctx context.Context, owner, repo, branch, state str
 	return prs[0], true, nil
 }
 
-// PRsForRepo lists the newest 200 PRs, newest first; callers match head
+// RepoPRLimit caps PRsForRepo; a full page may miss older members' PRs.
+const RepoPRLimit = 200
+
+// PRsForRepo lists the newest RepoPRLimit PRs, newest first; callers match head
 // branches themselves so one call serves every member of a repository.
 func (c *Client) PRsForRepo(ctx context.Context, owner, repo string) ([]PR, error) {
-	return c.prList(ctx, "--repo", owner+"/"+repo, "--state", "all", "--limit", "200")
+	return c.prList(ctx, "--repo", owner+"/"+repo, "--state", "all", "--limit", strconv.Itoa(RepoPRLimit))
 }
 
 // CreatePR runs in dir (the worktree) so --fill reads its commits, and returns

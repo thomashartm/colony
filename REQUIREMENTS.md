@@ -1,7 +1,7 @@
 # motley — Requirements
 
 Document schema: `1`  
-Status: W0–W9 implemented (Done); W10–W11 pending. See DELIVERY.md for roadmap tickets, validation and release checkpoints.
+Status: W0–W8 implemented (Done); W9 implemented, in review; W10–W11 pending. See DELIVERY.md for roadmap tickets, validation and release checkpoints.
 Source: user specification, 2026-09-30.
 
 ## Delivery agreement: MVP mode

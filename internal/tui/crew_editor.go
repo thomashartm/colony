@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -24,6 +25,12 @@ type identitySaved struct {
 	crews []crew.Crew
 	err   error
 }
+
+// The add form's empty title is fetched for GitHub issue and project URLs.
+var (
+	addCrewLabels = []string{"Title (blank: fetched from a GitHub issue or project URL)", "URL (optional)", "Colour", "Gig (optional)"}
+	crewLabels    = []string{"Title", "URL (optional)", "Colour", "Gig (optional)"}
+)
 
 func newEditor(kind, id string, labels, values []string) *identityEditor {
 	e := &identityEditor{kind: kind, id: id, labels: labels}
@@ -171,7 +178,7 @@ func (m Model) updateManager(key string) (tea.Model, tea.Cmd) {
 		m.managerCursor = max(0, m.managerCursor-1)
 	case "a":
 		m.message = ""
-		m.editor = newEditor("add", "", []string{"Title", "URL (optional)", "Colour", "Gig (optional)"}, []string{"", "", "", ""})
+		m.editor = newEditor("add", "", addCrewLabels, []string{"", "", "", ""})
 		return m, textinput.Blink
 	case "e", "c", "x":
 		m.message = ""
@@ -201,7 +208,7 @@ func (m Model) updateManager(key string) (tea.Model, tea.Cmd) {
 				return identitySaved{crews: crews, err: err}
 			}
 		}
-		m.editor = newEditor("crew", c.ID, []string{"Title", "URL (optional)", "Colour", "Gig (optional)"}, []string{c.Title, c.URL, c.Color, c.Gig})
+		m.editor = newEditor("crew", c.ID, crewLabels, []string{c.Title, c.URL, c.Color, c.Gig})
 		return m, textinput.Blink
 	}
 	return m, nil
@@ -274,14 +281,24 @@ func (m Model) updateEditor(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.busy = true
 			m.busyText = "Saving…"
+			if e.kind == "add" && strings.TrimSpace(e.fields[0].Value()) == "" && strings.TrimSpace(e.fields[1].Value()) != "" {
+				m.busyText = "Fetching crew title…"
+			}
 			e.err = ""
+			client := m.github
 			return m, func() tea.Msg {
 				var err error
 				switch e.kind {
 				case "reply":
 					err = member.Reply(e.id, e.fields[0].Value())
 				case "add":
-					_, err = member.AddCrew(e.fields[0].Value(), e.fields[1].Value(), e.fields[2].Value(), e.fields[3].Value())
+					if client == nil { // lookups disabled: the title is required
+						_, err = member.AddCrew(e.fields[0].Value(), e.fields[1].Value(), e.fields[2].Value(), e.fields[3].Value())
+						break
+					}
+					ctx, cancel := context.WithTimeout(context.Background(), member.LookupTimeout)
+					_, err = member.AddCrewWithLookup(ctx, client, e.fields[0].Value(), e.fields[1].Value(), e.fields[2].Value(), e.fields[3].Value())
+					cancel()
 				case "crew":
 					a, b, c, d := e.fields[0].Value(), e.fields[1].Value(), e.fields[2].Value(), e.fields[3].Value()
 					err = member.EditCrew(e.id, member.CrewEdit{Title: &a, URL: &b, Color: &c, Gig: &d})

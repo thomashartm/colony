@@ -31,7 +31,7 @@ func (m Model) actions() []navigationAction {
 		}
 		add("Member", "Open agent (o)", "o", openHelp, false)
 		add("Member", "Edit member (e)", "e", "Opens an editor for the member's name, ticket, crew and colour. Changes apply when you save.", false)
-		add("Member", "Open in browser (b)", "b", "Choose the branch, compare view or crew link to open in your browser. Only links that exist are offered.", false)
+		add("Member", "Open in browser (b)", "b", "Choose the branch, compare view, issue or crew link to open in your browser. Only links that exist are offered.", false)
 		if !m.selectedRow().External {
 			add("Member", "Reply (i)", "i", "Opens a reply field. Submitting sends your text and Enter to the running agent. Permission decisions must be made in the agent.", false)
 			add("Member", "Send to work tab (t)", "t", "Choose an attached work tab to display this member's running session there.", false)

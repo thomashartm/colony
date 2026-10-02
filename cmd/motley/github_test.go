@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/charmbracelet/x/ansi"
 )
 
 const issueFixture = `{"data":{"repository":{"issue":{"title":"Cache FX rates","body":"Body text","url":"https://github.com/acme/api/issues/412","parent":{"title":"Epic: FX","url":"https://github.com/acme/api/issues/400"},"milestone":null}}}}`
@@ -169,4 +171,48 @@ func TestCrewAddWithoutGH(t *testing.T) {
 	if err == nil || !strings.Contains(string(out), "GitHub CLI (gh) not found") || !strings.Contains(string(out), "--title") {
 		t.Fatalf("%v %s", err, out)
 	}
+}
+
+func TestSpawnFormIssueLookupTerminal(t *testing.T) {
+	bin := buildLifecycleBinary(t)
+	f := newMemberFixture(t, bin, "main")
+	f.useGitHubRemote()
+	f.fakeGH(map[string]string{"issue.json": issueFixture})
+	terminal := startTerminal(t, exec.Command(bin))
+	defer func() {
+		if t.Failed() {
+			t.Log(ansi.Strip(terminal.text()))
+		}
+	}()
+	send := func(keys, want string) {
+		t.Helper()
+		offset := len(terminal.text())
+		terminal.send(t, keys)
+		eventually(t, func() bool { return strings.Contains(ansi.Strip(terminal.text()[offset:]), want) })
+	}
+	eventually(t, func() bool { return strings.Contains(terminal.text(), "No members yet") })
+	send("s", "> api")
+	send("api\r", "Ticket and name")
+	send("412\tFX\r", `> Create crew "Epic: FX" and assign`)
+	send("\r", "Agent")
+	send("\r", "Blueprint")
+	send("\r", "Permission mode")
+	send("\r", "#412 Cache FX rates · new crew Epic: FX")
+	send("\r", "Created 412-fx")
+	m := f.manifest("412-fx")
+	if m.Crew != "epic-fx" || m.Issue == nil || m.Issue.Title != "Cache FX rates" {
+		t.Fatalf("crew=%q issue=%+v", m.Crew, m.Issue)
+	}
+	if calls := f.ghCalls(); calls != 1 {
+		t.Fatalf("gh called %d times; the TUI lookup must not repeat in Prepare", calls)
+	}
+	terminal.send(t, "q")
+	eventually(t, func() bool {
+		select {
+		case err := <-terminal.done:
+			return err == nil
+		default:
+			return false
+		}
+	})
 }

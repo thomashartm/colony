@@ -63,11 +63,23 @@ func (m Model) memberLinks(r member.Row) []memberLink {
 			add("Compare "+r.Base+"..."+r.Branch, gh.CompareURL(r.Base, r.Branch))
 		}
 	}
+	if label, u := issueLink(r); u != "" {
+		add(label, u)
+	}
 	if r.Crew != "" {
 		c := m.crewFor(r.Crew)
 		add("Crew "+c.Title, c.URL)
 	}
 	return links
+}
+
+// issueLink names the issue recorded at spawn, else the ticket's own link.
+func issueLink(r member.Row) (string, string) {
+	if r.Issue != nil && safeWebURL(r.Issue.URL) != nil {
+		return strings.TrimSpace("Issue #" + strings.TrimPrefix(strings.TrimSpace(r.Ticket), "#") + " " + r.Issue.Title), r.Issue.URL
+	}
+	label, u := ticketLink(r)
+	return "Ticket " + strings.TrimSuffix(label, " ↗"), u
 }
 
 func (m Model) beginLinks() (tea.Model, tea.Cmd) {

@@ -1044,3 +1044,33 @@ coordinates account for its tighter header spacing.
 
 Validation: TUI tests, real-terminal overview/monitor and tmux ticket-link tests,
 TUI vet, build and diff checks passed.
+
+### W9 GitHub on demand — Phases 1 and 2 (#12) — 2026-10-02
+
+Phase 1 (links): **b** opens a browser menu with the selected member's
+branch, compare view, issue and crew links; only http/https URLs are offered.
+Details link Branch and Compare when origin is on GitHub. One remote parser
+(`gitx.Web`) serves these links and the existing ticket links.
+
+Phase 2 (issues and crews): `internal/gh` wraps `gh` behind a runner
+interface with typed missing, unauthenticated, scope and timeout failures.
+A numeric ticket on a GitHub origin looks up the issue once at spawn (10 s);
+its title and URL are recorded in the manifest and `Issue.*` reaches
+blueprints (bodies capped at 32 KiB on a rune boundary). The parent issue,
+else the milestone, suggests a crew: a crew with the same URL is assigned,
+the spawn form offers a Crew step, and the CLI prints a copy-ready hint or
+creates it with `--create-crew` after the worktree exists. `--no-gh` skips
+the lookup. `crew add --url` and the crew form fetch a missing title for
+GitHub issue and project URLs. Shell quoting moved to `internal/shellx`.
+
+Validation: gofmt clean; `go vet ./...`; `make test` passed, including fake-gh
+CLI integration tests over a GitHub-shaped origin served by a fake ssh, an
+absent-gh PATH test and a real-terminal spawn form test that drives the async
+lookup and Crew step; golangci-lint 0 issues; cross-build ok. Live read-only
+check against this repository:
+`motley crew add --url https://github.com/thomashartm/motley/issues/12` →
+`Created crew w9-github-on-demand-and-links (W9 — GitHub on demand and links, red)`.
+With a scratch `XDG_CONFIG_HOME` and no `GH_CONFIG_DIR`, gh found no login and
+crew add printed one hint line (`GitHub CLI is not authenticated; run gh auth
+login; or pass --title`) and exited 1. A live spawn lookup was not run because
+spawn pushes a branch.

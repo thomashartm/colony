@@ -85,6 +85,20 @@ mtly attach 412-fx-cache
 the background. Claude is the default agent. Local `.env`, `.env.*` and
 `graphify-out` artifacts are copied into the worktree.
 
+### GitHub issues
+
+When origin is on GitHub, a numeric ticket (`412` or `#412`) looks up the issue
+once with [`gh`](https://cli.github.com) (10-second limit). Its title is recorded
+on the member, shown in details and offered by **b**. Blueprints can use
+`{{.Issue.Title}}`, `{{.Issue.Body}}` and `{{.Issue.URL}}`; bodies over 32 KiB
+are truncated.
+
+The issue's parent issue, else its milestone, suggests a crew. A crew with the
+same URL is assigned automatically. Otherwise the spawn form asks whether to
+create it, and the CLI prints a ready-to-run `crew add` and `crew assign` hint;
+pass `--create-crew` to create and assign it instead. `--no-gh` skips the lookup.
+If `gh` is missing or not logged in, spawn prints one warning and carries on.
+
 ### Claude permission modes
 
 Pick a mode with `--mode`, or in the spawn form after choosing a blueprint:
@@ -143,7 +157,7 @@ only the buttons are shown while navigating the overview.
 | / | Filter members |
 | g | Group by attention, crew or repository |
 | e | Edit member details |
-| b | Open the branch, compare view or crew link in your browser |
+| b | Open the branch, compare view, issue or crew link in your browser |
 | m | Manage crews |
 | d | Terminate session (keep work) |
 | x / r | Retire / revive |
@@ -171,9 +185,10 @@ and **Automatic** for crews. The member's **Crew** field uses the same arrows
 to select an existing crew by name or **No crew**.
 
 **b** lists the selected member's browser links: its branch and the compare view
-against its base when the repository's `origin` is on GitHub, and its crew's link.
-The **Branch** and **Compare** values in details open with a left click, like
-ticket cells. Links open with `open` on macOS and `xdg-open` on Linux; only
+against its base when the repository's `origin` is on GitHub, its issue (or
+ticket link), and its crew's link. The **Branch** and **Compare** values in
+details open with a left click, like ticket cells; the ticket shows the issue
+title recorded at spawn. Links open with `open` on macOS and `xdg-open` on Linux; only
 `http`/`https` URLs are opened.
 
 In crew view, the first **→** expands a crew; the next enters its member table.
@@ -263,6 +278,14 @@ mtly crew edit banking --gig "Roll out payments"
 Use `--crew banking` when spawning or adopting. Members inherit their crew's
 colour unless overridden. Crews support an optional `--url`; `--gig ""` clears
 the gig. Use `crew assign <member> none` to unassign a member.
+
+For a GitHub issue or project URL, `--title` is optional: the title is fetched
+once with `gh`. The crew form does the same when its title is left blank.
+
+```sh
+mtly crew add --url https://github.com/acme/api/issues/400
+mtly crew add --url https://github.com/orgs/acme/projects/7
+```
 
 ## Finish or resume
 

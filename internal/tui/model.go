@@ -16,6 +16,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/thomashartm/motley/internal/config"
 	"github.com/thomashartm/motley/internal/crew"
+	"github.com/thomashartm/motley/internal/gh"
 	"github.com/thomashartm/motley/internal/member"
 	"github.com/thomashartm/motley/internal/state"
 	"github.com/thomashartm/motley/internal/tmux"
@@ -72,6 +73,7 @@ type Model struct {
 	fetchDetail                       func(member.Row, uint64, bool) tea.Cmd
 	copyText                          func(client, text string) error
 	openURL                           func(string) error
+	github                            *gh.Client // issue and crew-title lookups; nil disables them
 	copied                            string
 	detailSeq                         uint64
 	event                             state.Event
@@ -99,7 +101,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.mouse(msg)
 	case importLoaded, importDone:
 		return m.importMessage(msg)
-	case spawnLoaded, spawnPrepared, spawnProgress, spawnFinished, promptEdited:
+	case spawnLoaded, spawnPrepared, spawnProgress, spawnFinished, promptEdited, issueLooked:
 		return m.spawnMessage(msg)
 	case tick:
 		return m, m.poll
@@ -195,7 +197,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.detail.Width, m.detail.Height = m.detailWidth(), m.contentHeight()
 		if m.spawn != nil && m.spawn.step == previewStep {
 			m.spawn.preview.Width = m.detailWidth()
-			m.spawn.preview.Height = max(1, m.contentHeight()-4)
+			m.spawn.preview.Height = m.previewHeight(m.contentHeight())
 			m.spawn.preview.SetContent(ansi.Hardwrap(multiline(m.spawn.plan.Prompt), m.detailWidth(), true))
 		}
 		m.updateDetail()

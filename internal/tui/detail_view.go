@@ -64,6 +64,11 @@ func (m Model) memberDetails() string {
 	status := r.CurrentStatus()
 	icon, sc := statusIcon(status)
 	ticket, ticketURL := ticketLink(r)
+	// The recorded issue adds its title and its canonical URL to the ticket.
+	if r.Issue != nil && safeWebURL(r.Issue.URL) != nil {
+		ticket = strings.TrimSpace(strings.TrimSuffix(ticket, " ↗")+" "+clean(r.Issue.Title)) + " ↗"
+		ticketURL = r.Issue.URL
+	}
 	fields := []detailField{
 		{"Status", lipgloss.NewStyle().Foreground(sc).Render(icon+" "+status) + " · " + since(r)},
 		{"Ticket", link(ticket, ticketURL)},

@@ -1002,3 +1002,11 @@ with a stub browser, ordinary mouse navigation, Ctrl-a popup/detach and config
 reload checks. Vet, golangci-lint (0 issues), build and diff checks passed.
 Applied the interaction settings to the local tmux config after backing it up;
 server readback confirms Ctrl-a and mouse on across existing sessions.
+
+### Compact Details rows — 2026-10-02
+
+Removed the empty row between each Details field. Labels and wrapped values keep
+their alignment; dotted headings and spacing between sections remain intact.
+
+Validation: TUI tests, targeted real-terminal overview/monitor and mouse ticket
+link tests, TUI vet, build and diff checks passed.

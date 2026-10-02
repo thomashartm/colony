@@ -121,8 +121,9 @@ shows a picker of running sessions, including members hidden by the list filter.
 Selecting a member gives it a separate action menu. You can also reach Overview
 with **↑** from the first list entry, then **Enter** or **→** to open its actions.
 
-Details use bold labels, aligned values and spacing between fields. Narrow panels
-stack labels above their values; long paths wrap without losing their indentation.
+Details use bold labels, aligned values and compact rows with spacing between
+sections. Narrow panels stack labels above their values; long paths wrap without
+losing their indentation.
 
 The footer groups controls by purpose and fits them into up to two rows. Small
 windows show essential controls; use **→** to reach the full Actions menu.

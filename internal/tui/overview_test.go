@@ -252,8 +252,8 @@ func TestDetailFieldsAlignmentWrappingAndSpacing(t *testing.T) {
 	fields := []detailField{{"Status", "working"}, {"Worktree", strings.Repeat("支払", 25)}, {"Ticket", ""}}
 	for _, width := range []int{25, 39, 40, 70} {
 		text := ansi.Strip(detailFields(fields, width))
-		if !strings.Contains(text, "\n\n") {
-			t.Fatal("missing field spacing")
+		if strings.Contains(text, "\n\n") {
+			t.Fatal("unexpected blank row between detail fields")
 		}
 		for _, line := range strings.Split(text, "\n") {
 			if ansi.StringWidth(line) > width {

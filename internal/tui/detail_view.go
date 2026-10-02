@@ -36,7 +36,7 @@ func detailFields(fields []detailField, width int) string {
 			blocks = append(blocks, strings.Join(wrapped, "\n"))
 		}
 	}
-	return strings.Join(blocks, "\n\n")
+	return strings.Join(blocks, "\n")
 }
 func (m Model) memberDetails() string {
 	r := m.selectedRow()

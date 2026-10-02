@@ -1,7 +1,7 @@
 # motley — Requirements
 
 Document schema: `1`  
-Status: W0–W8 implemented (Done); W9–W11 pending. See DELIVERY.md for roadmap tickets, validation and release checkpoints.
+Status: W0–W9 implemented (Done); W10–W11 pending. See DELIVERY.md for roadmap tickets, validation and release checkpoints.
 Source: user specification, 2026-09-30.
 
 ## Delivery agreement: MVP mode
@@ -556,7 +556,7 @@ key bar. Support full-screen and tmux popup use.
  DEAD (1)                      │
  ✗ spike-pdfa          2h       │
 ───────────────────────────────┴───────────────────────────────────────────────
- ⏎ jump  i reply  b branch  c compare  p PR  R refresh gh  s spawn  x retire  ? help
+ ⏎ jump  i reply  b browser  P PR  u/U refresh gh  s spawn  x retire  ? help
 ```
 
 ### 9.1 List
@@ -605,10 +605,10 @@ Only expose keys once their capability is implemented.
 | t | Pick a tmux client and send selected member there |
 | o | Pop out (§9.5) |
 | i | One-line reply with send-keys -l followed by Enter; disabled for permission, jump instead |
-| b / c / p | Open branch / compare / PR via macOS open or Linux xdg-open |
+| b | Browser menu: branch, compare, issue/ticket, PR and crew links via macOS open or Linux xdg-open |
 | P | PR menu: create with gh pr create --fill, mark ready, open |
-| R | Refresh selected member's GitHub data |
-| Shift+R | Refresh all GitHub data; terminal key conflict in §14 |
+| u | Refresh selected member's GitHub data |
+| U | Refresh all members' GitHub data, one gh call per repository |
 | s | Spawn form |
 | a | Adopt a non-member tmux session |
 | e | Edit name, ticket, crew and color |
@@ -898,7 +898,7 @@ they do not authorize expanding an earlier work item.
 | W6 (resolved) | Prompt files use a schema-1 Markdown comment, stripped on delivery. Render/validate known fields and missing Vars keys as empty strings; unknown struct fields are template errors. Vars are optional, with repeated CLI values taking the last value. Render before worktree creation, then save the prompt before the manifest/session; cap prompts at 64 KiB for portable argv delivery. |
 | W7 (implementation) | Use a fixed feat/{ticket}-{slug} form branch with an editable override, and a case-insensitive subsequence matcher preserving attention order. The planned sahilm/fuzzy module is unavailable in this network-restricted environment; defer ranking/dependency changes. Preparing a spawn is read-only; launch uses the reviewed prompt snapshot. Manual prompts without a blueprint set prompt=true in the schema-1 manifest. Reply targets the active pane and refuses permission/ended/dead states. |
 | W8 (implementation) | Codex 0.159.2 has native hooks enabled; use hooks.json and its /hooks trust review, preserving approval settings. No legacy notify/capture fallback in this slice. Launch Codex with --no-daemon so hooks inherit the member environment. OpenCode 1.18.21 uses its plugin event API, native --prompt and --session flags. Installer backups and recorded session ids support both agents. Live acceptance 2026-10-02 (Codex 0.159.3, OpenCode 1.18.21): recorded fixtures, statuses and resume verified; agent exit and crash record `ended` via `agent-exited`; OpenCode aborts read as interrupted. See internal/agents/testdata/w8-contracts.md. |
-| W9 | R and Shift+R are ordinarily the same uppercase terminal key. Choose distinguishable selected/all refresh bindings. |
+| W9 (resolved) | b opens a browser menu, P a PR menu; u refreshes the selected member and U all members (lower and upper case are distinct keys; c and p keep their meanings). Nothing refreshes automatically. Issue lookup runs once at spawn for numeric tickets on GitHub origins; the parent issue, else the milestone, suggests a crew. Every feature works without gh and prints one hint instead. |
 | W10 | Legacy wt worktree_dir means a root directory; motley worktree_dir is a relative template. Specify import mapping, consistent with WT_WORKTREE_DIR → worktrees_root. |
 | W10 | Env copying requires basename-only parity, while the example `config/*.local.yaml` contains a path. Choose whether to correct the example or explicitly change matching semantics. |
 | W10 | Define precedence when both legacy WT_* and corresponding MOTLEY_* variables are set. |

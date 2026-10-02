@@ -99,6 +99,29 @@ create it, and the CLI prints a ready-to-run `crew add` and `crew assign` hint;
 pass `--create-crew` to create and assign it instead. `--no-gh` skips the lookup.
 If `gh` is missing or not logged in, spawn prints one warning and carries on.
 
+### GitHub links and pull requests
+
+**b** opens a menu with the selected member's branch, compare view, issue,
+pull request and crew links. Details link the same pages; terminals that
+support OSC 8 make them clickable.
+
+Nothing refreshes automatically. **u** fetches the selected member's PR state,
+checks and review decision with `gh`; **U** does all members with one call per
+repository. The result is saved on the member and shown in details with its
+age, and in the PR column of the crew table (group by crew with **g**, then
+select a crew heading): `#7 draft ✗`, `#231 ✔`, `#88 merged`.
+
+**P** opens the pull-request menu: **Create PR** runs `gh pr create --fill`
+for the member's branch (it warns when local commits are not pushed yet),
+**Mark ready for review** turns a draft into a regular PR, and **Open PR**
+opens it in the browser. Retiring a member whose PR is still open shows a
+warning in the dialog and on the CLI; the PR stays open on GitHub.
+
+`gh` is optional. Without it, links still work and every GitHub action shows
+one hint instead. `gh` keeps its login under `$XDG_CONFIG_HOME/gh` (default
+`~/.config/gh`). If you point `XDG_CONFIG_HOME` somewhere else, set
+`GH_CONFIG_DIR=~/.config/gh` so motley's `gh` calls still find your login.
+
 ### Claude permission modes
 
 Pick a mode with `--mode`, or in the spawn form after choosing a blueprint:
@@ -157,7 +180,9 @@ only the buttons are shown while navigating the overview.
 | / | Filter members |
 | g | Group by attention, crew or repository |
 | e | Edit member details |
-| b | Open the branch, compare view, issue or crew link in your browser |
+| b | Open the branch, compare view, issue, PR or crew link in your browser |
+| P | Pull request: create, mark ready or open |
+| u / U | Refresh GitHub data for the selected member / all members |
 | m | Manage crews |
 | d | Terminate session (keep work) |
 | x / r | Retire / revive |

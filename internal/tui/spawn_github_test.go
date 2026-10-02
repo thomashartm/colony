@@ -190,7 +190,13 @@ func TestCrewEditorFetchesMissingTitle(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("second save not started")
 	}
-	if saved, ok := cmd().(identitySaved); !ok || !errors.Is(saved.err, gh.ErrMissing) || len(saved.crews) != 1 {
-		t.Fatalf("%+v", saved)
+	failed, ok := cmd().(identitySaved)
+	if !ok || !errors.Is(failed.err, gh.ErrMissing) || len(failed.crews) != 1 {
+		t.Fatalf("%+v", failed)
+	}
+	// The form stays open with the hint so the user can type a title instead.
+	m.busy = true
+	if m = update(m, failed); m.editor == nil || m.editor.err != "GitHub CLI (gh) not found; install gh for issue and PR data" {
+		t.Fatalf("editor %+v", m.editor)
 	}
 }

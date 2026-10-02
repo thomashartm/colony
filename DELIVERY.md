@@ -1014,7 +1014,8 @@ link tests, TUI vet, build and diff checks passed.
 ### Crew wordmark — 2026-10-02
 
 The TUI header pairs three crew bars in cyan, violet and amber with a bold
-uppercase MOTLEY wordmark. Both overview and monitor keep a single header row.
+uppercase MOTLEY wordmark, followed by amber ASCII devil horns (`\m/_`). Both
+overview and monitor keep a single header row.
 
 Validation: TUI tests, real-terminal overview/monitor checks, TUI vet, build and
 diff checks passed.

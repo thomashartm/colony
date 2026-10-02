@@ -130,7 +130,7 @@ func TestOverviewAndMonitor(t *testing.T) {
 	monitorPane := f.tmux("display-message", "-p", "-t", "=_motley:", "#{pane_id}")
 	monitorPID := f.tmux("display-message", "-p", "-t", "=_motley:", "#{pane_pid}")
 	eventually(t, func() bool {
-		return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_motley:"), "▌▌▌ MOTLEY monitor")
+		return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=_motley:"), `▌▌▌ MOTLEY \m/_ monitor`)
 	})
 	overview.send(t, "g\x1b[C\x1b[C")
 	eventually(t, func() bool {

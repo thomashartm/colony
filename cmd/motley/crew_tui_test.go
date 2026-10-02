@@ -42,7 +42,8 @@ func TestCrewEditorTerminal(t *testing.T) {
 	eventually(t, func() bool { return strings.Contains(terminal.text(), "Edit feat-crews") })
 	// The 120x30 terminal keeps Save at column 67, row 25, above the footer.
 	// Exercise a real mouse click as well as the Ctrl-s save above.
-	send("\t\tbanking\t"+strings.Repeat("\x1b[C", 3)+"\x1b[<0;67;25M\x1b[<0;67;25m", "Saved")
+	send("\t\t\x1b[C", "■ Banking")
+	send("\t"+strings.Repeat("\x1b[C", 3)+"\x1b[<0;67;25M\x1b[<0;67;25m", "Saved")
 	eventually(t, func() bool { m := f.manifest("feat-crews"); return m.Crew == "banking" && m.Color == "yellow" })
 	// The terminal remains responsive and grouping displays the member table.
 	terminal.send(t, "g")

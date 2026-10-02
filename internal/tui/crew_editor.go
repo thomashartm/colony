@@ -47,17 +47,33 @@ func (e *identityEditor) colourField(index int) bool {
 	return (e.kind == "member" && index == 3) || ((e.kind == "add" || e.kind == "crew") && index == 2)
 }
 
+func (e *identityEditor) selectorName(index int) string {
+	if e.colourField(index) {
+		return "Colour"
+	}
+	if e.kind == "member" && index == 2 && index < len(e.fields) {
+		return "Crew"
+	}
+	return ""
+}
+
 func (e *identityEditor) focusField() tea.Cmd {
-	if e.focus >= len(e.fields) || e.colourField(e.focus) {
+	if e.focus >= len(e.fields) || e.selectorName(e.focus) != "" {
 		return nil
 	}
 	return e.fields[e.focus].Focus()
 }
 
-func (e *identityEditor) changeColour(step int) {
+func (e *identityEditor) changeSelection(crews []crew.Crew, step int) {
 	options := []string{""}
-	for _, colour := range palette.Colors {
-		options = append(options, colour.Name)
+	if e.colourField(e.focus) {
+		for _, colour := range palette.Colors {
+			options = append(options, colour.Name)
+		}
+	} else {
+		for _, c := range crews {
+			options = append(options, c.ID)
+		}
 	}
 	selected := 0
 	for i, name := range options {
@@ -69,17 +85,43 @@ func (e *identityEditor) changeColour(step int) {
 	e.fields[e.focus].SetValue(options[(selected+step+len(options))%len(options)])
 }
 
-// Fixed-width arrow targets keep mouse navigation steady across colour names.
-func (e *identityEditor) colourView(index int) string {
-	name := "Automatic"
-	if e.kind == "member" {
-		name = "Inherit"
+// Reserve space for the longest option, capped by the panel, so arrow
+// targets stay put while cycling. Colour selectors retain their compact width.
+func (e *identityEditor) selectorWidth(index, width int, crews []crew.Crew) int {
+	size := 11
+	if e.selectorName(index) == "Crew" {
+		for _, c := range crews {
+			size = max(size, ansi.StringWidth(clean(c.Title))+2)
+		}
+		if id := e.fields[index].Value(); id != "" {
+			if _, ok := crew.Find(crews, id); !ok {
+				size = max(size, len("Unavailable crew"))
+			}
+		}
 	}
-	preview := "◇ " + name
-	if colour, ok := palette.Lookup(e.fields[index].Value()); ok {
-		preview = colored("■ "+colour.Name, colour)
+	return min(size, max(1, width-6))
+}
+
+func (e *identityEditor) selectorView(index, width int, crews []crew.Crew) string {
+	preview := "No crew"
+	if e.colourField(index) {
+		name := "Automatic"
+		if e.kind == "member" {
+			name = "Inherit"
+		}
+		preview = "◇ " + name
+		if colour, ok := palette.Lookup(e.fields[index].Value()); ok {
+			preview = colored("■ "+colour.Name, colour)
+		}
+	} else if id := e.fields[index].Value(); id != "" {
+		preview = "Unavailable crew"
+		if c, ok := crew.Find(crews, id); ok {
+			preview = colored("■ "+clean(c.Title), palette.Resolve(c.ID, c.Color, ""))
+		}
 	}
-	preview += strings.Repeat(" ", max(0, 11-ansi.StringWidth(preview)))
+	size := e.selectorWidth(index, width, crews)
+	preview = fit(preview, size)
+	preview += strings.Repeat(" ", max(0, size-ansi.StringWidth(preview)))
 	arrow := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
 	return "  " + arrow.Render("‹") + " " + preview + " " + arrow.Render("›")
 }
@@ -91,7 +133,7 @@ func (m Model) editMember() (tea.Model, tea.Cmd) {
 	}
 	r := m.selectedRow()
 	m.message = ""
-	m.editor = newEditor("member", r.ID, []string{"Name", "Ticket", "Crew id (empty = none)", "Colour"}, []string{r.Name, r.Ticket, r.Crew, r.Color})
+	m.editor = newEditor("member", r.ID, []string{"Name", "Ticket", "Crew", "Colour"}, []string{r.Name, r.Ticket, r.Crew, r.Color})
 	return m, textinput.Blink
 }
 func (m Model) updateManager(key string) (tea.Model, tea.Cmd) {
@@ -170,12 +212,12 @@ func (m Model) updateEditor(msg tea.Msg) (tea.Model, tea.Cmd) {
 	e.fields = append([]textinput.Model(nil), e.fields...)
 	m.editor = &e
 	if key, ok := msg.(tea.KeyMsg); ok {
-		if e.colourField(e.focus) && (key.String() == "left" || key.String() == "right") {
+		if e.selectorName(e.focus) != "" && (key.String() == "left" || key.String() == "right") {
 			step := 1
 			if key.String() == "left" {
 				step = -1
 			}
-			e.changeColour(step)
+			e.changeSelection(m.crews, step)
 			return m, nil
 		}
 		switch key.String() {
@@ -257,7 +299,7 @@ func (m Model) updateEditor(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	}
-	if e.focus < len(e.fields) && !e.colourField(e.focus) {
+	if e.focus < len(e.fields) && e.selectorName(e.focus) == "" {
 		var cmd tea.Cmd
 		e.fields[e.focus], cmd = e.fields[e.focus].Update(msg)
 		return m, cmd
@@ -293,7 +335,7 @@ func (m Model) managerView(height int) string {
 type editorTarget struct {
 	x, y, width, focus int
 	action             bool
-	colourStep         int
+	selectorStep       int
 }
 
 func editorButton(label string, focused, warning bool) string {
@@ -361,8 +403,8 @@ func (m Model) editorLayout(height int) ([]string, []editorTarget) {
 			label := labelStyle.Render(fit(e.labels[i]+":", width))
 			input.Width = max(1, width-4)
 			value := lipgloss.NewStyle().PaddingLeft(2).Render(input.View())
-			if e.colourField(i) {
-				value = e.colourView(i)
+			if e.selectorName(i) != "" {
+				value = e.selectorView(i, width, m.crews)
 			}
 			fieldLines = append(fieldLines, label, fit(value, width))
 			fieldFocus = append(fieldFocus, i, i)
@@ -377,10 +419,10 @@ func (m Model) editorLayout(height int) ([]string, []editorTarget) {
 			lines[y] = fieldLines[i]
 			if fieldFocus[i] >= 0 {
 				focus := fieldFocus[i]
-				if e.colourField(focus) && i > 0 && fieldFocus[i-1] == focus {
+				if e.selectorName(focus) != "" && i > 0 && fieldFocus[i-1] == focus {
 					targets = append(targets,
-						editorTarget{x: 2, y: y, width: 2, focus: focus, colourStep: -1},
-						editorTarget{x: 15, y: y, width: 2, focus: focus, colourStep: 1})
+						editorTarget{x: 2, y: y, width: 2, focus: focus, selectorStep: -1},
+						editorTarget{x: e.selectorWidth(focus, width, m.crews) + 4, y: y, width: 2, focus: focus, selectorStep: 1})
 				}
 				targets = append(targets, editorTarget{x: 0, y: y, width: width, focus: focus})
 			}
@@ -388,8 +430,12 @@ func (m Model) editorLayout(height int) ([]string, []editorTarget) {
 	}
 	if e.err != "" {
 		lines[hintY] = lipgloss.NewStyle().Foreground(lipgloss.Color("1")).Render(fit(e.err, width))
-	} else if e.colourField(e.focus) {
-		lines[hintY] = lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Render(fit("←/→ choose colour · Enter next", width))
+	} else if name := e.selectorName(e.focus); name != "" {
+		hint := "←/→ choose " + strings.ToLower(name) + " · Enter next"
+		if name == "Crew" && len(m.crews) == 0 {
+			hint = "No crews yet · Enter next"
+		}
+		lines[hintY] = lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Render(fit(hint, width))
 	}
 
 	primary := "Save"
@@ -439,8 +485,8 @@ func (m Model) editorMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		}
 		e.focus = target.focus
 		m.editor = &e
-		if target.colourStep != 0 {
-			e.changeColour(target.colourStep)
+		if target.selectorStep != 0 {
+			e.changeSelection(m.crews, target.selectorStep)
 			return m, nil
 		}
 		if target.action {

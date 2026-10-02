@@ -19,7 +19,7 @@ func editorModel(width, height int) Model {
 func editorClickText(t *testing.T, m Model, text string) (tea.Model, tea.Cmd) {
 	t.Helper()
 	// Use the rendered panel rather than the layout's hit targets.
-	view := ansi.Strip(m.panelHeading(m.editorView(m.contentHeight()), m.detailWidth()))
+	view := ansi.Strip(panelHeading(m.editorView(m.contentHeight()), m.detailWidth(), m.panelHeadingGap()))
 	for y, line := range strings.Split(view, "\n") {
 		if x := strings.Index(line, text); x >= 0 {
 			return m.Update(tea.MouseMsg{X: m.listWidth() + 3 + ansi.StringWidth(line[:x]), Y: y + 2, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})

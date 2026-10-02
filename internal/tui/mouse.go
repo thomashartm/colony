@@ -141,6 +141,10 @@ func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	}
 	height := m.contentHeight()
 	y := m.panelContentY(msg.Y)
+	if msg.X >= 1 && msg.X <= m.listWidth() {
+		height = m.listContentHeight()
+		y = contentY(msg.Y, m.listHeadingGap())
+	}
 	if y < 0 || y >= height {
 		return m, nil
 	}

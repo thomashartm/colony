@@ -12,28 +12,25 @@ import (
 	"github.com/thomashartm/motley/internal/config"
 )
 
-func TestPrepareIsReadOnly(t *testing.T) {
-	root := t.TempDir()
+// prepareRepo builds a repository with one commit, origin set to remote, and
+// fake claude and tmux binaries on PATH.
+func prepareRepo(t *testing.T, remote string) (cfg config.Config, root, repo, bin string) {
+	t.Helper()
+	root = t.TempDir()
 	t.Setenv("XDG_STATE_HOME", filepath.Join(root, "state"))
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(root, "config"))
 	t.Setenv("GIT_CONFIG_GLOBAL", "/dev/null")
 	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
-	repo := filepath.Join(root, "repos/api")
+	repo = filepath.Join(root, "repos/api")
 	if err := os.MkdirAll(repo, 0700); err != nil {
 		t.Fatal(err)
 	}
-	git := func(args ...string) {
-		t.Helper()
+	for _, args := range [][]string{{"init", "-b", "main"}, {"config", "user.name", "Fixture"}, {"config", "user.email", "fixture@example.invalid"}, {"commit", "--allow-empty", "-m", "Fixture"}, {"remote", "add", "origin", strings.ReplaceAll(remote, "ROOT", root)}} {
 		if out, err := exec.Command("git", append([]string{"-C", repo}, args...)...).CombinedOutput(); err != nil {
 			t.Fatalf("%v %s", err, out)
 		}
 	}
-	git("init", "-b", "main")
-	git("config", "user.name", "Fixture")
-	git("config", "user.email", "fixture@example.invalid")
-	git("commit", "--allow-empty", "-m", "Fixture")
-	git("remote", "add", "origin", filepath.Join(root, "remote.git"))
-	bin := filepath.Join(root, "bin")
+	bin = filepath.Join(root, "bin")
 	if err := os.MkdirAll(bin, 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -43,6 +40,28 @@ func TestPrepareIsReadOnly(t *testing.T) {
 		}
 	}
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	return config.Config{ReposRoot: filepath.Dir(repo), WorktreesRoot: filepath.Join(root, "trees")}, root, repo, bin
+}
+
+func writeBlueprint(t *testing.T, repo, name, body string) {
+	t.Helper()
+	dir := filepath.Join(repo, ".motley/blueprints")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, name+".md"), []byte(body), 0600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPrepareIsReadOnly(t *testing.T) {
+	cfg, root, repo, bin := prepareRepo(t, "ROOT/remote.git")
+	git := func(args ...string) {
+		t.Helper()
+		if out, err := exec.Command("git", append([]string{"-C", repo}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("%v %s", err, out)
+		}
+	}
 	bp := filepath.Join(repo, ".motley/blueprints")
 	if err := os.MkdirAll(bp, 0700); err != nil {
 		t.Fatal(err)
@@ -50,7 +69,6 @@ func TestPrepareIsReadOnly(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(bp, "plan.md"), []byte("+++\nargs=['--permission-mode','plan']\n+++\n{{.Repo}} {{.Branch}} {{.Base}} {{.Worktree}} {{.Vars.constraints}}"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	cfg := config.Config{ReposRoot: filepath.Dir(repo), WorktreesRoot: filepath.Join(root, "trees")}
 	p, err := Prepare(cfg, SpawnOptions{Repo: "api", Branch: "feat/preview", Blueprint: "plan", Vars: []string{"constraints=Read only"}})
 	if err != nil {
 		t.Fatal(err)

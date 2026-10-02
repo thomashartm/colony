@@ -14,6 +14,7 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/creack/pty"
+	"github.com/thomashartm/motley/internal/shellx"
 )
 
 type terminalProcess struct {
@@ -90,7 +91,7 @@ func (f *memberFixture) clientSession(name string) string {
 	}
 	return ""
 }
-func quoteShell(value string) string { return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'" }
+func quoteShell(value string) string { return shellx.Quote(value) }
 
 func TestOverviewAndMonitor(t *testing.T) {
 	bin := filepath.Join(t.TempDir(), "motley")

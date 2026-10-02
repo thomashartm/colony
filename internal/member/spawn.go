@@ -1,6 +1,7 @@
 package member
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os/exec"
@@ -13,6 +14,7 @@ import (
 	"github.com/thomashartm/motley/internal/blueprint"
 	"github.com/thomashartm/motley/internal/config"
 	"github.com/thomashartm/motley/internal/crew"
+	"github.com/thomashartm/motley/internal/gh"
 	"github.com/thomashartm/motley/internal/gitx"
 	"github.com/thomashartm/motley/internal/state"
 	"github.com/thomashartm/motley/internal/tmux"
@@ -22,6 +24,14 @@ import (
 type SpawnOptions struct {
 	Repo, Branch, Agent, Ticket, Name, Crew, Color, Blueprint, Mode string
 	Vars                                                            []string
+	// Issue is a lookup the caller already made (the TUI); Prepare then uses it
+	// as is. NoGH skips Prepare's own lookup.
+	Issue *IssueContext
+	NoGH  bool
+	// CreateCrew creates and assigns the suggested crew at launch when no crew
+	// has its URL; SkipSuggestion ignores the suggestion entirely.
+	CreateCrew, SkipSuggestion bool
+	GitHub                     *gh.Client // nil uses gh.Default()
 }
 
 func Prepare(cfg config.Config, opts SpawnOptions) (Prepared, error) {
@@ -104,6 +114,34 @@ func Prepare(cfg config.Config, opts SpawnOptions) (Prepared, error) {
 	if err != nil {
 		return Prepared{}, err
 	}
+	var warnings []string
+	issue := opts.Issue
+	if issue == nil && !opts.NoGH {
+		client := opts.GitHub
+		if client == nil {
+			client = gh.Default()
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), LookupTimeout)
+		issue, err = lookupIssue(ctx, client, remote, opts.Ticket, crews)
+		cancel()
+		if err != nil {
+			warnings = append(warnings, "issue "+strings.TrimSpace(opts.Ticket)+" lookup skipped: "+gh.Hint(err))
+			issue = nil
+		}
+	}
+	var suggested *crew.Crew
+	autoCrew := false
+	if issue != nil && issue.Suggestion != nil && opts.Crew == "" && !opts.SkipSuggestion {
+		s := issue.Suggestion
+		if c, ok := crew.FindURL(crews, s.URL); ok {
+			opts.Crew, autoCrew = c.ID, true
+		} else if opts.CreateCrew {
+			suggested = &crew.Crew{Title: s.Title, URL: s.URL, Kind: crew.Kind(s.URL)}
+		}
+	}
+	if opts.CreateCrew && opts.Crew == "" && suggested == nil {
+		warnings = append(warnings, "--create-crew ignored: no parent issue or milestone suggests a crew")
+	}
 	if err := validateIdentity(opts.Crew, opts.Color, crews); err != nil {
 		return Prepared{}, err
 	}
@@ -112,10 +150,18 @@ func Prepare(cfg config.Config, opts SpawnOptions) (Prepared, error) {
 		name = filepath.Base(opts.Branch)
 	}
 	m := Manifest{Schema: 1, Name: name, Repo: opts.Repo, RepoPath: repo, Worktree: path, Branch: opts.Branch, Base: base, RemoteURL: remote, Ticket: opts.Ticket, Agent: opts.Agent, Mode: opts.Mode, Blueprint: opts.Blueprint, AgentArgs: args, Crew: opts.Crew, Color: opts.Color}
-	p := Prepared{Manifest: m, HasPrompt: opts.Blueprint != ""}
+	var issueData blueprint.Issue
+	if issue != nil {
+		m.Issue = &IssueRef{Title: issue.Title, URL: issue.URL}
+		issueData = blueprint.Issue{Title: issue.Title, Body: issue.Body, URL: issue.URL}
+	}
+	p := Prepared{Manifest: m, HasPrompt: opts.Blueprint != "", Issue: issue, NewCrew: suggested, AutoCrew: autoCrew, Warnings: warnings}
 	if p.HasPrompt {
 		c, _ := crew.Find(crews, opts.Crew)
-		p.Prompt, err = bp.Render(blueprint.Data{Repo: opts.Repo, Branch: opts.Branch, Base: base, Ticket: opts.Ticket, Name: name, Worktree: path, Crew: blueprint.Crew{Title: c.Title, URL: c.URL, Kind: c.Kind}, Vars: vars})
+		if suggested != nil {
+			c = *suggested
+		}
+		p.Prompt, err = bp.Render(blueprint.Data{Repo: opts.Repo, Branch: opts.Branch, Base: base, Ticket: opts.Ticket, Name: name, Worktree: path, Crew: blueprint.Crew{Title: c.Title, URL: c.URL, Kind: c.Kind}, Issue: issueData, Vars: vars})
 		if err != nil {
 			return Prepared{}, err
 		}
@@ -129,15 +175,15 @@ type Prepared struct {
 	Manifest  Manifest
 	Prompt    string
 	HasPrompt bool
+	// Issue is the looked-up issue, if any; Warnings explain skipped lookups.
+	Issue    *IssueContext
+	Warnings []string
+	// NewCrew is created at launch from the suggestion unless a crew with its
+	// URL exists by then. AutoCrew reports a crew assigned by URL match.
+	NewCrew  *crew.Crew
+	AutoCrew bool
 }
 
-func Spawn(cfg config.Config, opts SpawnOptions, progress io.Writer) (Manifest, error) {
-	p, err := Prepare(cfg, opts)
-	if err != nil {
-		return Manifest{}, err
-	}
-	return SpawnPrepared(p, progress)
-}
 func SpawnPrepared(p Prepared, progress io.Writer) (Manifest, error) {
 	m := p.Manifest
 	if err := blueprint.ValidatePrompt(p.Prompt); err != nil {
@@ -173,6 +219,21 @@ func SpawnPrepared(p Prepared, progress io.Writer) (Manifest, error) {
 	}
 	if err := worktree.Create(m.RepoPath, m.Branch, m.Base, m.Worktree, progress); err != nil {
 		return Manifest{}, err
+	}
+	// Create the suggested crew only once the worktree exists, so a failed
+	// spawn leaves no crew behind; the lock makes the URL check race-free.
+	if p.NewCrew != nil && m.Crew == "" {
+		c, found := crew.FindURL(crews, p.NewCrew.URL)
+		if !found {
+			if c, err = newCrew(crews, p.NewCrew.Title, p.NewCrew.URL, "", ""); err == nil {
+				crews = append(crews, c)
+				err = crew.Save(crews)
+			}
+			if err != nil {
+				return Manifest{}, fmt.Errorf("worktree retained at %s; crew could not be created: %w", m.Worktree, err)
+			}
+		}
+		m.Crew = c.ID
 	}
 	m.ID, m.Name, m.CreatedAt = id, name, time.Now().UTC()
 	if p.HasPrompt {

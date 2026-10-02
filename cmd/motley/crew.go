@@ -1,30 +1,36 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 	"github.com/thomashartm/motley/internal/crew"
+	"github.com/thomashartm/motley/internal/gh"
 	"github.com/thomashartm/motley/internal/member"
 )
 
 func crewCommand() *cobra.Command {
 	root := &cobra.Command{Use: "crew", Short: "Manage crews of members and their gigs"}
 	var title, url, color, gig string
-	add := &cobra.Command{Use: "add --title <title>", Short: "Create a crew with an optional gig, link and colour", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
-		c, err := member.AddCrew(title, url, color, gig)
-		if err != nil {
+	add := &cobra.Command{Use: "add [--title <title>] [--url <url>]", Short: "Create a crew with an optional gig, link and colour", Long: "Create a crew. Without --title, the title of a GitHub issue or project --url\nis fetched once with gh; other links need --title.", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+		ctx, cancel := context.WithTimeout(cmd.Context(), member.LookupTimeout)
+		defer cancel()
+		c, err := member.AddCrewWithLookup(ctx, gh.Default(), title, url, color, gig)
+		if errors.Is(err, gh.ErrMissing) || errors.Is(err, gh.ErrAuth) {
+			return fmt.Errorf("%s; or pass --title", gh.Hint(err))
+		} else if err != nil {
 			return err
 		}
 		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Created crew %s (%s, %s)\n", c.ID, c.Title, c.Color)
 		return err
 	}}
-	add.Flags().StringVar(&title, "title", "", "Crew title (required)")
-	_ = add.MarkFlagRequired("title")
-	add.Flags().StringVar(&url, "url", "", "Optional http/https link (no network lookup)")
+	add.Flags().StringVar(&title, "title", "", "Crew title (fetched with gh for a GitHub issue or project --url when omitted)")
+	add.Flags().StringVar(&url, "url", "", "Optional http/https link")
 	add.Flags().StringVar(&color, "color", "", "Palette colour (default: next unused)")
 	add.Flags().StringVar(&gig, "gig", "", "Gig: the crew's package of work")
 	var asJSON bool

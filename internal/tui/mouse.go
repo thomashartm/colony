@@ -16,7 +16,7 @@ func (m Model) navigationBar() string {
 }
 
 func (m Model) navigationAvailable() bool {
-	return !m.busy && !m.searching && m.spawn == nil && m.editor == nil && !m.manager && m.retiring == nil && m.terminating == nil && m.importing == nil && m.opening == nil && !m.picking
+	return !m.busy && !m.searching && m.spawn == nil && m.editor == nil && !m.manager && m.retiring == nil && m.terminating == nil && m.menu == nil && m.importing == nil && m.opening == nil && !m.picking
 }
 
 func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
@@ -55,6 +55,17 @@ func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 			dialog.focus = index
 			m.retiring = &dialog
 			return m.updateRetire("enter")
+		}
+		return m, nil
+	}
+	if m.menu != nil && !m.busy && m.width >= 60 && m.height >= 10 && msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress && msg.X > m.listWidth()+2 && msg.X < m.width-1 {
+		// menuView puts the title and a blank row above the items.
+		index := m.panelContentY(msg.Y) - 2
+		if index >= 0 && index < len(m.menu.items) {
+			d := *m.menu
+			d.focus = index
+			m.menu = &d
+			return m.updateMenu("enter")
 		}
 		return m, nil
 	}

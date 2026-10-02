@@ -56,6 +56,12 @@ func (m Model) footer() string {
 	full, compact := m.footerGroups()
 	width := max(1, m.width-2)
 	lines := wrapFooter(full, width)
+	// Optional hints appear only when they fit beside the full footer.
+	if extra := m.footerExtra(); extra != "" {
+		if with := wrapFooter(append(full[:len(full):len(full)], extra), width); len(with) <= rows {
+			lines = with
+		}
+	}
 	if len(lines) > rows {
 		lines = wrapFooter(compact, width)
 	}
@@ -66,6 +72,15 @@ func (m Model) footer() string {
 		lines = append(lines, m.navigationBar())
 	}
 	return strings.Join(lines, "\n")
+}
+
+// footerExtra names member shortcuts that only wide terminals have room for;
+// the actions panel lists them all.
+func (m Model) footerExtra() string {
+	if !m.navigationAvailable() || m.panel != listPanel || m.tableFocus || m.selectedID() == "" {
+		return ""
+	}
+	return "Links: b browser"
 }
 
 func wrapFooter(groups []string, width int) []string {
@@ -128,6 +143,9 @@ func (m Model) footerGroups() (full, compact []string) {
 	}
 	if m.retiring != nil {
 		return []string{"[Retire] Nav: ↑↓ choice", "Act: enter toggle/confirm · esc cancel", "Options: f force · k keep branch"}, []string{"[Retire] ↑↓ choice", "enter choose · esc cancel"}
+	}
+	if m.menu != nil {
+		return []string{"[Menu] Nav: ↑↓/jk choose", "Act: enter run · esc cancel"}, []string{"[Menu] ↑↓ choose", "enter run · esc cancel"}
 	}
 	if m.picking {
 		action := "pin"

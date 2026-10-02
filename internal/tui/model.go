@@ -79,6 +79,7 @@ type Model struct {
 	alert, bell                       bool
 	retiring                          *retireDialog
 	terminating                       *terminateDialog
+	menu                              *menuDialog
 	busyText                          string
 }
 
@@ -277,6 +278,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.retiring != nil {
 			return m.updateRetire(key)
 		}
+		if m.menu != nil {
+			return m.updateMenu(key)
+		}
 		if m.picking {
 			if m.pickMode == "send" {
 				return m.updateSendPicker(key)
@@ -318,6 +322,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "e":
 			return m.editMember()
+		case "b":
+			return m.beginLinks()
 		case "q", "ctrl+c":
 			if !m.monitor {
 				return m, tea.Quit
@@ -633,6 +639,9 @@ func (m Model) View() string {
 	if m.retiring != nil {
 		right = m.retireView(height)
 	}
+	if m.menu != nil {
+		right = m.menuView(height)
+	}
 	if m.manager {
 		right = m.managerView(height)
 	}
@@ -644,7 +653,7 @@ func (m Model) View() string {
 	}
 	border := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("8"))
 	leftBorder, rightBorder := border, border
-	if m.panel == listPanel && m.editor == nil && !m.manager && m.spawn == nil && m.retiring == nil && m.terminating == nil && m.importing == nil && m.opening == nil && !m.picking {
+	if m.panel == listPanel && m.editor == nil && !m.manager && m.spawn == nil && m.retiring == nil && m.terminating == nil && m.menu == nil && m.importing == nil && m.opening == nil && !m.picking {
 		leftBorder = leftBorder.BorderForeground(lipgloss.Color("6"))
 	} else {
 		rightBorder = rightBorder.BorderForeground(lipgloss.Color("6"))

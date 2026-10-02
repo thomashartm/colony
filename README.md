@@ -143,6 +143,7 @@ only the buttons are shown while navigating the overview.
 | / | Filter members |
 | g | Group by attention, crew or repository |
 | e | Edit member details |
+| b | Open the branch, compare view or crew link in your browser |
 | m | Manage crews |
 | d | Terminate session (keep work) |
 | x / r | Retire / revive |
@@ -168,6 +169,12 @@ and **Ctrl-s** still work. Colour fields are selectors: use **←/→** or click
 the arrows to cycle through colour swatches, including **Inherit** for members
 and **Automatic** for crews. The member's **Crew** field uses the same arrows
 to select an existing crew by name or **No crew**.
+
+**b** lists the selected member's browser links: its branch and the compare view
+against its base when the repository's `origin` is on GitHub, and its crew's link.
+The **Branch** and **Compare** values in details open with a left click, like
+ticket cells. Links open with `open` on macOS and `xdg-open` on Linux; only
+`http`/`https` URLs are opened.
 
 In crew view, the first **→** expands a crew; the next enters its member table.
 **←/Esc** returns to the list, where **←** collapses the crew. **Tab** also enters

@@ -5,6 +5,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/thomashartm/motley/internal/gitx"
 	"github.com/thomashartm/motley/internal/member"
 	"github.com/thomashartm/motley/internal/tmux"
 )
@@ -38,6 +39,20 @@ func detailFields(fields []detailField, width int) string {
 	}
 	return strings.Join(blocks, "\n")
 }
+
+// branchFields link the branch and its compare view when origin is on GitHub.
+func branchFields(r member.Row) []detailField {
+	gh, ok := gitx.WebURL(r.RemoteURL)
+	if !ok || r.Branch == "" {
+		return []detailField{{"Branch", clean(r.Branch)}}
+	}
+	fields := []detailField{{"Branch", link(clean(r.Branch), gh.BranchURL(r.Branch))}}
+	if r.Base != "" {
+		fields = append(fields, detailField{"Compare", link(clean(r.Base+"..."+r.Branch), gh.CompareURL(r.Base, r.Branch))})
+	}
+	return fields
+}
+
 func (m Model) memberDetails() string {
 	r := m.selectedRow()
 	width := m.detailWidth()
@@ -57,7 +72,8 @@ func (m Model) memberDetails() string {
 	if c := m.crewFor(r.Crew); c.Gig != "" {
 		fields = append(fields, detailField{"Gig", clean(c.Gig)})
 	}
-	fields = append(fields, detailField{"Branch", clean(r.Branch)}, detailField{"Agent", coloredBadge(r.Agent) + " " + clean(r.Agent)})
+	fields = append(fields, branchFields(r)...)
+	fields = append(fields, detailField{"Agent", coloredBadge(r.Agent) + " " + clean(r.Agent)})
 	if r.Blueprint != "" {
 		fields = append(fields, detailField{"Blueprint", clean(r.Blueprint)})
 	}

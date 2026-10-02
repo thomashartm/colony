@@ -38,9 +38,6 @@ func (m Model) actions() []navigationAction {
 			add("Member", "Pull request (P)", "P", "Create a PR with gh pr create --fill, mark a draft ready for review, or open the PR. Offers follow the last refreshed PR state.", false)
 			add("Member", "Refresh GitHub (u)", "u", "Fetches this member's PR state and issue title with gh. Nothing refreshes automatically.", false)
 		}
-		if m.anyOnGitHub() {
-			add("Member", "Refresh all GitHub (U)", "U", "Fetches PR state for every member on GitHub, one gh call per repository.", false)
-		}
 		if !m.selectedRow().External {
 			add("Member", "Reply (i)", "i", "Opens a reply field. Submitting sends your text and Enter to the running agent. Permission decisions must be made in the agent.", false)
 			add("Member", "Send to work tab (t)", "t", "Choose an attached work tab to display this member's running session there.", false)
@@ -51,6 +48,9 @@ func (m Model) actions() []navigationAction {
 		add("Main actions", "Spawn member (s)", "s", "Opens setup for a new member. Launch creates its worktree and starts the chosen agent after you review the preview.", false)
 		add("Main actions", "Add existing agent (a)", "a", "Choose Claude or Codex, then select an existing session to add. Import preserves its conversation and files without restarting it.", false)
 		add("Main actions", "Open agent (o)", "o", "Choose a running agent to open. The picker includes all members, even when the main list is filtered.", false)
+		if m.anyOnGitHub() {
+			add("Main actions", "Refresh all GitHub (U)", "U", "Fetches PR state for every member on GitHub, one gh call per repository. Works from anywhere in the list.", false)
+		}
 	}
 	if m.selectedID() != "" {
 		reviveHelp := "Immediately restarts a stopped member in its existing worktree, resuming its saved agent session when available. Does not restore retired members or deleted worktrees."
@@ -79,7 +79,7 @@ func (m Model) actions() []navigationAction {
 			add("View", "Pin work tab (p)", "p", "Choose the work tab used when opening agents from the monitor. Automatic selection can be restored in the picker.", false)
 		}
 	} else {
-		add("Overview", "Main actions (Home)", "home", "Selects Overview for spawning and adding agents, managing crews and changing the view.", false)
+		add("Overview", "Main actions (Home)", "home", "Selects Overview for spawning and adding agents, managing crews, refreshing all GitHub data and changing the view.", false)
 	}
 	// Keep Copy last so a message appearing does not change existing action indices.
 	if m.copyableMessage() != "" {

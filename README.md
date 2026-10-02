@@ -106,8 +106,8 @@ pull request and crew links. Details link the same pages; terminals that
 support OSC 8 make them clickable.
 
 Nothing refreshes automatically. **u** fetches the selected member's PR state,
-checks and review decision with `gh`; **U** does all members with one call per
-repository. The result is saved on the member and shown in details with its
+checks and review decision with `gh`; **U** (a main action, and a key that works
+anywhere in the list) does all members with one call per repository. The result is saved on the member and shown in details with its
 age, and in the PR column of the crew table (group by crew with **g**, then
 select a crew heading): `#7 draft ✗`, `#231 ✔`, `#88 merged`.
 
@@ -153,7 +153,8 @@ web URLs work with any tracker; numeric tickets
 link to issues on the member's GitHub or GitLab.com remote.
 
 Click the pinned **Overview** entry or press **Home** for main actions: spawn a
-member, add an existing Claude or Codex session, open an agent or manage crews. **Open agent** here
+member, add an existing Claude or Codex session, open an agent, manage crews or,
+once a member is on GitHub, refresh all GitHub data (**U**). **Open agent** here
 shows a picker of running sessions, including members hidden by the list filter.
 Selecting a member gives it a separate action menu. You can also reach Overview
 with **↑** from the first list entry, then **Enter** or **→** to open its actions.

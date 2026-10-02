@@ -13,6 +13,21 @@ import (
 	"github.com/thomashartm/motley/internal/state"
 )
 
+// diagnosed waits for want in report.log. logError stops waiting after 10 ms so
+// hooks stay fast, and the write may finish after Run returns.
+func diagnosed(t *testing.T, want string) bool {
+	t.Helper()
+	path := filepath.Join(os.Getenv("XDG_STATE_HOME"), "motley/report.log")
+	for deadline := time.Now().Add(2 * time.Second); ; time.Sleep(5 * time.Millisecond) {
+		if data, _ := os.ReadFile(path); strings.Contains(string(data), want) {
+			return true
+		}
+		if time.Now().After(deadline) {
+			return false
+		}
+	}
+}
+
 func TestRunBoundsBlockedInputAndIgnoresUnmanagedAgent(t *testing.T) {
 	t.Setenv("XDG_STATE_HOME", t.TempDir())
 	reader, writer := io.Pipe()
@@ -30,9 +45,8 @@ func TestRunBoundsBlockedInputAndIgnoresUnmanagedAgent(t *testing.T) {
 	if elapsed := time.Since(start); elapsed < timeout || elapsed > time.Second {
 		t.Fatalf("input timeout: %v", elapsed)
 	}
-	data, err := os.ReadFile(filepath.Join(os.Getenv("XDG_STATE_HOME"), "motley/report.log"))
-	if err != nil || !strings.Contains(string(data), "deadline exceeded") {
-		t.Fatal("missing timeout diagnostic", err)
+	if !diagnosed(t, "deadline exceeded") {
+		t.Fatal("missing timeout diagnostic")
 	}
 }
 
@@ -93,9 +107,8 @@ func TestRunBoundsTmuxAndLogsFlagErrors(t *testing.T) {
 		t.Fatal("tmux timeout not bounded")
 	}
 	Run([]string{"--unknown"}, strings.NewReader(""))
-	data, err := os.ReadFile(filepath.Join(os.Getenv("XDG_STATE_HOME"), "motley/report.log"))
-	if err != nil || !strings.Contains(string(data), "flag provided but not defined") {
-		t.Fatal("missing flag diagnostic", err)
+	if !diagnosed(t, "flag provided but not defined") {
+		t.Fatal("missing flag diagnostic")
 	}
 }
 
@@ -132,8 +145,7 @@ func TestExitedEndsTheMemberOnce(t *testing.T) {
 		t.Fatal(e, err)
 	}
 	Exited("../escape")
-	log, _ := os.ReadFile(filepath.Join(os.Getenv("XDG_STATE_HOME"), "motley/report.log"))
-	if !strings.Contains(string(log), "ReportError") {
+	if !diagnosed(t, "invalid member id") {
 		t.Fatal("invalid id not diagnosed")
 	}
 }

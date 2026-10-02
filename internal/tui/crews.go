@@ -131,6 +131,21 @@ func (m *Model) sortRows() {
 		if sectionOrder(a) != sectionOrder(b) {
 			return sectionOrder(a) < sectionOrder(b)
 		}
+		if m.group != "crew" {
+			ac, bc := m.crewFor(a.Crew), m.crewFor(b.Crew)
+			if ac.ID != bc.ID {
+				if ac.ID == noCrew {
+					return false
+				}
+				if bc.ID == noCrew {
+					return true
+				}
+				if ac.Title != bc.Title {
+					return ac.Title < bc.Title
+				}
+				return ac.ID < bc.ID
+			}
+		}
 		if state.Attention(a.CurrentStatus()) && a.Since != b.Since {
 			return a.Since < b.Since
 		}
@@ -179,16 +194,28 @@ func (m Model) groupingKey(key string) (Model, tea.Cmd, bool) {
 			return m, nil, false
 		}
 		e := m.currentEntry()
+		if m.overview && key != "j" && key != "down" && key != "k" && key != "up" {
+			return m, nil, false
+		}
 		switch key {
 		case "j", "down", "k", "up":
 			delta := 1
 			if key == "k" || key == "up" {
 				delta = -1
 			}
-			if m.tableFocus {
+			if m.overview {
+				if delta > 0 && len(m.crewEntries()) > 0 {
+					m.overview = false
+					m.crewCursor, m.tableCursor = 0, 0
+				}
+			} else if m.tableFocus {
 				m.tableCursor = max(0, min(m.tableCursor+delta, len(m.members(e.crew))-1))
 			} else {
-				m.crewCursor = max(0, min(m.crewCursor+delta, len(m.crewEntries())-1))
+				if m.crewCursor == 0 && delta < 0 {
+					m.selectOverview()
+				} else {
+					m.crewCursor = max(0, min(m.crewCursor+delta, len(m.crewEntries())-1))
+				}
 				m.tableCursor = 0
 			}
 		case "tab":
@@ -240,61 +267,27 @@ func (m Model) rowsSafeSelected() member.Row {
 	}
 	return member.Row{}
 }
-func (m Model) memberLine(r member.Row, width int) string {
-	color := member.Color(r.Manifest, m.crews)
-	icon, statusColor := statusIcon(r.CurrentStatus())
-	badge, bc := palette.Badge(r.Agent)
-	prefix := colored("▌", color) + " " + lipgloss.NewStyle().Foreground(statusColor).Render(icon) + " " + colored(badge, bc) + " "
-	name := r.Name
-	if name == "" {
-		name = r.ID
-	}
-	if r.Ticket != "" {
-		name = r.Ticket + " · " + name
-	}
-	suffix := " " + since(r)
-	if c, ok := crew.Find(m.crews, r.Crew); ok && width >= 32 {
-		cc := palette.Resolve(c.ID, c.Color, "")
-		suffix = " " + colored(fit(clean(c.Title), 8), cc) + suffix
-	}
-	return prefix + fit(clean(name), max(1, width-lipgloss.Width(prefix)-lipgloss.Width(suffix))) + suffix
-}
-func (m Model) crewList(height, width int) string {
-	entries := m.crewEntries()
-	if len(entries) == 0 {
-		return "No live crews.\nh shows inactive crews.\nm manages crews."
-	}
-	var lines []string
-	for i, e := range entries {
-		line := ""
-		if e.id != "" {
-			for _, r := range m.rows {
-				if r.ID == e.id {
-					line = "  " + m.memberLine(r, width-2)
-					break
-				}
+func (m Model) crewEntryLine(e crewEntry, width int) string {
+	if e.id != "" {
+		for _, r := range m.rows {
+			if r.ID == e.id {
+				return m.memberTableRow(r, width)
 			}
-		} else {
-			c := m.crewFor(e.crew)
-			color := palette.Resolve(c.ID, c.Color, "")
-			arrow := "▸"
-			if m.expanded[e.crew] {
-				arrow = "▾"
-			}
-			counts := totals(m.members(e.crew))
-			title := fit(clean(c.Title), max(1, width-lipgloss.Width(counts)-5))
-			if c.URL != "" {
-				title = fit(title, max(1, width-lipgloss.Width(counts)-7)) + " ↗"
-			}
-			line = colored("▌", color) + " " + arrow + " " + colored(link(title, c.URL), color) + " " + counts
 		}
-		if i == m.crewCursor {
-			line = lipgloss.NewStyle().Reverse(true).Render(line)
-		}
-		lines = append(lines, fit(line, width))
+		return ""
 	}
-	start := max(0, m.crewCursor-height+1)
-	return strings.Join(lines[start:min(len(lines), start+height)], "\n")
+	c := m.crewFor(e.crew)
+	color := palette.Resolve(c.ID, c.Color, "")
+	arrow := "▸"
+	if m.expanded[e.crew] {
+		arrow = "▾"
+	}
+	counts := totals(m.members(e.crew))
+	title := fit(clean(c.Title), max(1, width-lipgloss.Width(counts)-5))
+	if c.URL != "" {
+		title = fit(clean(c.Title), max(1, width-lipgloss.Width(counts)-7)) + " ↗"
+	}
+	return colored("▌", color) + " " + arrow + " " + colored(link(title, c.URL), color) + " " + counts
 }
 func (m Model) crewTable(height, width int) string {
 	e := m.currentEntry()
@@ -343,15 +336,12 @@ func (m Model) crewTable(height, width int) string {
 		r := rows[i]
 		icon, sc := statusIcon(r.CurrentStatus())
 		badge, bc := palette.Badge(r.Agent)
-		ticket := r.Ticket
-		if ticket != "" {
-			ticket = "#" + ticket
-		}
+		ticket, ticketURL := ticketLink(r)
 		name := r.Name
 		if name == "" {
 			name = r.ID
 		}
-		vals := []string{lipgloss.NewStyle().Foreground(sc).Render(icon), clean(name), colored(badge, bc), clean(ticket), clean(r.Repo), clean(r.Branch), since(r)}
+		vals := []string{lipgloss.NewStyle().Foreground(sc).Render(icon), clean(name), colored(badge, bc), link(ticket, ticketURL), clean(r.Repo), clean(r.Branch), since(r)}
 		line := format(vals)
 		if m.tableFocus && i == m.tableCursor {
 			line = lipgloss.NewStyle().Reverse(true).Render(line)

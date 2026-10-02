@@ -109,6 +109,20 @@ Select a member and click **Open agent** (or press **o** / **Enter**). With one
 tab, it opens there; with a separate work tab, it opens in that tab. Click
 **Back to monitor** in the agent footer to return. No tmux shortcuts are needed.
 
+The list groups members by crew within each status section, with columns for
+title, ticket and crew alongside the status icon and agent badge. Ticket cells
+use terminal hyperlinks: explicit web URLs work with any tracker; numeric tickets
+link to issues on the member's GitHub or GitLab.com remote.
+
+Click the pinned **Overview** entry or press **Home** for main actions: spawn a
+member, add an existing Claude, open an agent or manage crews. **Open agent** here
+shows a picker of running sessions, including members hidden by the list filter.
+Selecting a member gives it a separate action menu. You can also reach Overview
+with **↑** from the first list entry, then **Enter** or **→** to open its actions.
+
+Details use bold labels, aligned values and spacing between fields. Narrow panels
+stack labels above their values; long paths wrap without losing their indentation.
+
 The footer groups controls by purpose and fits them into up to two rows. Small
 windows show essential controls; use **→** to reach the full Actions menu.
 Clickable navigation buttons have their own bottom row; at minimum height,
@@ -118,6 +132,7 @@ only the buttons are shown while navigating the overview.
 | --- | --- |
 | ↑/↓ or j/k | Select a member, option or field |
 | 1 / 2 / 3 | Focus List / Details / Actions (or click the footer button) |
+| Home | Select Overview and open main actions |
 | → / ← | Move from list to details to Actions, or back |
 | Enter / o | Open the selected agent (Enter runs the selected action in Actions) |
 | s | Spawn a member |

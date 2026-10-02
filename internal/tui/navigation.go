@@ -36,9 +36,12 @@ func (m Model) actions() []navigationAction {
 			add("Member", "Send to work tab (t)", "t", "Choose an attached work tab to display this member's running session there.", false)
 		}
 	}
-	add("Crews & members", "Manage crews (m)", "m", "Opens crew management to add, edit, recolour or delete crews and organise their members.", false)
-	add("Crews & members", "Spawn member (s)", "s", "Opens setup for a new member. Launch creates its worktree and starts the chosen agent after you review the preview.", false)
-	add("Crews & members", "Add existing Claude (a)", "a", "Lists running Claude sessions to add to Motley. Import keeps the agent in its original terminal and leaves its files in place.", false)
+	if m.selectedID() == "" {
+		add("Main actions", "Manage crews (m)", "m", "Opens crew management to add, edit, recolour or delete crews and organise their members.", false)
+		add("Main actions", "Spawn member (s)", "s", "Opens setup for a new member. Launch creates its worktree and starts the chosen agent after you review the preview.", false)
+		add("Main actions", "Add existing Claude (a)", "a", "Lists running Claude sessions to add to Motley. Import keeps the agent in its original terminal and leaves its files in place.", false)
+		add("Main actions", "Open agent (o)", "o", "Choose a running agent to open. The picker includes all members, even when the main list is filtered.", false)
+	}
 	if m.selectedID() != "" {
 		add("Session & cleanup", "Revive member (r)", "r", "Immediately restarts a stopped member in its existing worktree, resuming its saved agent session when available. Does not restore retired members or deleted worktrees.", false)
 		add("Session & cleanup", "Terminate agent (d)", "d", "Asks for confirmation, then stops all processes in this member's session. Keeps its worktree, branch and history so you can revive it.", true)
@@ -48,13 +51,17 @@ func (m Model) actions() []navigationAction {
 			add("Session & cleanup", "Retire member + worktree (x)", "x", "Removes the worktree and stops the session after cleanup checks and confirmation. Archives the member and history. Deletes the local branch unless kept or protected; remote branches stay. Force can discard uncommitted work and unpushed commits.", true)
 		}
 	}
-	add("View", "Change grouping (g)", "g", "Cycles the member list between attention, crew and repository grouping.", false)
-	add("View", "Filter members (/)", "/", "Opens search to narrow the member list. Enter keeps the filter; Esc clears it.", false)
-	if m.group == "crew" {
-		add("View", "Show/hide inactive crews (h)", "h", "Toggles whether inactive crews appear in the list.", false)
-	}
-	if m.monitor {
-		add("View", "Pin work tab (p)", "p", "Choose the work tab used when opening agents from the monitor. Automatic selection can be restored in the picker.", false)
+	if m.selectedID() == "" {
+		add("View", "Change grouping (g)", "g", "Cycles the member list between attention, crew and repository grouping.", false)
+		add("View", "Filter members (/)", "/", "Opens search to narrow the member list. Enter keeps the filter; Esc clears it.", false)
+		if m.group == "crew" {
+			add("View", "Show/hide inactive crews (h)", "h", "Toggles whether inactive crews appear in the list.", false)
+		}
+		if m.monitor {
+			add("View", "Pin work tab (p)", "p", "Choose the work tab used when opening agents from the monitor. Automatic selection can be restored in the picker.", false)
+		}
+	} else {
+		add("Overview", "Main actions (Home)", "home", "Selects Overview for spawning and adding agents, managing crews and changing the view.", false)
 	}
 	// Keep Copy last so a message appearing does not change existing action indices.
 	if m.copyableMessage() != "" {
@@ -68,12 +75,16 @@ func (m Model) navigationKey(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 	key := msg.String()
 	// Direct panel keys are handled after text inputs and confirmation dialogs.
 	switch key {
+	case "home":
+		m.selectOverview()
+		m.panel, m.actionCursor, m.actionScroll = actionsPanel, 0, 0
+		return m, nil, true
 	case "1":
 		m.panel, m.tableFocus = listPanel, false
 		return m, nil, true
 	case "2":
 		m.panel = detailPanel
-		m.tableFocus = m.group == "crew" && m.currentEntry().id == "" && len(m.members(m.currentEntry().crew)) > 0
+		m.tableFocus = !m.overview && m.group == "crew" && m.currentEntry().id == "" && len(m.members(m.currentEntry().crew)) > 0
 		return m, nil, true
 	case "3":
 		m.panel, m.actionCursor, m.actionScroll = actionsPanel, 0, 0
@@ -108,13 +119,15 @@ func (m Model) navigationKey(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 	case "right":
 		if m.panel == detailPanel {
 			m.panel, m.actionCursor, m.actionScroll = actionsPanel, 0, 0
+		} else if m.overview {
+			m.panel, m.actionCursor, m.actionScroll = actionsPanel, 0, 0
 		} else {
 			e := m.currentEntry()
-			if m.group == "crew" && e.id == "" && e.crew != "" && !m.expanded[e.crew] {
+			if !m.overview && m.group == "crew" && e.id == "" && e.crew != "" && !m.expanded[e.crew] {
 				return m, nil, false // retain the first Right's expand behavior
 			}
 			m.panel = detailPanel
-			m.tableFocus = m.group == "crew" && e.id == "" && len(m.members(e.crew)) > 0
+			m.tableFocus = !m.overview && m.group == "crew" && e.id == "" && len(m.members(e.crew)) > 0
 		}
 		return m, nil, true
 	case "left", "esc":
@@ -123,7 +136,7 @@ func (m Model) navigationKey(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 			return m, nil, true
 		}
 	case "tab", "shift+tab":
-		if m.group == "crew" {
+		if !m.overview && m.group == "crew" {
 			return m, nil, false
 		} // preserve crew table's Tab toggle
 		if key == "tab" {
@@ -194,9 +207,12 @@ func (m Model) actionsView(height int) string {
 	cursor := max(0, min(m.actionCursor, len(actions)-1))
 	layout := m.layoutActions(height)
 	width := m.detailWidth()
-	title := "Actions / settings"
+	title := "Overview actions"
 	if id := m.selectedID(); id != "" {
-		title = "Actions: " + clean(id)
+		title = "Actions: " + clean(m.selectedRow().Name)
+		if m.selectedRow().Name == "" {
+			title = "Actions: " + clean(id)
+		}
 	}
 	if layout.start > 0 {
 		title += " ↑"

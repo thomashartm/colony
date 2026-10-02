@@ -9,10 +9,13 @@ import (
 const navigationBar = "[o Open agent] [1 List] [2 Details] [3 Actions] [q Close]"
 
 func (m Model) navigationAvailable() bool {
-	return !m.busy && !m.searching && m.spawn == nil && m.editor == nil && !m.manager && m.retiring == nil && m.terminating == nil && m.importing == nil && !m.picking
+	return !m.busy && !m.searching && m.spawn == nil && m.editor == nil && !m.manager && m.retiring == nil && m.terminating == nil && m.importing == nil && m.opening == nil && !m.picking
 }
 
 func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+	if m.opening != nil {
+		return m.agentPickerMouse(msg)
+	}
 	if m.editor != nil && !m.busy && m.width >= 60 && m.height >= 10 {
 		return m.editorMouse(msg)
 	}
@@ -58,7 +61,7 @@ func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		if msg.Y < 2 || msg.Y >= 2+m.panelHeight() {
 			return m, nil
 		}
-		if msg.X > m.listWidth()+2 && m.group == "crew" && m.currentEntry().id == "" && m.panel != actionsPanel {
+		if msg.X > m.listWidth()+2 && !m.overview && m.group == "crew" && m.currentEntry().id == "" && m.panel != actionsPanel {
 			m.panel, m.tableFocus = detailPanel, true
 		}
 		if msg.X > m.listWidth()+2 && m.panel != actionsPanel && !m.tableFocus {
@@ -109,7 +112,7 @@ func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 				m.panel, m.tableFocus = listPanel, false
 			case "[2 Details]":
 				m.panel = detailPanel
-				m.tableFocus = m.group == "crew" && m.currentEntry().id == "" && len(m.members(m.currentEntry().crew)) > 0
+				m.tableFocus = !m.overview && m.group == "crew" && m.currentEntry().id == "" && len(m.members(m.currentEntry().crew)) > 0
 			case "[3 Actions]":
 				m.panel, m.actionCursor, m.actionScroll = actionsPanel, 0, 0
 			case "[o Open agent]":
@@ -128,46 +131,36 @@ func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	if msg.X >= 1 && msg.X <= m.listWidth() {
 		old := m.selectedID()
 		m.panel, m.tableFocus = listPanel, false
-		if m.group == "crew" {
+		layout := m.listLayout(height, m.listWidth())
+		target := listHeading
+		if y < len(layout.fixed) {
+			target = layout.fixed[y].index
+		} else if index := layout.start + y - len(layout.fixed); index < len(layout.body) {
+			target = layout.body[index].index
+		}
+		if target == listHeading {
+			return m, nil
+		}
+		if target == overviewEntry {
+			m.selectOverview()
+			m.panel, m.actionCursor, m.actionScroll = actionsPanel, 0, 0
+		} else if m.group == "crew" {
 			entries := m.crewEntries()
-			index := max(0, m.crewCursor-height+1) + y
-			if index >= len(entries) {
-				return m, nil
-			}
-			again := index == m.crewCursor
-			m.crewCursor = index
-			m.tableCursor = 0
-			if again && entries[index].id == "" {
+			again := !m.overview && target == m.crewCursor
+			m.overview, m.crewCursor, m.tableCursor = false, target, 0
+			if again && entries[target].id == "" {
 				return m.Update(tea.KeyMsg{Type: tea.KeySpace})
 			}
 		} else {
-			lines, selectedLine, last := []int{}, 0, ""
-			for i, row := range m.rows {
-				group := section(row)
-				if m.group == "repo" {
-					group = clean(row.Repo)
-				}
-				if group != last {
-					lines = append(lines, -1)
-					last = group
-				}
-				if i == m.selected {
-					selectedLine = len(lines)
-				}
-				lines = append(lines, i)
-			}
-			index := max(0, selectedLine-height+1) + y
-			if index >= len(lines) || lines[index] < 0 {
-				return m, nil
-			}
-			m.selectRow(lines[index])
+			m.selectRow(target)
 		}
+
 		m.updateDetail()
 		return m, m.requestDetail(old != m.selectedID())
 	}
 	if msg.X > m.listWidth()+2 && msg.X < m.width-1 {
 		m.panel = detailPanel
-		if m.group == "crew" && m.currentEntry().id == "" {
+		if !m.overview && m.group == "crew" && m.currentEntry().id == "" {
 			e := m.currentEntry()
 			headers := 2
 			if m.crewFor(e.crew).Gig != "" {

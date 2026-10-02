@@ -958,3 +958,25 @@ Validation: all TUI tests, real-terminal crew/member editing and arrow navigatio
 TUI vet, golangci-lint (0 issues), formatting and build passed. Tests cover
 keyboard/mouse selection, wrapping, refreshed lists, empty/unavailable crews,
 long Unicode names, cancellation and 60x10 bounds. Rebuilt `bin/motley`.
+
+### Overview actions, grouped member table and details — 2026-10-02
+
+Status sections now group members by crew and render aligned title, ticket and
+crew columns with the existing status, agent and colour indicators. Overview
+stays pinned above the list and is selectable by mouse, Home or Up from the first
+entry. Main actions are separate from member actions; opening an agent from
+Overview uses an explicit session picker, while Spawn, Add and Manage crews need
+no member selection. Polling preserves Overview and picker targets by identity.
+Rendering and mouse hit testing share the list layout, including decorative
+headings, scrolling and compact terminals.
+
+Ticket hyperlinks accept explicit web URLs and resolve numeric GitHub/GitLab.com
+tickets using the member's remote. Details now have bold labels, aligned and
+wrapped values, consistent field gaps and Workspace/Session sections with dotted
+dividers. Narrow panels stack labels above indented values, matching the editor.
+
+Validation: all Go tests passed, including real-terminal Home/Open picker,
+editor navigation, monitor switching and popup operation. Model coverage includes
+grouping, selection and polling, action scope, keyboard/mouse opening,
+removed/stopped targets, ticket links, Unicode wrapping and 60x10 bounds.
+Vet, golangci-lint (0 issues), build and diff checks passed. Rebuilt `bin/motley`.

@@ -54,7 +54,12 @@ func since(row member.Row) string {
 	if row.Since == 0 || !row.Alive {
 		return "—"
 	}
-	d := time.Since(time.Unix(row.Since, 0))
+	return elapsed(time.Since(time.Unix(row.Since, 0)))
+}
+
+// elapsed renders a duration as whole seconds, minutes or hours; clock skew
+// never shows a negative age.
+func elapsed(d time.Duration) string {
 	if d < 0 {
 		d = 0
 	}

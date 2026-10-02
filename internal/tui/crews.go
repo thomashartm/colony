@@ -316,6 +316,10 @@ func (m Model) crewTable(height, width int) string {
 		widths = append(widths, 5)
 		headers = append(headers, "SINCE")
 	}
+	if width >= 76 {
+		widths = append(widths, 10)
+		headers = append(headers, "PR")
+	}
 	total := len(widths) - 1
 	for _, w := range widths {
 		total += w
@@ -341,7 +345,7 @@ func (m Model) crewTable(height, width int) string {
 		if name == "" {
 			name = r.ID
 		}
-		vals := []string{lipgloss.NewStyle().Foreground(sc).Render(icon), clean(name), colored(badge, bc), link(ticket, ticketURL), clean(r.Repo), clean(r.Branch), since(r)}
+		vals := []string{lipgloss.NewStyle().Foreground(sc).Render(icon), clean(name), colored(badge, bc), link(ticket, ticketURL), clean(r.Repo), clean(r.Branch), since(r), prShort(r.GH)}
 		line := format(vals)
 		if m.tableFocus && i == m.tableCursor {
 			line = lipgloss.NewStyle().Reverse(true).Render(line)

@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -65,6 +66,9 @@ func (m Model) memberLinks(r member.Row) []memberLink {
 	}
 	if label, u := issueLink(r); u != "" {
 		add(label, u)
+	}
+	if r.GH != nil && r.GH.PR != 0 {
+		add(fmt.Sprintf("PR #%d", r.GH.PR), r.GH.URL)
 	}
 	if r.Crew != "" {
 		c := m.crewFor(r.Crew)

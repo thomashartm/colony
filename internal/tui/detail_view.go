@@ -2,6 +2,7 @@ package tui
 
 import (
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
@@ -78,6 +79,13 @@ func (m Model) memberDetails() string {
 		fields = append(fields, detailField{"Gig", clean(c.Gig)})
 	}
 	fields = append(fields, branchFields(r)...)
+	if r.GH != nil {
+		value := clean(prLong(r.GH, time.Now()))
+		if r.GH.PR != 0 && safeWebURL(r.GH.URL) != nil {
+			value = link(value, r.GH.URL)
+		}
+		fields = append(fields, detailField{"PR", value})
+	}
 	fields = append(fields, detailField{"Agent", coloredBadge(r.Agent) + " " + clean(r.Agent)})
 	if r.Blueprint != "" {
 		fields = append(fields, detailField{"Blueprint", clean(r.Blueprint)})

@@ -1,16 +1,20 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/thomashartm/motley/internal/gh"
 	"github.com/thomashartm/motley/internal/member"
+	"github.com/thomashartm/motley/internal/state"
 	"github.com/thomashartm/motley/internal/tmux"
 )
 
 func retireCommand() *cobra.Command {
 	var force, keep bool
 	cmd := &cobra.Command{Use: "retire <id>", Short: "Remove a member's session/worktree and archive its history", Long: "Refuse uncommitted or unpushed work unless --force is supplied.\nRemove the linked worktree and local branch; keep main/master/develop and all\nremote branches. Run from the monitor, another session, or outside tmux.", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		warnOpenPR(cmd, args[0])
 		if err := member.Retire(args[0], force, keep); err != nil {
 			return err
 		}
@@ -21,6 +25,25 @@ func retireCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&keep, "keep-branch", false, "Keep the local branch")
 	return cmd
 }
+
+// warnOpenPR notes an open PR before retiring; retirement keeps remote
+// branches, so the PR stays open. Any lookup failure is silent (best effort).
+func warnOpenPR(cmd *cobra.Command, id string) {
+	dir, err := state.MembersDir()
+	if err != nil {
+		return
+	}
+	m, err := member.Load(dir, id)
+	if err != nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(cmd.Context(), member.RetireLookupTimeout)
+	defer cancel()
+	if pr := member.OpenPR(ctx, gh.Default(), m); pr != nil {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "warning: PR #%d is still open: %s\n", pr.Number, pr.URL)
+	}
+}
+
 func reviveCommand() *cobra.Command {
 	return &cobra.Command{Use: "revive <id>", Short: "Restart a dead member in its existing worktree", Long: "Recreate a missing tmux session and resume the agent's latest recorded session.\nWithout a recorded session, start fresh without a prompt.\nArchived members are retired and cannot be revived.", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		if err := member.Revive(args[0]); err != nil {

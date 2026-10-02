@@ -235,3 +235,24 @@ func TestSpawnFormIssueLookupTerminal(t *testing.T) {
 		}
 	})
 }
+
+func TestRetireWarnsAboutOpenPR(t *testing.T) {
+	f := newMemberFixture(t, buildLifecycleBinary(t), "main")
+	f.useGitHubRemote()
+	f.fakeGH(map[string]string{"open.json": `[{"number":7,"url":"https://github.com/acme/api/pull/7","state":"OPEN","headRefName":"feat/pr","statusCheckRollup":[]}]`})
+	f.motley("spawn", "--repo", "api", "--branch", "feat/pr", "--detach", "--no-gh")
+	out := f.motleyCombined("retire", "feat-pr")
+	if !strings.Contains(out, "warning: PR #7 is still open: https://github.com/acme/api/pull/7") || !strings.Contains(out, "Retired feat-pr") {
+		t.Fatal(out)
+	}
+}
+
+func TestRetireWithoutGH(t *testing.T) {
+	f := newMemberFixture(t, buildLifecycleBinary(t), "main")
+	f.useGitHubRemote()
+	f.motley("spawn", "--repo", "api", "--branch", "feat/nogh", "--detach", "--no-gh")
+	f.withoutGH()
+	if out := f.motleyCombined("retire", "feat-nogh"); strings.Contains(out, "warning") || !strings.Contains(out, "Retired feat-nogh") {
+		t.Fatal(out)
+	}
+}

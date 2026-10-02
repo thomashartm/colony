@@ -80,7 +80,7 @@ func (m Model) footerExtra() string {
 	if !m.navigationAvailable() || m.panel != listPanel || m.tableFocus || m.selectedID() == "" {
 		return ""
 	}
-	return "Links: b browser"
+	return "GitHub: b browser · P PR · u/U refresh"
 }
 
 func wrapFooter(groups []string, width int) []string {

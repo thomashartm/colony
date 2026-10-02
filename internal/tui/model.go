@@ -105,6 +105,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.spawnMessage(msg)
 	case tick:
 		return m, m.poll
+	case githubDone:
+		m.busy, m.busyText = false, ""
+		m.message = msg.text
+		if msg.err != nil {
+			m.message = gh.Hint(msg.err)
+		}
+		// Reload manifests so the new PR and issue data reach the panels.
+		return m, m.poll
 	case linkOpened:
 		if msg.err != nil {
 			m.message = "Could not open link: " + msg.err.Error()
@@ -326,6 +334,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.editMember()
 		case "b":
 			return m.beginLinks()
+		case "P":
+			return m.beginPRMenu()
+		case "u":
+			return m.refreshSelected()
+		case "U":
+			return m.refreshAll()
 		case "q", "ctrl+c":
 			if !m.monitor {
 				return m, tea.Quit

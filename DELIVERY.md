@@ -1171,3 +1171,13 @@ cross-builds, installer/uninstaller and OpenCode plugin tests passed. Coverage i
 main/linked/non-Git checkout preservation, exact remote-client argv, stale IDs,
 changed directories, duplicate imports, missing crews, server failure, pagination,
 status mapping, keyboard/mouse selection and legacy Claude import.
+
+### Refresh all GitHub as a main action — 2026-10-03
+
+**Refresh all GitHub (U)** moved from the member action menu to Main actions
+in Overview, shown once a member is on GitHub; the `U` key still works with a
+member selected. The member footer hint is now `GitHub: b browser · P PR · u
+refresh`. Policy check of the action menus: member and session actions act on
+the selected member; main and view actions appear only in Overview. Copy
+message (`c`) stays in both menus because it copies the status line, not
+member data.

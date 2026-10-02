@@ -83,7 +83,7 @@ func (m Model) footerExtra() string {
 	if !onGitHub(m.selectedRow()) {
 		return "b browser"
 	}
-	return "GitHub: b browser · P PR · u/U refresh"
+	return "GitHub: b browser · P PR · u refresh"
 }
 
 func wrapFooter(groups []string, width int) []string {

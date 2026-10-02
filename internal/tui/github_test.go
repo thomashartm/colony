@@ -249,17 +249,27 @@ func TestGitHubActionsFollowTheRemote(t *testing.T) {
 	if extra := m.footerExtra(); strings.Contains(extra, "PR") || strings.Contains(extra, "refresh") {
 		t.Fatalf("footer offers GitHub actions off GitHub: %q", extra)
 	}
-	// A local member selected while another member is on GitHub: only U applies.
-	m = update(m, snapshot{rows: []member.Row{row("a", true), githubRow("b")}})
-	if m.selectedID() != "a" {
-		t.Fatal(m.selectedID())
+	// Home selects Overview and focuses its actions; 1 returns to the list.
+	if m = update(m, key("home")); m.selectedID() != "" || strings.Contains(keys(m), "U") {
+		t.Fatalf("Overview without a GitHub member offers U: %q", keys(m))
 	}
-	if got := keys(m); got != "bU" {
-		t.Fatalf("mixed: actions %q", got)
+	// Refresh all is a main action: Overview offers it once any member is on GitHub.
+	m = update(m, snapshot{rows: []member.Row{row("a", true), githubRow("b")}})
+	if m.selectedID() != "" || keys(m) != "U" {
+		t.Fatalf("Overview actions %q", keys(m))
+	}
+	m = update(update(m, key("1")), key("j"))
+	if m.selectedID() != "a" || keys(m) != "b" {
+		t.Fatalf("local member: %q actions %q", m.selectedID(), keys(m))
 	}
 	m = update(m, key("j"))
-	if got := keys(m); got != "bPuU" || !strings.Contains(m.footerExtra(), "P PR · u/U refresh") {
+	if got := keys(m); got != "bPu" || !strings.HasSuffix(m.footerExtra(), "P PR · u refresh") {
 		t.Fatalf("GitHub member: actions %q footer %q", got, m.footerExtra())
+	}
+	// The U key still refreshes everything while a member is selected.
+	m.github = prClient("[]", nil)
+	if next, cmd := m.Update(key("U")); cmd == nil || next.(Model).busyText != "Refreshing GitHub data for all members…" {
+		t.Fatalf("U with a member selected: %q", next.(Model).busyText)
 	}
 }
 

@@ -61,25 +61,44 @@ func (f *memberFixture) ghCalls() int {
 	return strings.Count(string(data), "\n")
 }
 
-// withoutGH leaves only the fake agents and the tools spawn needs on PATH, so
-// a gh installed next to git or tmux cannot be found.
+// withoutGH replaces PATH with the fake agents plus a tools directory linking
+// git, tmux and every system command except gh, which CI images often ship in
+// /usr/bin.
 func (f *memberFixture) withoutGH() {
 	f.t.Helper()
 	tools := filepath.Join(f.home, "tools")
 	if err := os.MkdirAll(tools, 0o755); err != nil {
 		f.t.Fatal(err)
 	}
+	link := func(name, target string) {
+		if name == "gh" {
+			return
+		}
+		if _, err := os.Lstat(filepath.Join(tools, name)); err == nil {
+			return
+		}
+		if err := os.Symlink(target, filepath.Join(tools, name)); err != nil {
+			f.t.Fatal(err)
+		}
+	}
 	for _, name := range []string{"git", "tmux"} {
 		path, err := exec.LookPath(name)
 		if err != nil {
 			f.t.Fatal(err)
 		}
-		if err := os.Symlink(path, filepath.Join(tools, name)); err != nil {
+		link(name, path)
+	}
+	for _, dir := range []string{"/usr/bin", "/bin"} {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
 			f.t.Fatal(err)
+		}
+		for _, e := range entries {
+			link(e.Name(), filepath.Join(dir, e.Name()))
 		}
 	}
 	_ = os.Remove(filepath.Join(f.home, "fake agents", "gh"))
-	f.t.Setenv("PATH", strings.Join([]string{filepath.Join(f.home, "fake agents"), tools, "/usr/bin", "/bin"}, string(os.PathListSeparator)))
+	f.t.Setenv("PATH", filepath.Join(f.home, "fake agents")+string(os.PathListSeparator)+tools)
 	if path, err := exec.LookPath("gh"); err == nil {
 		f.t.Fatalf("gh still resolvable at %s; cannot test its absence", path)
 	}

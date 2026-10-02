@@ -153,7 +153,7 @@ web URLs work with any tracker; numeric tickets
 link to issues on the member's GitHub or GitLab.com remote.
 
 Click the pinned **Overview** entry or press **Home** for main actions: spawn a
-member, add an existing Claude, open an agent or manage crews. **Open agent** here
+member, add an existing Claude or Codex session, open an agent or manage crews. **Open agent** here
 shows a picker of running sessions, including members hidden by the list filter.
 Selecting a member gives it a separate action menu. You can also reach Overview
 with **↑** from the first list entry, then **Enter** or **→** to open its actions.
@@ -328,23 +328,38 @@ recorded session, as do Codex and OpenCode when reporting captured a session id.
 Without a recorded id, the agent starts fresh. If the agent exited but its tmux
 shell is still alive, restart the agent in that shell instead.
 
-### Add an existing Claude session
+### Add an existing agent
 
-In the monitor press **a**, or **3 Actions → Add existing Claude**, then select
-its name and press **Enter**. Claude keeps running in its original terminal;
-no restart, tmux setup or worktree conversion is needed. Requires Claude Code's
-`claude agents --json` command.
+In the monitor press **a**, or **3 Actions → Add existing agent**, choose
+**Claude** or **Codex**, then select a session and press **Enter**. Import records
+the existing conversation and checkout without restarting it or creating a worktree.
 
 ```sh
 mtly import --list
 mtly import <session-id> --name "Existing work"
+mtly import --agent codex --list
+mtly import --agent codex <session-id> --name "Existing work" --crew banking
 ```
 
+**Claude** is the default and requires `claude agents --json`.
 Status updates come from Claude. The session stays in its original terminal, which
 Motley never controls: **Open agent** tells you where it runs. Switch to that tab
 and reply there. **Terminate** stops Claude; **Revive** resumes the saved conversation
 in Motley’s tmux session. **Retire** keeps imported directories and branches,
 even with Force.
+
+**Codex** requires a running local shared app-server with its Unix-socket interface
+(verified with CLI 0.159.3 and daemon 0.160.0). Discovery reads loaded session
+metadata and status through the [Codex app-server API](https://learn.chatgpt.com/docs/app-server).
+Standalone `--no-daemon` sessions, remote servers, ephemeral threads and subagents
+are not offered. Import leaves the existing session running.
+
+**Open agent**, `attach` and `switch` open a Codex terminal client connected to
+the original server and conversation. **Revive** reconnects the saved conversation
+through that server. **Retire** closes Motley's terminal and archives its entry;
+it keeps the conversation, running work, checkout and branches. **Terminate** is
+unavailable for imported Codex sessions; stop a turn from Codex itself. Discovery
+or identity errors are reported without starting a separate agent.
 
 To adopt an existing linked worktree, run inside its tmux session:
 

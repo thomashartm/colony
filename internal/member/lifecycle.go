@@ -52,10 +52,10 @@ func InspectRetire(id string) (RetireCheck, error) {
 }
 func inspectRetire(m Manifest, checkChanges bool) (RetireCheck, error) {
 	c := RetireCheck{Manifest: m}
-	if m.ClaudeSession == "" && (!filepath.IsAbs(m.Worktree) || !filepath.IsAbs(m.RepoPath)) {
+	if !m.Imported() && (!filepath.IsAbs(m.Worktree) || !filepath.IsAbs(m.RepoPath)) {
 		return c, fmt.Errorf("manifest worktree and repo paths must be absolute")
 	}
-	if m.ClaudeSession == "" {
+	if !m.Imported() {
 		if _, err := worktree.Linked(m.RepoPath, m.Worktree, m.Branch); err != nil {
 			return c, err
 		}
@@ -70,7 +70,7 @@ func inspectRetire(m Manifest, checkChanges bool) (RetireCheck, error) {
 			return c, fmt.Errorf("open motley monitor to retire %s; this overview is inside the target session (or use another tmux session)", m.ID)
 		}
 	}
-	if m.ClaudeSession != "" || !checkChanges {
+	if m.Imported() || !checkChanges {
 		return c, nil
 	}
 	exists := false
@@ -133,7 +133,7 @@ func Retire(id string, force, keepBranch bool) error {
 	if err != nil {
 		return err
 	}
-	if m.ClaudeSession != "" {
+	if m.Imported() {
 		if _, err := inspectRetire(m, false); err != nil {
 			return err
 		}
@@ -146,7 +146,7 @@ func Retire(id string, force, keepBranch bool) error {
 				return err
 			}
 		}
-		if err := stopExternal(m); err != nil {
+		if err := stopImported(m); err != nil {
 			return err
 		}
 		if err := os.MkdirAll(filepath.Join(dir, "archive"), 0700); err != nil {
@@ -260,7 +260,10 @@ func Terminate(id string) error {
 	if err != nil {
 		return err
 	}
-	if m.ClaudeSession != "" {
+	if m.CodexSession != "" {
+		return fmt.Errorf("codex runs on a shared server; stop the turn in Codex, or Retire to remove only its Motley entry")
+	}
+	if m.Imported() {
 		live, err := importedLive(m)
 		if err != nil {
 			return err
@@ -307,7 +310,11 @@ func Revive(id string) error {
 			return fmt.Errorf("member %s is already alive or its session name is occupied", id)
 		}
 	}
-	if m.ClaudeSession != "" {
+	if m.CodexSession != "" {
+		if err := ValidateCodex(m); err != nil {
+			return err
+		}
+	} else if m.ClaudeSession != "" {
 		external, err := externalSession(m)
 		if err != nil {
 			return err

@@ -1132,3 +1132,42 @@ Release: merged in [#41](https://github.com/thomashartm/motley/pull/41) as
 [main CI jobs](https://github.com/thomashartm/motley/actions/runs/37041383867)
 and all nine [release-tag CI jobs](https://github.com/thomashartm/motley/actions/runs/37041671700)
 passed. v0.7.0 and v0.8.0 remain untagged, as agreed.
+
+### Import existing Codex sessions (#50) — 2026-10-02
+
+`mtly import --agent codex --list` and `mtly import --agent codex <id>` now
+register existing Codex conversations, with optional name and crew overrides.
+The TUI's Add existing agent action offers Claude and Codex before its session
+picker. Claude remains the CLI default and existing manifests remain compatible.
+
+Discovery uses `codex app-server daemon version` to locate the existing local
+Unix socket, followed by WebSocket initialize, thread/loaded/list and metadata-only
+thread/read calls. It never starts a daemon, reads transcripts, subscribes,
+resumes or starts turns during import. Imported identity is rechecked before
+opening; duplicate, stale and unavailable selections fail without launching.
+Standalone --no-daemon sessions, remote endpoints, ephemeral threads and
+subagents are outside this slice.
+
+Codex Open/attach/switch and Revive use `codex resume --remote unix://<socket>
+-- <thread-id>` so the original server remains the conversation executor.
+Retire closes only Motley's terminal client and archives its entry, preserving
+running Codex work, conversation, files and branches. Terminate is refused for
+these shared sessions and omitted from their Actions menu. Codex status is read
+from its server, including approval/input waiting flags; failed discovery never
+silently declares sessions dead. Reply rechecks the server's approval state
+before sending, because shared sessions do not emit Motley terminal hooks.
+
+Evidence: read-only discovery on Codex CLI 0.159.3 / daemon 0.160.0 found three
+eligible local sessions without importing or interrupting them. An isolated
+native 0.159.3 server/client test resumed a persisted fixture conversation and
+rendered its existing message; the loaded thread ID was unchanged and no second
+thread appeared. The fixture used a local unavailable model endpoint and an
+interrupted test turn; no real model inference or user conversation was used.
+The initial empty-thread probe could not resume before any turn was persisted.
+
+Validation: full Go suite, focused CLI/TUI import and real-tmux open tests, race
+checks for Codex discovery/TUI/member operations, vet, golangci-lint, four-platform
+cross-builds, installer/uninstaller and OpenCode plugin tests passed. Coverage includes
+main/linked/non-Git checkout preservation, exact remote-client argv, stale IDs,
+changed directories, duplicate imports, missing crews, server failure, pagination,
+status mapping, keyboard/mouse selection and legacy Claude import.

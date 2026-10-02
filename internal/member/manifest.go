@@ -17,6 +17,8 @@ import (
 type Manifest struct {
 	// Imported checkouts are borrowed: retirement never removes files or branches.
 	ClaudeSession string `toml:"claude_session,omitempty"`
+	CodexSession  string `toml:"codex_session,omitempty"`
+	CodexSocket   string `toml:"codex_socket,omitempty"`
 
 	Prompt    bool       `toml:"prompt,omitempty"`
 	Blueprint string     `toml:"blueprint,omitempty"`
@@ -62,6 +64,8 @@ type IssueRef struct {
 	URL   string `toml:"url"`
 }
 
+func (m Manifest) Imported() bool { return m.ClaudeSession != "" || m.CodexSession != "" }
+
 var validID = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
 func CheckID(id string) error {
@@ -89,6 +93,11 @@ func Load(dir, id string) (Manifest, error) {
 	}
 	if m.ClaudeSession != "" && (m.Agent != "claude" || CheckID(m.ClaudeSession) != nil) {
 		return Manifest{}, fmt.Errorf("invalid imported Claude session in %s", path)
+	}
+	if m.CodexSession != "" || m.CodexSocket != "" {
+		if m.Agent != "codex" || CheckID(m.CodexSession) != nil || !filepath.IsAbs(m.CodexSocket) || strings.ContainsAny(m.CodexSocket, "\x00\r\n") || !filepath.IsAbs(m.Worktree) || len(m.AgentArgs) != 0 || m.ClaudeSession != "" {
+			return Manifest{}, fmt.Errorf("invalid imported Codex session in %s", path)
+		}
 	}
 	return m, nil
 }

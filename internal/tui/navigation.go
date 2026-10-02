@@ -26,7 +26,9 @@ func (m Model) actions() []navigationAction {
 	}
 	if m.selectedID() != "" {
 		openHelp := "Switches to this member's running agent so you can interact with it directly."
-		if m.selectedRow().External {
+		if m.selectedRow().CodexSession != "" {
+			openHelp = "Opens a terminal client to the same Codex server and conversation. The existing session continues running."
+		} else if m.selectedRow().External {
 			openHelp = "Shows where the agent is running in its original terminal. Switch there yourself, or terminate and revive it to run it in Motley."
 		}
 		add("Member", "Open agent (o)", "o", openHelp, false)
@@ -47,13 +49,21 @@ func (m Model) actions() []navigationAction {
 	if m.selectedID() == "" {
 		add("Main actions", "Manage crews (m)", "m", "Opens crew management to add, edit, recolour or delete crews and organise their members.", false)
 		add("Main actions", "Spawn member (s)", "s", "Opens setup for a new member. Launch creates its worktree and starts the chosen agent after you review the preview.", false)
-		add("Main actions", "Add existing Claude (a)", "a", "Lists running Claude sessions to add to Motley. Import keeps the agent in its original terminal and leaves its files in place.", false)
+		add("Main actions", "Add existing agent (a)", "a", "Choose Claude or Codex, then select an existing session to add. Import preserves its conversation and files without restarting it.", false)
 		add("Main actions", "Open agent (o)", "o", "Choose a running agent to open. The picker includes all members, even when the main list is filtered.", false)
 	}
 	if m.selectedID() != "" {
-		add("Session & cleanup", "Revive member (r)", "r", "Immediately restarts a stopped member in its existing worktree, resuming its saved agent session when available. Does not restore retired members or deleted worktrees.", false)
-		add("Session & cleanup", "Terminate agent (d)", "d", "Asks for confirmation, then stops all processes in this member's session. Keeps its worktree, branch and history so you can revive it.", true)
-		if m.selectedRow().ClaudeSession != "" {
+		reviveHelp := "Immediately restarts a stopped member in its existing worktree, resuming its saved agent session when available. Does not restore retired members or deleted worktrees."
+		if m.selectedRow().CodexSession != "" {
+			reviveHelp = "Reopens the saved Codex conversation through its original shared server. Does not create a new conversation or worktree."
+		}
+		add("Session & cleanup", "Revive member (r)", "r", reviveHelp, false)
+		if m.selectedRow().CodexSession == "" {
+			add("Session & cleanup", "Terminate agent (d)", "d", "Asks for confirmation, then stops all processes in this member's session. Keeps its worktree, branch and history so you can revive it.", true)
+		}
+		if m.selectedRow().CodexSession != "" {
+			add("Session & cleanup", "Retire member; keep files (x)", "x", "Closes its Motley terminal and archives the Motley entry. Keeps the Codex conversation and running work on the shared server, plus all files and branches.", false)
+		} else if m.selectedRow().ClaudeSession != "" {
 			add("Session & cleanup", "Retire member; keep files (x)", "x", "Asks for confirmation, then stops the agent and archives the member and history. Keeps the imported checkout, files and branches.", true)
 		} else {
 			add("Session & cleanup", "Retire member + worktree (x)", "x", "Removes the worktree and stops the session after cleanup checks and confirmation. Archives the member and history. Deletes the local branch unless kept or protected; remote branches stay. Force can discard uncommitted work and unpushed commits.", true)

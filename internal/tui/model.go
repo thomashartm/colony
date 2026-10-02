@@ -510,7 +510,7 @@ func (m Model) jump() (tea.Model, tea.Cmd) {
 		m.message = "This member is dead; its tmux session is not running."
 		return m, nil
 	}
-	if m.selectedRow().External {
+	if m.selectedRow().External && m.selectedRow().CodexSession == "" {
 		m.busy = true
 		return m, func() tea.Msg { return actionDone{err: member.ExternalTerminal(id)} }
 	}
@@ -552,6 +552,9 @@ func (m Model) jump() (tea.Model, tea.Cmd) {
 			if !found {
 				return actionDone{err: fmt.Errorf("the originating tmux client is no longer attached")}
 			}
+		}
+		if err := member.PrepareOpen(id); err != nil {
+			return actionDone{err: err}
 		}
 		return actionDone{err: tmux.SwitchClient(client, id), quit: !monitor}
 	}

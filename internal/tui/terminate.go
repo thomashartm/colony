@@ -19,6 +19,10 @@ func (m Model) beginTerminate() (tea.Model, tea.Cmd) {
 	if id == "" {
 		return m, nil
 	}
+	if m.selectedRow().CodexSession != "" {
+		m.message = "Codex runs on a shared server; stop the turn in Codex, or Retire to remove only its Motley entry."
+		return m, nil
+	}
 	if !m.selectedRow().Alive {
 		m.message = "This agent session is already stopped. Use Revive to restart it."
 		return m, nil

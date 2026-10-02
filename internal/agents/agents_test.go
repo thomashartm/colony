@@ -53,3 +53,12 @@ func TestResumeArgv(t *testing.T) {
 		}
 	}
 }
+
+func TestCodexClientUsesOriginalServer(t *testing.T) {
+	socket := "/path with spaces/server.sock"
+	session := "existing-thread"
+	want := []string{"codex", "resume", "--remote", "unix://" + socket, "--", session}
+	if got := CodexClientArgv(socket, session); !reflect.DeepEqual(got, want) {
+		t.Fatal(got, want)
+	}
+}

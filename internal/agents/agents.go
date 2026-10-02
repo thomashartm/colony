@@ -69,3 +69,17 @@ func Exec(name string, args []string, prompt, sessionID string) error {
 	}
 	return syscall.Exec(bin, argv, os.Environ())
 }
+
+// CodexClientArgv attaches a terminal to the original server and thread. It must
+// never use --no-daemon, which would create a separate conversation executor.
+func CodexClientArgv(socket, sessionID string) []string {
+	return []string{"codex", "resume", "--remote", "unix://" + socket, "--", sessionID}
+}
+
+func ExecCodexClient(socket, sessionID string) error {
+	bin, err := Binary("codex")
+	if err != nil {
+		return err
+	}
+	return syscall.Exec(bin, CodexClientArgv(socket, sessionID), os.Environ())
+}

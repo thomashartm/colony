@@ -147,8 +147,13 @@ func connectCommand(attach bool) *cobra.Command {
 			}
 			for _, r := range rows {
 				if r.ID == args[0] && r.External {
-					return member.ExternalTerminal(r.ID)
+					if r.CodexSession == "" {
+						return member.ExternalTerminal(r.ID)
+					}
 				}
+			}
+			if err := member.PrepareOpen(args[0]); err != nil {
+				return err
 			}
 			if attach {
 				return tmux.Attach(args[0])
@@ -184,6 +189,12 @@ func execAgentCommand() *cobra.Command {
 			}
 			if err := os.Setenv("MOTLEY_MEMBER", m.ID); err != nil {
 				return err
+			}
+			if m.CodexSession != "" {
+				if err := member.ValidateCodex(m); err != nil {
+					return err
+				}
+				return agents.ExecCodexClient(m.CodexSocket, m.CodexSession)
 			}
 			sessionID := ""
 			if resume {

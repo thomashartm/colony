@@ -145,6 +145,8 @@ func TestImportPickerTerminal(t *testing.T) {
 	terminal := startTerminal(t, exec.Command(bin, "--monitor"))
 	eventually(t, func() bool { return strings.Contains(terminal.text(), "[3 Actions]") })
 	terminal.send(t, "a")
+	eventually(t, func() bool { return strings.Contains(terminal.text(), "Add existing agent") })
+	terminal.send(t, "\r")
 	eventually(t, func() bool { return strings.Contains(terminal.text(), "Existing Claude") })
 	terminal.send(t, "\r")
 	eventually(t, func() bool { return strings.Contains(terminal.text(), "Added Existing Claude") })

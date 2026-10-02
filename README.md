@@ -10,6 +10,12 @@ tmux session. Use **`motley`** or **`mtly`**.
 An agent session is a **member**, a group of members is a **crew**, and its package
 of work is a **gig**.
 
+<p align="center">
+  <a href="motley-screen.png">
+    <img src="motley-screen.png" alt="Motley's terminal UI: members grouped by attention and crew on the left, the selected member's status, workspace and session details on the right, with the key footer below" width="900">
+  </a>
+</p>
+
 ## Install
 
 macOS or Linux, amd64 or arm64; bash, zsh or fish:

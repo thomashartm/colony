@@ -1229,3 +1229,9 @@ writes to the host Mac's clipboard, not the SSH client's clipboard.
 PR preparation: rebased `fix/29-macos-clipboard` onto main at `1373916`,
 preserving both delivery entries. Focused real-tmux clipboard/footer/monitor
 and TUI GitHub/navigation tests passed again after the rebase.
+
+### README screenshot — 2026-10-03
+
+The README shows a centered screenshot of the TUI (`motley-screen.png`, 900 px
+wide, linking to the full-size image) between the introduction and Install.
+Release archives include it alongside the logo so the packaged README renders.

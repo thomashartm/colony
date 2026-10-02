@@ -74,8 +74,11 @@ func assertFooterFits(t *testing.T, m Model) {
 		if strings.Count(lines[3], "┄") != m.listWidth()+m.detailWidth() {
 			t.Fatal("panel headings are missing dotted dividers")
 		}
-		if strings.TrimSpace(strings.ReplaceAll(lines[4], "│", "")) != "" {
-			t.Fatal("panel dividers need a blank row below")
+		if strings.TrimSpace(strings.ReplaceAll(ansi.Cut(lines[4], m.listWidth()+2, m.width), "│", "")) != "" {
+			t.Fatal("right panel divider needs a blank row below")
+		}
+		if m.group != "crew" && !strings.HasPrefix(lines[4], "│ST AG") {
+			t.Fatal("list column headings must sit directly below the divider")
 		}
 	}
 	if lipgloss.Width(m.View()) > m.width || lipgloss.Height(m.View()) > m.height {

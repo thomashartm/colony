@@ -15,15 +15,15 @@ func click(m Model, x, y int) Model {
 
 func listScreenY(t *testing.T, m Model, text string) int {
 	t.Helper()
-	for y, line := range strings.Split(ansi.Strip(m.listView(m.contentHeight(), m.listWidth())), "\n") {
+	for y, line := range strings.Split(ansi.Strip(m.listView(m.listContentHeight(), m.listWidth())), "\n") {
 		if strings.Contains(line, text) {
 			if y > 0 {
-				y += m.panelHeadingGap()
+				y += m.listHeadingGap()
 			}
 			return y + 2
 		}
 	}
-	t.Fatalf("list row %q not visible:\n%s", text, m.listView(m.contentHeight(), m.listWidth()))
+	t.Fatalf("list row %q not visible:\n%s", text, m.listView(m.listContentHeight(), m.listWidth()))
 	return -1
 }
 

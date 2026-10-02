@@ -86,7 +86,7 @@ func TestActionsGroupsAndConsequences(t *testing.T) {
 		if len(lines) != m.contentHeight() || strings.TrimSpace(lines[len(lines)-1]) == "" {
 			t.Fatal("help message is not anchored at the bottom")
 		}
-		panel := strings.Split(ansi.Strip(m.panelHeading(view, m.detailWidth())), "\n")
+		panel := strings.Split(ansi.Strip(panelHeading(view, m.detailWidth(), m.panelHeadingGap())), "\n")
 		if len(panel) != m.panelHeight() || strings.TrimSpace(panel[len(panel)-1]) == "" {
 			t.Fatal("heading spacing moved help away from the panel bottom")
 		}

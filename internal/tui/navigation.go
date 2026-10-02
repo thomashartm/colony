@@ -263,26 +263,29 @@ func control(label string, focused bool) string {
 	return "  " + label
 }
 
-// panelHeading gives every panel the same divider and breathing room without
-// changing the content renderers' row coordinates.
-func (m Model) panelHeading(content string, width int) string {
-	if m.panelHeadingGap() == 0 {
+// panelHeading adds a divider and the requested space below the title.
+func panelHeading(content string, width, gap int) string {
+	if gap == 0 {
 		return content
 	}
 	title, body, _ := strings.Cut(content, "\n")
 	divider := panelDivider(width)
-	return title + "\n" + divider + "\n\n" + body
+	return title + "\n" + divider + strings.Repeat("\n", gap) + body
 }
 
 // panelContentY maps screen coordinates back to the unadorned panel content.
 // The divider and blank row are not interactive.
 func (m Model) panelContentY(screenY int) int {
+	return contentY(screenY, m.panelHeadingGap())
+}
+
+func contentY(screenY, gap int) int {
 	y := screenY - 2 // app header and top border
 	if y > 0 {
-		if y <= m.panelHeadingGap() {
+		if y <= gap {
 			return -1
 		}
-		y -= m.panelHeadingGap()
+		y -= gap
 	}
 	return y
 }

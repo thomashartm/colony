@@ -160,7 +160,7 @@ func TestGroupedTableLinksAndMouseTargets(t *testing.T) {
 	snap.rows = append(snap.rows, b, a)
 	m := update(newModel(false, false, "", nil), tea.WindowSizeMsg{Width: 180, Height: 45})
 	m = update(m, snap)
-	view := m.listView(m.contentHeight(), m.listWidth())
+	view := m.listView(m.listContentHeight(), m.listWidth())
 	for _, text := range []string{"TITLE", "TICKET", "CREW", "NEEDS YOU", "WORKING", "FX Banking", "Operations", "No crew", "CC", "●", "⚠", "https://github.com/owner/repo/issues/42", "https://tracker.example/tickets/71"} {
 		if !strings.Contains(view, text) {
 			t.Fatal("missing table content", text)
@@ -174,7 +174,7 @@ func TestGroupedTableLinksAndMouseTargets(t *testing.T) {
 		if m.selectedID() != id {
 			t.Fatal("mouse selected wrong row", id, m.selectedID())
 		}
-		for _, line := range m.listLayout(m.contentHeight(), m.listWidth()).body {
+		for _, line := range m.listLayout(m.listContentHeight(), m.listWidth()).body {
 			if line.index < 0 {
 				continue
 			}
@@ -211,13 +211,13 @@ func TestTableAndOverviewCompactScrolling(t *testing.T) {
 			if lipgloss.Height(view) > m.height || lipgloss.Width(view) > m.width {
 				t.Fatalf("table overflow %v", size)
 			}
-			layout := m.listLayout(m.contentHeight(), m.listWidth())
-			visible := layout.body[layout.start:min(len(layout.body), layout.start+m.contentHeight()-len(layout.fixed))]
+			layout := m.listLayout(m.listContentHeight(), m.listWidth())
+			visible := layout.body[layout.start:min(len(layout.body), layout.start+m.listContentHeight()-len(layout.fixed))]
 			found := false
 			for i, line := range visible {
 				if line.index == m.selected {
 					found = true
-					m = click(m, 3, i+len(layout.fixed)+2+m.panelHeadingGap())
+					m = click(m, 3, i+len(layout.fixed)+2+m.listHeadingGap())
 					if m.selectedID() == "" {
 						t.Fatal("scrolled hit target lost")
 					}

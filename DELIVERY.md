@@ -1035,3 +1035,12 @@ place when selection changes, including crew entries and Overview.
 Validation: TUI tests, narrow/wide footer bounds and mouse checks, real-terminal
 overview/monitor checks, TUI vet, build and diff checks passed. The tmux ticket
 link test initially timed out opening its popup and passed on a targeted rerun.
+
+### List heading spacing — 2026-10-02
+
+Removed the blank row between the left-panel divider and the ST/AG/TITLE table
+headings. The list uses the recovered row for members; scrolling and mouse
+coordinates account for its tighter header spacing.
+
+Validation: TUI tests, real-terminal overview/monitor and tmux ticket-link tests,
+TUI vet, build and diff checks passed.

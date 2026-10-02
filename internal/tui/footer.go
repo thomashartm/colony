@@ -30,6 +30,10 @@ func (m Model) panelHeadingGap() int {
 
 func (m Model) contentHeight() int { return m.panelHeight() - m.panelHeadingGap() }
 
+// The list's column headings sit directly below its divider.
+func (m Model) listHeadingGap() int    { return min(1, m.panelHeadingGap()) }
+func (m Model) listContentHeight() int { return m.panelHeight() - m.listHeadingGap() }
+
 // Keep whole groups together and leave the last terminal column unused. A compact
 // variant retains navigation and confirm/back controls instead of cutting off keys.
 func (m Model) footer() string {

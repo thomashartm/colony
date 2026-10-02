@@ -610,7 +610,7 @@ func (m Model) View() string {
 		}
 	}
 	height, width := m.contentHeight(), m.listWidth()
-	list := m.listView(height, width)
+	list := m.listView(m.listContentHeight(), width)
 	right := m.detail.View()
 	if !m.overview && m.group == "crew" && m.currentEntry().id == "" {
 		right = m.crewTable(height, m.detailWidth())
@@ -649,8 +649,8 @@ func (m Model) View() string {
 	} else {
 		rightBorder = rightBorder.BorderForeground(lipgloss.Color("6"))
 	}
-	left := leftBorder.Width(width).Height(m.panelHeight()).Render(m.panelHeading(list, width))
-	detail := rightBorder.Width(m.detailWidth()).Height(m.panelHeight()).Render(m.panelHeading(right, m.detailWidth()))
+	left := leftBorder.Width(width).Height(m.panelHeight()).Render(panelHeading(list, width, m.listHeadingGap()))
+	detail := rightBorder.Width(m.detailWidth()).Height(m.panelHeight()).Render(panelHeading(right, m.detailWidth(), m.panelHeadingGap()))
 	message := m.message
 	if m.pollError != "" {
 		message = m.pollError

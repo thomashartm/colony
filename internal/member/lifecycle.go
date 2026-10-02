@@ -12,6 +12,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/thomashartm/motley/internal/agents"
 	"github.com/thomashartm/motley/internal/crew"
+	"github.com/thomashartm/motley/internal/gh"
 	"github.com/thomashartm/motley/internal/gitx"
 	"github.com/thomashartm/motley/internal/state"
 	"github.com/thomashartm/motley/internal/tmux"
@@ -23,6 +24,8 @@ type RetireCheck struct {
 	Dirty      bool
 	Ahead      int
 	ComparedTo string
+	// OpenPR is a best-effort warning, never a refusal risk.
+	OpenPR *gh.PR
 }
 
 func (c RetireCheck) Risks() []string {

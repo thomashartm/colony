@@ -586,11 +586,16 @@ func (m Model) View() string {
 			alive++
 		}
 	}
-	header := fmt.Sprintf(" motley  %d alive · %d dead", alive, len(m.rows)-alive)
-	header += "  " + totals(m.rows)
+	var crewMark string
+	for _, color := range []lipgloss.Color{"6", "5", "3"} {
+		crewMark += lipgloss.NewStyle().Foreground(color).Render("▌")
+	}
+	header := " " + crewMark + " " + lipgloss.NewStyle().Bold(true).Render("MOTLEY")
 	if m.monitor {
-		header = fmt.Sprintf(" motley monitor  %d alive · %d dead", alive, len(m.rows)-alive)
-		header += "  " + totals(m.rows)
+		header += " monitor"
+	}
+	header += fmt.Sprintf("  %d alive · %d dead  %s", alive, len(m.rows)-alive, totals(m.rows))
+	if m.monitor {
 		if m.alert {
 			header += "  ! NEW ATTENTION"
 		}

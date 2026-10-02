@@ -591,6 +591,7 @@ func (m Model) View() string {
 		crewMark += lipgloss.NewStyle().Foreground(color).Render("▌")
 	}
 	header := " " + crewMark + " " + lipgloss.NewStyle().Bold(true).Render("MOTLEY")
+	header += " " + lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Render(`\m/_`)
 	if m.monitor {
 		header += " monitor"
 	}

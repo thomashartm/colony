@@ -82,6 +82,9 @@ func (m Model) footerGroups() (full, compact []string) {
 			return []string{"[Spawn] Launching…"}, []string{"[Spawn] Launching…"}
 		}
 	}
+	if m.importing != nil {
+		return []string{"[Import] ↑↓ choose · enter add · esc cancel"}, []string{"[Import] ↑↓ choose · enter add · esc cancel"}
+	}
 	if m.searching {
 		return []string{"[Filter] Type to search", "Act: enter keep · esc clear"}, []string{"[Filter] type", "enter keep · esc clear"}
 	}
@@ -99,6 +102,9 @@ func (m Model) footerGroups() (full, compact []string) {
 			return []string{"[Crews] Nav: ↑↓ action", "Act: enter choose · ←/esc back"}, []string{"[Crews] ↑↓ action", "enter choose · esc back"}
 		}
 		return []string{"[Crews] Nav: ↑↓ crew · → actions", "Act: enter edit/add · esc back", "Shortcuts: a add · e edit · c colour · x delete"}, []string{"[Crews] ↑↓ crew · → actions", "enter edit · esc back"}
+	}
+	if m.retiring != nil && m.retiring.check.Manifest.ClaudeSession != "" {
+		return []string{"[Retire] ↑↓ choose · enter confirm · esc cancel"}, []string{"[Retire] ↑↓ choose · enter confirm · esc cancel"}
 	}
 	if m.retiring != nil {
 		return []string{"[Retire] Nav: ↑↓ choice", "Act: enter toggle/confirm · esc cancel", "Options: f force · k keep branch"}, []string{"[Retire] ↑↓ choice", "enter choose · esc cancel"}

@@ -74,7 +74,8 @@ func Run(monitor bool, client string, bell bool) error {
 		if err != nil {
 			return snapshot{err: err}
 		}
-		return snapshot{rows: member.Join(manifests, sessions), clients: clients, crews: crews}
+		rows, err := member.RefreshExternal(member.Join(manifests, sessions))
+		return snapshot{rows: rows, clients: clients, crews: crews, err: err}
 	}
 	m := newModel(monitor, inside, client, poll)
 	m.bell = bell

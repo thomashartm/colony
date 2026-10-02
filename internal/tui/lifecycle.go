@@ -56,13 +56,17 @@ func (m Model) updateRetire(key string) (tea.Model, tea.Cmd) {
 	m.retiring = &dialog
 	switch key {
 	case "up", "shift+tab":
-		dialog.focus = (dialog.focus + 3) % 4
+		dialog.focus = (dialog.focus + len(m.retireChoices()) - 1) % len(m.retireChoices())
 		return m, nil
 	case "down", "tab":
-		dialog.focus = (dialog.focus + 1) % 4
+		dialog.focus = (dialog.focus + 1) % len(m.retireChoices())
 		return m, nil
 	case "enter":
-		key = []string{"y", "f", "k", "esc"}[dialog.focus]
+		keys := []string{"y", "f", "k", "esc"}
+		if dialog.check.Manifest.ClaudeSession != "" {
+			keys = []string{"y", "esc"}
+		}
+		key = keys[dialog.focus]
 	}
 	switch key {
 	case "esc", "q":
@@ -98,6 +102,8 @@ func (m Model) retireView(height int) string {
 		lines = append(lines, "Checking worktree and commits…")
 	} else if d.err != nil {
 		lines = append(lines, "Cannot retire:", clean(d.err.Error()))
+	} else if d.check.Manifest.ClaudeSession != "" {
+		lines = append(lines, "Stops the imported agent and archives its Motley entry.", "Keeps the checkout, files and all branches.", clean(d.check.Manifest.Worktree))
 	} else {
 		dirty := "no"
 		if d.check.Dirty {
@@ -116,10 +122,18 @@ func (m Model) retireView(height int) string {
 		lines = append(lines, "Local branch: "+action, "", "Removes the tmux session and worktree:", clean(d.check.Manifest.Worktree), "Archives its manifest and history.", "Remote branches are kept.")
 	}
 	wrapped := strings.Split(ansi.Hardwrap(strings.Join(lines, "\n"), m.detailWidth(), true), "\n")
-	wrapped = wrapped[:min(len(wrapped), max(1, height-4))]
-	labels := []string{"Confirm retirement", fmt.Sprintf("Force: %t", d.force), fmt.Sprintf("Keep branch: %t", d.keep), "Cancel"}
+	labels := m.retireChoices()
+	wrapped = wrapped[:min(len(wrapped), max(1, height-len(labels)))]
 	for i, label := range labels {
 		wrapped = append(wrapped, fit(control(label, d.focus == i), m.detailWidth()))
 	}
 	return strings.Join(wrapped[:min(len(wrapped), height)], "\n")
+}
+
+func (m Model) retireChoices() []string {
+	d := m.retiring
+	if d.check.Manifest.ClaudeSession != "" {
+		return []string{"Confirm retirement (keep files)", "Cancel"}
+	}
+	return []string{"Confirm retirement", fmt.Sprintf("Force: %t", d.force), fmt.Sprintf("Keep branch: %t", d.keep), "Cancel"}
 }

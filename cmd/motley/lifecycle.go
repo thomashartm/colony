@@ -14,7 +14,7 @@ func retireCommand() *cobra.Command {
 		if err := member.Retire(args[0], force, keep); err != nil {
 			return err
 		}
-		_, err := fmt.Fprintf(cmd.OutOrStdout(), "Retired %s; history archived. Remote branches were kept.\n", args[0])
+		_, err := fmt.Fprintf(cmd.OutOrStdout(), "Retired %s; history archived. Imported checkouts and remote branches are kept.\n", args[0])
 		return err
 	}}
 	cmd.Flags().BoolVar(&force, "force", false, "Discard uncommitted and unpushed work")

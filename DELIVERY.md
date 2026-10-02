@@ -677,6 +677,42 @@ detached before the requested click trace. Temporary tracing was removed and
 the original MouseDown1Pane binding restored. Do not consider that report fixed
 based only on automated mouse tests.
 
+### Import running Claude sessions — 2026-10-01
+
+Added `mtly import --list`, `mtly import <session-id>` and the monitor's Add
+existing Claude action (a). Discovery uses Claude's supported `agents --json`
+interface and rechecks the selected conversation before registration. Imported
+sessions remain running in their original terminal, including sessions in main
+checkouts or non-Git directories. Their live status appears in the monitor.
+
+Open agent focuses a unique matching Ghostty directory on macOS; ambiguous or
+missing tabs report a clear error without starting a second conversation.
+Terminate revalidates the Claude session/process, then waits for it to stop.
+Revive resumes the saved conversation under Motley. Imported directories and
+branches are always preserved on retirement, including after revival.
+
+Validation: full Go suite and vet passed; focused import tests passed again
+after error-message lint fixes; lint and four cross-builds passed. Tests use
+isolated tmux servers and harmless fixture processes for main, linked and
+non-Git directories, discovery failure, duplicates, resumed conversation IDs,
+file/branch preservation and the real terminal picker. Read-only discovery
+found six local running sessions. Ghostty scripting compiled and its directory
+inventory was verified; no live Claude sessions were imported or interrupted.
+
+### First-run configuration — 2026-10-01
+
+Configuration now lives at ~/.motley/config.toml. The first config load or
+`mtly init` creates it with defaults, or copies an existing XDG config verbatim.
+Existing files, including invalid TOML, are never reset or overwritten. A
+complete temporary file is linked into place atomically so concurrent first
+launches cannot expose partial content or overwrite each other. Tmux snippets
+and blueprint paths retain their current locations.
+
+Validation passed: full Go suite, vet, lint, four cross-builds and whitespace
+checks. Tests cover defaults, legacy settings and comments, concurrent first
+loads, unchanged modification times, invalid-file preservation and CLI loading
+from the new location.
+
 ### Monitor shortcut — 2026-10-01
 
 Changed the monitor toggle to prefix m (Ctrl-b m with the default prefix).

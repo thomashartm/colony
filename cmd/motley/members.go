@@ -99,6 +99,15 @@ func connectCommand(attach bool) *cobra.Command {
 			if err := member.RequireLive(args[0]); err != nil {
 				return err
 			}
+			rows, err := member.List()
+			if err != nil {
+				return err
+			}
+			for _, r := range rows {
+				if r.ID == args[0] && r.External {
+					return member.OpenExternal(r.ID)
+				}
+			}
 			if attach {
 				return tmux.Attach(args[0])
 			}
@@ -140,6 +149,9 @@ func execAgentCommand() *cobra.Command {
 				if err != nil {
 					return err
 				}
+			}
+			if resume && sessionID == "" {
+				sessionID = m.ClaudeSession
 			}
 			prompt := ""
 			if !resume && (m.Prompt || m.Blueprint != "") {

@@ -33,7 +33,7 @@ func newRootCommand() *cobra.Command {
 		Use:           "motley",
 		Aliases:       []string{"mtly"},
 		Short:         "A terminal tool for AI coding sessions",
-		Long:          "motley (mtly) — a terminal tool for AI coding sessions.\n\nRun without arguments to open the session overview.\nUse motley monitor for a persistent overview with a separate work tab.\nConfiguration: ${XDG_CONFIG_HOME:-~/.config}/motley/config.toml.",
+		Long:          "motley (mtly) — a terminal tool for AI coding sessions.\n\nRun without arguments to open the session overview.\nUse motley monitor for a persistent overview with a separate work tab.\nConfiguration: ~/.motley/config.toml (created on first launch).",
 		Args:          cobra.NoArgs,
 		SilenceErrors: true,
 		SilenceUsage:  true,
@@ -61,7 +61,7 @@ func newRootCommand() *cobra.Command {
 			return err
 		},
 	})
-	root.AddCommand(navigationCommand(), updateCommand(), tabsCommand(), sendCommand(), blueprintCommand(), crewCommand(), retireCommand(), reviveCommand(), adoptCommand(), spawnCommand(), listCommand(), connectCommand(true), connectCommand(false), execAgentCommand(), agentExitedCommand(), reportCommand(), hooksCommand())
+	root.AddCommand(importCommand(), navigationCommand(), updateCommand(), tabsCommand(), sendCommand(), blueprintCommand(), crewCommand(), retireCommand(), reviveCommand(), adoptCommand(), spawnCommand(), listCommand(), connectCommand(true), connectCommand(false), execAgentCommand(), agentExitedCommand(), reportCommand(), hooksCommand())
 	root.AddCommand(&cobra.Command{
 		Use: "config", Short: "Show the configured repository and worktree roots", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {

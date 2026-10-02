@@ -2,7 +2,6 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,27 +18,23 @@ type Config struct {
 	MonitorBell   bool   `toml:"monitor_bell"`
 }
 
-// Load reads the XDG config file, defaults missing settings, and expands ~/.
-// A missing file is valid. Reading configuration never creates files.
+// Load creates the config once, defaults missing settings, and expands ~/.
 func Load() (Config, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return Config{}, fmt.Errorf("find home directory: %w", err)
 	}
-	configHome := os.Getenv("XDG_CONFIG_HOME")
-	if configHome == "" {
-		configHome = filepath.Join(home, ".config")
+	path, err := Ensure()
+	if err != nil {
+		return Config{}, err
 	}
-	path := filepath.Join(configHome, "motley", "config.toml")
 	cfg := Config{Schema: 1, ReposRoot: "~/projects", WorktreesRoot: "~/worktrees"}
 	data, err := os.ReadFile(path)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
+	if err != nil {
 		return Config{}, fmt.Errorf("read config %s: %w", path, err)
 	}
-	if err == nil {
-		if err := toml.Unmarshal(data, &cfg); err != nil {
-			return Config{}, fmt.Errorf("parse config %s: %w", path, err)
-		}
+	if err := toml.Unmarshal(data, &cfg); err != nil {
+		return Config{}, fmt.Errorf("parse config %s: %w", path, err)
 	}
 	if cfg.Schema != 1 {
 		return Config{}, fmt.Errorf("config %s: unsupported schema %d (supported: 1)", path, cfg.Schema)

@@ -249,6 +249,13 @@ func newMemberFixture(t *testing.T, bin, base string) *memberFixture {
 	return f
 }
 
+// keepAgentRunning makes a fake agent stay in the foreground like a real one,
+// so its exit cannot race the statuses a test reports.
+func (f *memberFixture) keepAgentRunning(agent string) {
+	f.t.Helper()
+	writeFixture(f.t, filepath.Join(f.home, "fake agents", agent), "#!/bin/sh\nexec cat > /dev/null\n", 0o755)
+}
+
 func (f *memberFixture) git(dir string, args ...string) string {
 	f.t.Helper()
 	return commandOutput(f.t, "git", append([]string{"-C", dir}, args...)...)

@@ -31,6 +31,22 @@ func Run(args []string, stdin io.Reader) {
 	if id == "" {
 		return
 	}
+	bounded(func(ctx context.Context) error { return handle(ctx, id, args, stdin) })
+}
+
+// Exited records that a member's agent process returned to the shell. Agents
+// do not all report quitting (OpenCode has no exit event), and none report a
+// crash, so without this the last turn's status would outlive the agent.
+func Exited(id string) {
+	bounded(func(ctx context.Context) error {
+		if err := member.CheckID(id); err != nil {
+			return err
+		}
+		return record(ctx, id, "", state.Event{Event: "AgentExit", Status: "ended", Summary: "Agent exited"})
+	})
+}
+
+func bounded(fn func(context.Context) error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	done := make(chan error, 1)
@@ -40,7 +56,7 @@ func Run(args []string, stdin io.Reader) {
 				done <- fmt.Errorf("report panic: %v", p)
 			}
 		}()
-		done <- handle(ctx, id, args, stdin)
+		done <- fn(ctx)
 	}()
 	select {
 	case err := <-done:
@@ -87,6 +103,15 @@ func handle(ctx context.Context, id string, args []string, stdin io.Reader) erro
 	if readErr != nil {
 		parseErr = readErr
 	}
+	if err := record(ctx, id, *agent, event); err != nil {
+		return err
+	}
+	return parseErr
+}
+
+// record applies an event to the member's tmux status and appends it to the
+// event log while holding the log's lock.
+func record(ctx context.Context, id, agent string, event state.Event) error {
 	dir, err := state.MembersDir()
 	if err != nil {
 		return err
@@ -130,7 +155,10 @@ func handle(ctx context.Context, id string, args []string, stdin io.Reader) erro
 	event.TS = time.Now().UTC()
 	var prior state.Event
 	_ = json.Unmarshal([]byte(previous.Context), &prior)
-	if *agent == "claude" && event.Event == "Notification" && event.Status == "permission" && prior.AgentSessionID == event.AgentSessionID {
+	if event.Agent == "" {
+		event.Agent = previous.Agent
+	}
+	if agent == "claude" && event.Event == "Notification" && event.Status == "permission" && prior.AgentSessionID == event.AgentSessionID {
 		if previous.Status == "question" {
 			event.Status = "question"
 		}
@@ -165,7 +193,7 @@ func handle(ctx context.Context, id string, args []string, stdin io.Reader) erro
 			return err
 		}
 	}
-	return parseErr
+	return nil
 }
 
 func logError(err error) {

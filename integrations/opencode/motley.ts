@@ -24,6 +24,9 @@ export const Motley = async ({ client }) => {
   let rootID = "";
   let assistantID = "";
   let lastAssistantMessage = "";
+  // OpenCode follows an abort with ordinary idle events; mark them so the turn
+  // reads as interrupted rather than finished.
+  let interrupted = false;
   const children = new Set();
   const waiting = new Set();
   const queue = [];
@@ -46,6 +49,7 @@ export const Motley = async ({ client }) => {
       rootID = id;
       assistantID = "";
       lastAssistantMessage = "";
+      interrupted = false;
       waiting.clear();
       await report({ type: "session.created", properties: { info: { id } } });
     }
@@ -53,8 +57,10 @@ export const Motley = async ({ client }) => {
     if (event.type === "chat.message") {
       assistantID = "";
       lastAssistantMessage = "";
+      interrupted = false;
       waiting.clear();
     }
+    if (event.type === "session.error" && p.error?.name === "MessageAbortedError") interrupted = true;
     if (event.type === "message.updated") {
       if (p.info.role === "assistant" && p.info.id !== assistantID) {
         assistantID = p.info.id;
@@ -76,7 +82,7 @@ export const Motley = async ({ client }) => {
     if (event.type === "session.status" && p.status.type !== "idle" && waiting.size) return;
     if (event.type === "session.idle" || (event.type === "session.status" && p.status.type === "idle")) {
       waiting.clear();
-      event = { ...event, properties: { ...p, lastAssistantMessage } };
+      event = { ...event, properties: { ...p, lastAssistantMessage, ...(interrupted ? { interrupted } : {}) } };
     }
     await report(event);
   }

@@ -9,13 +9,14 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/thomashartm/motley/internal/member"
+	"github.com/thomashartm/motley/internal/state"
 )
 
 func TestReplyAndSendIntegration(t *testing.T) {
 	bin := buildLifecycleBinary(t)
 	f := newMemberFixture(t, bin, "main")
 	// Keep a fake agent reading its terminal, so replies cannot fall into a shell.
-	writeFixture(t, filepath.Join(f.home, "fake agents/claude"), "#!/bin/sh\nwhile IFS= read -r line; do printf '%s\\n' \"$line\" >> \"$HOME/replies\"; done\n", 0755)
+	writeFixture(t, filepath.Join(f.home, "fake agents/claude"), "#!/bin/sh\nwhile IFS= read -r line; do [ \"$line\" = quit ] && exit; printf '%s\\n' \"$line\" >> \"$HOME/replies\"; done\n", 0755)
 	f.motley("spawn", "--repo", "api", "--branch", "feat/reply", "--detach")
 	id := "feat-reply"
 	for _, text := range []string{"hello 'quoted' $(touch never)", ";", `literal\;`} {
@@ -30,6 +31,26 @@ func TestReplyAndSendIntegration(t *testing.T) {
 	f.tmux("set-option", "-t", "="+id+":", "@motley_status", "permission")
 	if err := member.Reply(id, "do not send"); err == nil {
 		t.Fatal("permission bypass")
+	}
+	// An agent that quits without an exit hook (OpenCode) or crashes leaves its
+	// last status behind; replies must not then be typed into the shell.
+	logPath := filepath.Join(f.state, "motley/members", id+".events.jsonl")
+	for _, revive := range []bool{false, true} {
+		if revive {
+			f.tmux("kill-session", "-t", "="+id)
+			f.motley("revive", id)
+		}
+		f.tmux("set-option", "-t", "="+id+":", "@motley_status", "ready")
+		if err := member.Reply(id, "quit"); err != nil {
+			t.Fatal(err)
+		}
+		eventually(t, func() bool { return f.tmux("show-options", "-v", "-t", "="+id+":", "@motley_status") == "ended" })
+		if last, err := state.LatestEvent(logPath); err != nil || last.Event != "AgentExit" || last.Agent != "claude" || last.Summary != "Agent exited" {
+			t.Fatalf("exit event: %+v %v", last, err)
+		}
+		if err := member.Reply(id, "touch typed-into-shell"); err == nil || !strings.Contains(err.Error(), "agent has ended") {
+			t.Fatalf("reply after exit: %v", err)
+		}
 	}
 	work := f.terminalClient("fixture")
 	name := f.clientName(work)

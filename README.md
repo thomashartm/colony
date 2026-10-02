@@ -182,8 +182,12 @@ it is the only monitor tab. **T** chooses a work tab, and
 **q** detaches the monitor. After upgrading, restart it with
 `tmux kill-session -t _motley`, then `mtly monitor`.
 
-Claude, Codex and OpenCode report working, permission, question and ready states.
-Jump into the agent for permission requests. To set up reporting individually:
+Claude, Codex and OpenCode report working, permission, question and ready states;
+an interrupted turn shows idle. When the agent quits or crashes, the member shows
+ended and replies are refused rather than typed into the shell. Codex and OpenCode
+report nothing until the first prompt, so a bare or revived member shows starting
+until then. Jump into the agent for permission requests. To set up reporting
+individually:
 
 ```sh
 mtly hooks install claude
@@ -191,8 +195,9 @@ mtly hooks install codex
 mtly hooks install opencode
 ```
 
-Restart the agent afterward. Codex requires native hooks (verified with 0.159.2)
+Restart the agent afterward. Codex requires native hooks (verified live with 0.159.3)
 and trust approval through **`/hooks`**; Motley preserves its approval settings.
+Codex asks questions only in Plan mode.
 OpenCode uses a plugin (verified with 1.18.21). Hooks are silent outside Motley.
 
 ## Crews and gigs

@@ -187,8 +187,12 @@ try:
     plugin = config / 'opencode/plugins/motley.ts'
     original = read_regular(plugin)
     if original is not None:
-        # Only the shipped plugin is ours to remove. Keep edits or replacements.
-        if hashlib.sha256(original).hexdigest() != '159fa8c35b3d69b589b78275b5fb3e5219968228ee5c55b0d158d7bede018c48':
+        # Only a shipped plugin is ours to remove. Keep edits or replacements.
+        # List every released revision, so older installs are still recognised.
+        if hashlib.sha256(original).hexdigest() not in {
+            '159fa8c35b3d69b589b78275b5fb3e5219968228ee5c55b0d158d7bede018c48',
+            'b6ecdd1dd0716fa34c9cc7b65191d69bba34b89a6dda762303ced45a82f55397',
+        }:
             raise ValueError('Modified OpenCode plugin; preserved for manual review: '+str(plugin))
         change(plugin, original, None, 'opencode plugin')
     tmux_source(home / '.tmux.conf')

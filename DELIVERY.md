@@ -452,7 +452,7 @@ W7 is implemented and CI-green; its release tag is tracked separately.
 | W5 — Crews and colors | [#8](https://github.com/thomashartm/motley/issues/8) | Done |
 | W6 — Blueprints | [#9](https://github.com/thomashartm/motley/issues/9) | Done |
 | W7 — Spawn and steer from the TUI | [#10](https://github.com/thomashartm/motley/issues/10) | Done |
-| W8 — Codex and OpenCode | [#11](https://github.com/thomashartm/motley/issues/11) | Open |
+| W8 — Codex and OpenCode | [#11](https://github.com/thomashartm/motley/issues/11) | Done |
 | W9 — GitHub on demand and links | [#12](https://github.com/thomashartm/motley/issues/12) | Open |
 | W10 — Full worktree tooling; retire wt and wt-clean | [#13](https://github.com/thomashartm/motley/issues/13) | Open |
 | W11 — Pop out and hardening | [#14](https://github.com/thomashartm/motley/issues/14) | Open |
@@ -716,3 +716,32 @@ with a fake Claude recording argv/CWD (spawn, revive, blueprint combination,
 refusals leave no worktree/branch/manifest), the terminal spawn-form test,
 full suite on macOS, cmd/motley ×2 on an Ubuntu 24.04/tmux 3.4 replica,
 golangci-lint v2.14.0 (0 issues), vet, gofmt and four cross-builds.
+
+### W8 live acceptance (#11) — 2026-10-02
+
+Ran real Codex 0.159.3 and OpenCode 1.18.21 under Motley in a disposable home
+with its own tmux server; credentials were copied in, unchanged by the run and
+deleted afterwards. Both agents reported working, permission, question, ready,
+interrupt and quit, and `motley revive` resumed the recorded session with its
+context. Recorded payloads are now `internal/agents/{codex,opencode}/testdata/live.json`,
+replayed by the parser tests and through real tmux; their expectations matched
+every event Motley logged live.
+
+Fixed from the run: OpenCode reports nothing on `/exit`, and no agent reports a
+crash, so the member kept its last status (for example `ready`) with a shell in
+the pane, where a reply would have run as a command. The pane now runs the
+hidden `motley agent-exited` after the agent returns, recording `ended` once.
+OpenCode's idle events after an abort showed the partial reply as finished; the
+plugin marks them interrupted, matching Codex's `idle` / "Turn interrupted".
+Uninstall recognises both shipped plugin revisions.
+
+Known limitations, without a native signal: a bare or revived Codex/OpenCode
+member shows `starting` until the first prompt; Codex asks questions only in Plan
+mode, whose Stop has no message; OpenCode logs two Stop events per turn. Details:
+`internal/agents/testdata/w8-contracts.md`. W8 is Done; the legacy Codex fallback
+is #27.
+
+Validation: `make check` stages (installer, uninstall, plugin, all Go and real
+tmux tests, vet), golangci-lint v2.14.0 (0 issues), gofmt and four cross-builds.
+The new exit test fails with the pane change reverted, and the plugin test fails
+with the interrupt marking disabled.

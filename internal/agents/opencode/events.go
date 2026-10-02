@@ -35,6 +35,7 @@ func Parse(data []byte) (state.Event, error) {
 			Error         json.RawMessage `json:"error"`
 			Prompt        string          `json:"prompt"`
 			LastAssistant string          `json:"lastAssistantMessage"`
+			Interrupted   bool            `json:"interrupted"`
 		} `json:"properties"`
 	}
 	if err := json.Unmarshal(data, &p); err != nil {
@@ -56,10 +57,10 @@ func Parse(data []byte) (state.Event, error) {
 			e.Status = "working"
 			e.Summary = x.Status.Message
 		case "idle":
-			e.Event, e.Status, e.Summary = "Stop", "ready", x.LastAssistant
+			e.Event, e.Status, e.Summary = idle(x.LastAssistant, x.Interrupted)
 		}
 	case "session.idle":
-		e.Event, e.Status, e.Summary = "Stop", "ready", x.LastAssistant
+		e.Event, e.Status, e.Summary = idle(x.LastAssistant, x.Interrupted)
 	case "permission.asked":
 		e.Event, e.Status = "Notification", "permission"
 		e.Summary = x.Permission + ": " + strings.Join(x.Patterns, ", ")
@@ -79,7 +80,14 @@ func Parse(data []byte) (state.Event, error) {
 	case "permission.replied", "question.replied", "question.rejected":
 		e.Status = "working"
 	case "session.error":
-		e.Event, e.Status, e.Summary = "Notification", "idle", string(x.Error)
+		var cause struct {
+			Name string `json:"name"`
+		}
+		if json.Unmarshal(x.Error, &cause) == nil && cause.Name == "MessageAbortedError" {
+			e.Event, e.Status, e.Summary = idle("", true)
+		} else {
+			e.Event, e.Status, e.Summary = "Notification", "idle", string(x.Error)
+		}
 	case "session.deleted":
 		e.Event, e.Status, e.AgentSessionID = "SessionEnd", "ended", x.Info.ID
 	case "":
@@ -89,4 +97,13 @@ func Parse(data []byte) (state.Event, error) {
 		return state.Event{}, fmt.Errorf("opencode %s has no session id", p.Type)
 	}
 	return e, nil
+}
+
+// idle maps the end of a turn; an interrupted turn matches Codex's Interrupt
+// rather than presenting its partial reply as finished.
+func idle(lastAssistant string, interrupted bool) (event, status, summary string) {
+	if interrupted {
+		return "Interrupt", "idle", "Turn interrupted"
+	}
+	return "Stop", "ready", lastAssistant
 }

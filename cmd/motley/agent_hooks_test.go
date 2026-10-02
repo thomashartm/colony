@@ -72,6 +72,7 @@ func TestNativeAgentReporting(t *testing.T) {
 	for _, agent := range []string{"codex", "opencode"} {
 		t.Run(agent, func(t *testing.T) {
 			f := newMemberFixture(t, bin, "main")
+			f.keepAgentRunning(agent)
 			id := "feat-" + agent
 			f.motley("spawn", "--repo", "api", "--branch", "feat/"+agent, "--agent", agent, "--detach")
 			dir := filepath.Join(f.state, "motley/members")
@@ -80,26 +81,32 @@ func TestNativeAgentReporting(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			data, err := os.ReadFile(filepath.Join("../../internal/agents", agent, "testdata/events.json"))
-			if err != nil {
-				t.Fatal(err)
-			}
-			var fixtures struct {
-				Cases []struct {
-					Payload json.RawMessage
-					Status  string
+			// Replay the synthetic cases, then the live recording, so the last
+			// recorded session is the one revive would resume.
+			want := ""
+			for _, name := range []string{"events.json", "live.json"} {
+				data, err := os.ReadFile(filepath.Join("../../internal/agents", agent, "testdata", name))
+				if err != nil {
+					t.Fatal(err)
 				}
-			}
-			if err := json.Unmarshal(data, &fixtures); err != nil {
-				t.Fatal(err)
-			}
-			for _, tc := range fixtures.Cases {
-				f.report(id, string(tc.Payload), "--agent", agent)
-				if tc.Status == "" {
-					continue
+				var fixtures struct {
+					Cases []struct {
+						Payload         json.RawMessage
+						Status, Session string
+					}
 				}
-				if got := f.tmux("show-options", "-v", "-t", "="+id+":", "@motley_status"); got != tc.Status {
-					t.Fatal(got, tc.Status)
+				if err := json.Unmarshal(data, &fixtures); err != nil {
+					t.Fatal(err)
+				}
+				for _, tc := range fixtures.Cases {
+					f.report(id, string(tc.Payload), "--agent", agent)
+					if tc.Status == "" {
+						continue
+					}
+					want = tc.Session
+					if got := f.tmux("show-options", "-v", "-t", "="+id+":", "@motley_status"); got != tc.Status {
+						t.Fatal(name, string(tc.Payload), got, tc.Status)
+					}
 				}
 			}
 			f.report(id, "invalid json", "--agent", agent)
@@ -108,8 +115,8 @@ func TestNativeAgentReporting(t *testing.T) {
 				t.Fatal("hook rewrote manifest")
 			}
 			sid, err := state.LatestSessionID(filepath.Join(dir, id+".events.jsonl"), agent)
-			if err != nil || sid != "session-1" {
-				t.Fatal(sid, err)
+			if err != nil || want == "" || sid != want {
+				t.Fatal(sid, want, err)
 			}
 		})
 	}

@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/term"
 	"github.com/thomashartm/motley/internal/crew"
+	"github.com/thomashartm/motley/internal/gh"
 	"github.com/thomashartm/motley/internal/member"
 	"github.com/thomashartm/motley/internal/state"
 	"github.com/thomashartm/motley/internal/tmux"
@@ -79,6 +80,7 @@ func Run(monitor bool, client string, bell bool) error {
 	}
 	m := newModel(monitor, inside, client, poll)
 	m.bell = bell
+	m.github = gh.Default()
 	cache := &detailCache{dir: dir}
 	m.fetchDetail = cache.command
 	m.copyText = copyToClipboard(inside, os.Stdout)

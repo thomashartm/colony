@@ -37,6 +37,29 @@ type Manifest struct {
 	Agent     string     `toml:"agent"`
 	CreatedAt time.Time  `toml:"created_at"`
 	RetiredAt *time.Time `toml:"retired_at,omitempty"`
+	// Issue is written at spawn or by an explicit refresh; never by hooks.
+	// Tables stay last so go-toml writes them after the scalar keys.
+	Issue *IssueRef `toml:"issue,omitempty"`
+	// GH is the PR state from the last explicit refresh; never polled.
+	GH *PRInfo `toml:"gh,omitempty"`
+}
+
+// PRInfo records a member's newest PR as of FetchedAt. PR 0 means gh found
+// none; the check still records when it ran.
+type PRInfo struct {
+	PR        int       `toml:"pr"`
+	URL       string    `toml:"pr_url,omitempty"`
+	State     string    `toml:"pr_state,omitempty"`
+	Draft     bool      `toml:"draft"`
+	Review    string    `toml:"review,omitempty"`
+	Checks    string    `toml:"checks,omitempty"`
+	FetchedAt time.Time `toml:"fetched_at"`
+}
+
+// IssueRef is the GitHub issue a member was spawned for.
+type IssueRef struct {
+	Title string `toml:"title"`
+	URL   string `toml:"url"`
 }
 
 var validID = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)

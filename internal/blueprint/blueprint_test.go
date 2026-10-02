@@ -125,3 +125,16 @@ func TestPromptSchema(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderIssue(t *testing.T) {
+	b, err := Parse("issue.md", []byte("+++\n+++\n{{.Issue.Title}}|{{.Issue.URL}}|{{.Issue.Body}}"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := b.Render(Data{Issue: Issue{Title: "T", URL: "U", Body: "B"}}); err != nil || got != "T|U|B" {
+		t.Fatalf("%q %v", got, err)
+	}
+	if got, err := b.Render(Data{}); err != nil || got != "||" {
+		t.Fatalf("empty issue: %q %v", got, err)
+	}
+}

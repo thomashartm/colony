@@ -52,3 +52,37 @@ func TestLoadDefaultsAndInvalidFiles(t *testing.T) {
 		}
 	}
 }
+
+func TestFindURLNormalises(t *testing.T) {
+	crews := []Crew{{ID: "fx", URL: "https://GitHub.com/o/r/issues/400/"}, {ID: "none-url"}}
+	for _, raw := range []string{"https://github.com/o/r/issues/400", "https://github.com/o/r/issues/400?x=1#c", "HTTPS://github.com/o/r/issues/400/"} {
+		if c, ok := FindURL(crews, raw); !ok || c.ID != "fx" {
+			t.Fatalf("%s: %+v %v", raw, c, ok)
+		}
+	}
+	if _, ok := FindURL(crews, "https://github.com/o/r/issues/40"); ok {
+		t.Fatal("different issue matched")
+	}
+	if _, ok := FindURL(crews, ""); ok {
+		t.Fatal("an empty URL must not match a crew without a URL")
+	}
+}
+
+func TestGitHubRef(t *testing.T) {
+	for _, tt := range []struct {
+		raw, kind, owner, repo string
+		n                      int
+	}{
+		{"https://github.com/o/r/issues/12", "issue", "o", "r", 12},
+		{"https://github.com/orgs/acme/projects/7", "project", "acme", "", 7},
+		{"https://github.com/users/thomas/projects/2", "project", "thomas", "", 2},
+		{"https://github.com/o/r/milestone/3", "link", "", "", 0},
+		{"https://example.com/o/r/issues/12", "link", "", "", 0},
+		{"", "text", "", "", 0},
+	} {
+		kind, owner, repo, n := GitHubRef(tt.raw)
+		if kind != tt.kind || owner != tt.owner || repo != tt.repo || n != tt.n || Kind(tt.raw) != tt.kind {
+			t.Errorf("%s: %s %s %s %d", tt.raw, kind, owner, repo, n)
+		}
+	}
+}

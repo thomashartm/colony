@@ -2,11 +2,9 @@ package tui
 
 import (
 	"fmt"
-	"net/url"
 	"os/exec"
 	"runtime"
 	"strings"
-	"unicode"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
@@ -59,8 +57,7 @@ func (m Model) openLink(target string) (tea.Model, tea.Cmd) {
 }
 
 func openWebURL(target string) error {
-	u, err := url.Parse(target)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || strings.IndexFunc(target, unicode.IsControl) >= 0 {
+	if safeWebURL(target) == nil {
 		return fmt.Errorf("only http and https links can be opened")
 	}
 	opener := "xdg-open"

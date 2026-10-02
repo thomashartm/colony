@@ -27,9 +27,13 @@ type Blueprint struct {
 	body        *template.Template
 }
 type Crew struct{ Title, URL, Kind string }
+
+// Issue is the GitHub issue looked up for a numeric ticket; empty otherwise.
+type Issue struct{ Title, Body, URL string }
 type Data struct {
 	Repo, Branch, Base, Ticket, Name, Worktree string
 	Crew                                       Crew
+	Issue                                      Issue
 	Vars                                       map[string]string
 }
 

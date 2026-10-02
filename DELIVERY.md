@@ -453,7 +453,7 @@ W7 is implemented and CI-green; its release tag is tracked separately.
 | W6 — Blueprints | [#9](https://github.com/thomashartm/motley/issues/9) | Done |
 | W7 — Spawn and steer from the TUI | [#10](https://github.com/thomashartm/motley/issues/10) | Done |
 | W8 — Codex and OpenCode | [#11](https://github.com/thomashartm/motley/issues/11) | Done |
-| W9 — GitHub on demand and links | [#12](https://github.com/thomashartm/motley/issues/12) | Open |
+| W9 — GitHub on demand and links | [#12](https://github.com/thomashartm/motley/issues/12) | In review |
 | W10 — Full worktree tooling; retire wt and wt-clean | [#13](https://github.com/thomashartm/motley/issues/13) | Open |
 | W11 — Pop out and hardening | [#14](https://github.com/thomashartm/motley/issues/14) | Open |
 
@@ -1044,3 +1044,76 @@ coordinates account for its tighter header spacing.
 
 Validation: TUI tests, real-terminal overview/monitor and tmux ticket-link tests,
 TUI vet, build and diff checks passed.
+
+### W9 GitHub on demand — Phases 1 and 2 (#12) — 2026-10-02
+
+Phase 1 (links): **b** opens a browser menu with the selected member's
+branch, compare view, issue and crew links; only http/https URLs are offered.
+Details link Branch and Compare when origin is on GitHub. One remote parser
+(`gitx.Web`) serves these links and the existing ticket links.
+
+Phase 2 (issues and crews): `internal/gh` wraps `gh` behind a runner
+interface with typed missing, unauthenticated, scope and timeout failures.
+A numeric ticket on a GitHub origin looks up the issue once at spawn (10 s);
+its title and URL are recorded in the manifest and `Issue.*` reaches
+blueprints (bodies capped at 32 KiB on a rune boundary). The parent issue,
+else the milestone, suggests a crew: a crew with the same URL is assigned,
+the spawn form offers a Crew step, and the CLI prints a copy-ready hint or
+creates it with `--create-crew` after the worktree exists. `--no-gh` skips
+the lookup. `crew add --url` and the crew form fetch a missing title for
+GitHub issue and project URLs. Shell quoting moved to `internal/shellx`.
+
+Validation: gofmt clean; `go vet ./...`; `make test` passed, including fake-gh
+CLI integration tests over a GitHub-shaped origin served by a fake ssh, an
+absent-gh PATH test and a real-terminal spawn form test that drives the async
+lookup and Crew step; golangci-lint 0 issues; cross-build ok. Live read-only
+check against this repository:
+`motley crew add --url https://github.com/thomashartm/motley/issues/12` →
+`Created crew w9-github-on-demand-and-links (W9 — GitHub on demand and links, red)`.
+With a scratch `XDG_CONFIG_HOME` and no `GH_CONFIG_DIR`, gh found no login and
+crew add printed one hint line (`GitHub CLI is not authenticated; run gh auth
+login; or pass --title`) and exited 1. A live spawn lookup was not run because
+spawn pushes a branch.
+
+### W9 GitHub on demand — Phase 3 (#12) — 2026-10-02
+
+Phase 3 (pull requests): **u** refreshes the selected member's PR (newest for
+the branch, any state) and, for numeric tickets, its issue title; **U**
+refreshes every GitHub member with one `gh pr list` per repository. Results
+are saved under `[gh]` in the manifest through a locked reload, so edits made
+while gh runs survive. Details show the PR with its checks, review and age;
+the crew table gains a PR column on wide terminals. **P** offers Create PR
+(`gh pr create --fill`, warning about unpushed commits), Mark ready for review
+for drafts, and Open PR. Retire warns about an open PR in the TUI dialog and
+on the CLI, best effort with a 5 s limit; the PR stays open. Lower and upper
+case `u`/`U` resolve the §14 R/Shift+R conflict; `c` and `p` keep their
+meanings.
+
+Deliberately left out: automatic or periodic refresh, a CLI refresh command,
+lookup on adopt, a `crew_suggest` setting, a `fetch_issue` blueprint key,
+persisting issue bodies, and backfilling v0.7.0/v0.8.0 tags.
+
+Validation: gofmt clean; `go vet ./...`; `make test` passed, including fake-gh
+member tests (refresh, refresh-all grouping and stop on missing/unauthenticated
+gh, concurrent manifest edits, unpushed-commit warning against real git), TUI
+key/menu/column tests and CLI retire warnings with and without gh; golangci-lint
+0 issues; cross-build and goreleaser snapshot ok. Live read-only check against
+this repository with scratch members (`XDG_STATE_HOME`) driven through the
+built TUI in an isolated tmux server: `u` on branch `feat/w9-github` →
+`PR #41 open · checks ✔ passing · open` (rechecked after the review fixes),
+details `PR #41 open · checks ✔ passing`; a
+`fix/crew-selector` member showed `PR #38 merged`; `U` → `Refreshed 2 members
+in 1 repo`; `P` → `Open PR #41 in browser`. `member.OpenPR` returned #41 for
+the retire warning. Creating and readying a PR was verified with fake gh only;
+a live `gh pr create` was not run.
+
+Final review fixes: editing a ticket drops the issue recorded for the old one,
+and `u` applies an issue title only while the ticket still matches; a failed
+issue read no longer discards the PR refresh (it is reported after the PR
+state); `U` bounds each gh call by the 10 s lookup limit and, when a
+repository's 200-PR batch is full, looks up unmatched branches individually
+instead of recording "No PR"; P and u are offered only for GitHub members and
+U only when one exists; a PR with no available action shows a message instead
+of an empty menu; a created or readied PR is reported even if the follow-up
+refresh fails; GitHub titles are stripped of control characters before they
+reach manifests, crews or CLI output; `u` reports draft, checks and review.

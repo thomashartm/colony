@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"context"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -13,6 +15,8 @@ import (
 	"github.com/thomashartm/motley/internal/agents"
 	"github.com/thomashartm/motley/internal/blueprint"
 	"github.com/thomashartm/motley/internal/config"
+	"github.com/thomashartm/motley/internal/crew"
+	"github.com/thomashartm/motley/internal/gh"
 	"github.com/thomashartm/motley/internal/member"
 )
 
@@ -25,6 +29,7 @@ const (
 	varsStep
 	previewStep
 	launchStep
+	crewStep
 )
 
 type spawnForm struct {
@@ -40,6 +45,9 @@ type spawnForm struct {
 	plan                member.Prepared
 	preview             viewport.Model
 	err, progress       string
+	// issue is the TUI's own lookup; warning explains a skipped one.
+	issue   *member.IssueContext
+	warning string
 }
 type spawnLoaded struct {
 	cfg          config.Config
@@ -53,6 +61,10 @@ type spawnPrepared struct {
 	err  error
 }
 type spawnProgress string
+type issueLooked struct {
+	issue *member.IssueContext
+	err   error
+}
 type spawnFinished struct {
 	manifest member.Manifest
 	err      error
@@ -173,7 +185,7 @@ func (m Model) spawnMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		f.plan = msg.plan
 		f.step = previewStep
-		f.preview = viewport.New(m.detailWidth(), max(1, m.contentHeight()-4))
+		f.preview = viewport.New(m.detailWidth(), m.previewHeight(m.contentHeight()))
 		f.preview.SetContent(ansi.Hardwrap(multiline(msg.plan.Prompt), m.detailWidth(), true))
 		f.err = ""
 	case promptEdited:
@@ -184,6 +196,18 @@ func (m Model) spawnMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
 			f.plan.HasPrompt = true
 			f.preview.SetContent(ansi.Hardwrap(multiline(msg.prompt), m.detailWidth(), true))
 			f.err = ""
+		}
+	case issueLooked:
+		m.busy = false
+		m.busyText = ""
+		// The TUI's lookup is final: Prepare must not repeat it.
+		f.opts.Issue, f.opts.NoGH, f.issue = msg.issue, true, msg.issue
+		if msg.err != nil {
+			f.warning = "Issue lookup skipped: " + gh.Hint(msg.err)
+		}
+		f.step, f.choice = agentStep, 0
+		if msg.issue != nil && msg.issue.Suggestion != nil && f.opts.Crew == "" {
+			f.step = crewStep
 		}
 	case spawnProgress:
 		f.progress += string(msg)
@@ -297,9 +321,11 @@ func (m Model) updateSpawn(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-		if f.step == agentStep || f.step == blueprintStep || f.step == modeStep {
+		if f.step == agentStep || f.step == blueprintStep || f.step == modeStep || f.step == crewStep {
 			size := 3
 			switch f.step {
+			case crewStep:
+				size = 2
 			case blueprintStep:
 				size = len(f.blueprints) + 1
 			case modeStep:
@@ -311,6 +337,19 @@ func (m Model) updateSpawn(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "k", "up":
 				f.choice = max(0, f.choice-1)
 			case "enter":
+				if f.step == crewStep {
+					s := f.issue.Suggestion
+					switch {
+					case f.choice == 1:
+						f.opts.SkipSuggestion = true
+					case s.CrewID != "":
+						f.opts.Crew = s.CrewID
+					default:
+						f.opts.CreateCrew = true
+					}
+					f.step, f.choice = agentStep, 0
+					return m, nil
+				}
 				if f.step == agentStep {
 					f.opts.Agent = []string{"claude", "codex", "opencode"}[f.choice]
 					cfg, repo, agent := m.spawnCfg, f.opts.Repo, f.opts.Agent
@@ -384,10 +423,20 @@ func (m Model) updateSpawn(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			f.opts.Ticket, f.opts.Name, f.opts.Branch = ticket, name, branch
-			f.step = agentStep
-			f.choice = 0
-			f.err = ""
-			return m, nil
+			f.choice, f.err = 0, ""
+			if _, ok := member.IssueNumber(ticket); !ok || m.github == nil {
+				f.step = agentStep
+				return m, nil
+			}
+			cfg, client, repo := m.spawnCfg, m.github, f.opts.Repo
+			m.busy = true
+			m.busyText = "Looking up issue #" + strings.TrimPrefix(strings.TrimSpace(ticket), "#") + "…"
+			return m, func() tea.Msg {
+				ctx, cancel := context.WithTimeout(context.Background(), member.LookupTimeout)
+				defer cancel()
+				issue, err := member.LookupIssue(ctx, client, cfg, repo, ticket)
+				return issueLooked{issue, err}
+			}
 		}
 	}
 	if len(f.fields) > 0 {
@@ -437,10 +486,34 @@ func (m Model) editPrompt() tea.Cmd {
 		return promptEdited{prompt, err}
 	})
 }
+
+// previewContext names the issue and crew a prepared spawn uses, if any.
+func (m Model) previewContext() string {
+	var parts []string
+	if i := m.spawn.plan.Issue; i != nil {
+		parts = append(parts, fmt.Sprintf("#%d %s", i.Number, i.Title))
+	}
+	if c := m.spawn.plan.NewCrew; c != nil {
+		parts = append(parts, "new crew "+c.Title)
+	} else if c, ok := crew.Find(m.crews, m.spawn.plan.Manifest.Crew); ok {
+		parts = append(parts, "crew "+c.Title)
+	}
+	return strings.Join(parts, " · ")
+}
+
+// previewHeight leaves room for the title, summary, context and action lines.
+func (m Model) previewHeight(height int) int {
+	chrome := 4
+	if m.previewContext() != "" {
+		chrome++
+	}
+	return max(1, height-chrome)
+}
+
 func (m Model) spawnView(height int) string {
 	f := m.spawn
 	width := m.detailWidth()
-	titles := []string{"Repository — type to filter", "Ticket and name", "Agent", "Blueprint", "Permission mode", "Variables", "Prompt preview", "Launching"}
+	titles := []string{"Repository — type to filter", "Ticket and name", "Agent", "Blueprint", "Permission mode", "Variables", "Prompt preview", "Launching", "Crew"}
 	lines := []string{"Spawn · " + titles[f.step]}
 	switch f.step {
 	case repoStep:
@@ -471,9 +544,17 @@ func (m Model) spawnView(height int) string {
 			}
 			lines = append(lines, prefix+clean(labels[i]), v.View())
 		}
-	case agentStep, blueprintStep, modeStep:
+	case agentStep, blueprintStep, modeStep, crewStep:
 		labels := []string{"claude", "codex", "opencode"}
 		switch f.step {
+		case crewStep:
+			s := f.issue.Suggestion
+			first := fmt.Sprintf("Create crew %q and assign", s.Title)
+			if c, ok := crew.Find(m.crews, s.CrewID); ok {
+				first = "Assign crew " + c.Title
+			}
+			labels = []string{first, "No crew"}
+			lines = append(lines, clean(fmt.Sprintf("Suggested by the %s of #%d", s.Source, f.issue.Number)))
 		case blueprintStep:
 			labels = []string{"none"}
 			for _, b := range f.blueprints {
@@ -498,16 +579,22 @@ func (m Model) spawnView(height int) string {
 		if f.plan.Manifest.Mode != "" {
 			summary += " · " + f.plan.Manifest.Mode
 		}
-		lines = append(lines, summary)
+		lines = append(lines, clean(summary))
+		if context := m.previewContext(); context != "" {
+			lines = append(lines, clean(context))
+		}
 		lines = append(lines, "> "+[]string{"Launch", "Edit prompt", "Cancel"}[f.previewAction]+"  ←/→")
 		v := f.preview
 		v.Width = width
-		v.Height = max(1, height-4)
+		v.Height = m.previewHeight(height)
 		lines = append(lines, strings.Split(v.View(), "\n")...)
 	case launchStep:
 		log := strings.Split(multiline(f.progress), "\n")
 		start := max(0, len(log)-(height-2))
 		lines = append(lines, log[start:]...)
+	}
+	if f.warning != "" {
+		lines = append(lines, strings.Split(ansi.Wrap(clean(f.warning), width, ""), "\n")...)
 	}
 	if f.err != "" {
 		lines = append(lines, clean(f.err))

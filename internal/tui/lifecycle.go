@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -35,7 +36,16 @@ func (m Model) beginRetire() (tea.Model, tea.Cmd) {
 	m.retiring = &retireDialog{id: id}
 	m.busy = true
 	m.busyText = "Checking retirement…"
-	return m, func() tea.Msg { c, err := member.InspectRetire(id); return retireChecked{id: id, check: c, err: err} }
+	client := m.github
+	return m, func() tea.Msg {
+		c, err := member.InspectRetire(id)
+		if err == nil && client != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), member.RetireLookupTimeout)
+			c.OpenPR = member.OpenPR(ctx, client, c.Manifest)
+			cancel()
+		}
+		return retireChecked{id: id, check: c, err: err}
+	}
 }
 func (m Model) beginRevive() (tea.Model, tea.Cmd) {
 	id := m.selectedID()
@@ -110,6 +120,9 @@ func (m Model) retireView(height int) string {
 			dirty = "YES"
 		}
 		lines = append(lines, "Dirty/untracked files: "+dirty, fmt.Sprintf("Unpushed commits: %d", d.check.Ahead), fmt.Sprintf("Force: %t · keep branch: %t", d.force, d.keep))
+		if pr := d.check.OpenPR; pr != nil {
+			lines = append(lines, clean(fmt.Sprintf("Open PR #%d stays open on GitHub: %s", pr.Number, pr.URL)))
+		}
 		branch := d.check.Manifest.Branch
 		keep := d.keep || worktree.Protected(branch)
 		action := "delete"

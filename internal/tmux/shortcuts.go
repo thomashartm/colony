@@ -5,6 +5,8 @@ import (
 	"os"
 	"regexp"
 	"strings"
+
+	"github.com/thomashartm/motley/internal/shellx"
 )
 
 // One shared layout supplies both displayed labels and click targets. The normal
@@ -49,15 +51,13 @@ func shortcutOptions(args []string, id, original string) []string {
 	return args
 }
 
-func shellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", "'\"'\"'") + "'" }
-
 func navigationBindings() error {
 	self, err := os.Executable()
 	if err != nil {
 		return err
 	}
-	callback := shellQuote(self) + " navigation --client #{q:client_name}"
-	if err := bindNavigation("prefix", "m", "#{||:#{@motley_member},#{@motley_monitor}}", "run-shell -b "+shellQuote(callback+" --action monitor")); err != nil {
+	callback := shellx.Quote(self) + " navigation --client #{q:client_name}"
+	if err := bindNavigation("prefix", "m", "#{||:#{@motley_member},#{@motley_monitor}}", "run-shell -b "+shellx.Quote(callback+" --action monitor")); err != nil {
 		return err
 	}
 	guard := "#{&&:#{@motley_member},#{>:#{mouse_status_line},0}}"
@@ -67,7 +67,7 @@ func navigationBindings() error {
 		return err
 	}
 	return bindNavigation("root", "MouseUp1StatusLeft", guard,
-		"run-shell -b "+shellQuote(callback+" --row #{mouse_status_line} --column #{mouse_x} --prefix #{q:prefix}"))
+		"run-shell -b "+shellx.Quote(callback+" --row #{mouse_status_line} --column #{mouse_x} --prefix #{q:prefix}"))
 }
 
 // tmux key tables are server-wide. Retain the user's binding as the fallback
@@ -182,7 +182,7 @@ func Navigate(client, action, prefix string, row, column int) error {
 		if err != nil {
 			return err
 		}
-		_, err = run("display-popup", "-c", client, "-E", "-w", "90%", "-h", "85%", shellQuote(self)+" --client "+shellQuote(client))
+		_, err = run("display-popup", "-c", client, "-E", "-w", "90%", "-h", "85%", shellx.Quote(self)+" --client "+shellx.Quote(client))
 		return err
 	}
 	// Resolve the active pane for this client at dispatch time.

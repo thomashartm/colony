@@ -16,6 +16,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/thomashartm/motley/internal/config"
 	"github.com/thomashartm/motley/internal/crew"
+	"github.com/thomashartm/motley/internal/gh"
 	"github.com/thomashartm/motley/internal/member"
 	"github.com/thomashartm/motley/internal/state"
 	"github.com/thomashartm/motley/internal/tmux"
@@ -72,6 +73,7 @@ type Model struct {
 	fetchDetail                       func(member.Row, uint64, bool) tea.Cmd
 	copyText                          func(client, text string) error
 	openURL                           func(string) error
+	github                            *gh.Client // issue and crew-title lookups; nil disables them
 	copied                            string
 	detailSeq                         uint64
 	event                             state.Event
@@ -79,6 +81,7 @@ type Model struct {
 	alert, bell                       bool
 	retiring                          *retireDialog
 	terminating                       *terminateDialog
+	menu                              *menuDialog
 	busyText                          string
 }
 
@@ -98,9 +101,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.mouse(msg)
 	case importLoaded, importDone:
 		return m.importMessage(msg)
-	case spawnLoaded, spawnPrepared, spawnProgress, spawnFinished, promptEdited:
+	case spawnLoaded, spawnPrepared, spawnProgress, spawnFinished, promptEdited, issueLooked:
 		return m.spawnMessage(msg)
 	case tick:
+		return m, m.poll
+	case githubDone:
+		m.busy, m.busyText = false, ""
+		m.message = msg.text
+		if msg.err != nil {
+			m.message = gh.Hint(msg.err)
+		}
+		// Reload manifests so the new PR and issue data reach the panels.
 		return m, m.poll
 	case linkOpened:
 		if msg.err != nil {
@@ -194,7 +205,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.detail.Width, m.detail.Height = m.detailWidth(), m.contentHeight()
 		if m.spawn != nil && m.spawn.step == previewStep {
 			m.spawn.preview.Width = m.detailWidth()
-			m.spawn.preview.Height = max(1, m.contentHeight()-4)
+			m.spawn.preview.Height = m.previewHeight(m.contentHeight())
 			m.spawn.preview.SetContent(ansi.Hardwrap(multiline(m.spawn.plan.Prompt), m.detailWidth(), true))
 		}
 		m.updateDetail()
@@ -277,6 +288,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.retiring != nil {
 			return m.updateRetire(key)
 		}
+		if m.menu != nil {
+			return m.updateMenu(key)
+		}
 		if m.picking {
 			if m.pickMode == "send" {
 				return m.updateSendPicker(key)
@@ -318,6 +332,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "e":
 			return m.editMember()
+		case "b":
+			return m.beginLinks()
+		case "P":
+			return m.beginPRMenu()
+		case "u":
+			return m.refreshSelected()
+		case "U":
+			return m.refreshAll()
 		case "q", "ctrl+c":
 			if !m.monitor {
 				return m, tea.Quit
@@ -633,6 +655,9 @@ func (m Model) View() string {
 	if m.retiring != nil {
 		right = m.retireView(height)
 	}
+	if m.menu != nil {
+		right = m.menuView(height)
+	}
 	if m.manager {
 		right = m.managerView(height)
 	}
@@ -644,7 +669,7 @@ func (m Model) View() string {
 	}
 	border := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("8"))
 	leftBorder, rightBorder := border, border
-	if m.panel == listPanel && m.editor == nil && !m.manager && m.spawn == nil && m.retiring == nil && m.terminating == nil && m.importing == nil && m.opening == nil && !m.picking {
+	if m.panel == listPanel && m.editor == nil && !m.manager && m.spawn == nil && m.retiring == nil && m.terminating == nil && m.menu == nil && m.importing == nil && m.opening == nil && !m.picking {
 		leftBorder = leftBorder.BorderForeground(lipgloss.Color("6"))
 	} else {
 		rightBorder = rightBorder.BorderForeground(lipgloss.Color("6"))

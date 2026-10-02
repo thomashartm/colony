@@ -10,8 +10,10 @@ import (
 	"github.com/thomashartm/motley/internal/agents"
 	"github.com/thomashartm/motley/internal/blueprint"
 	"github.com/thomashartm/motley/internal/config"
+	"github.com/thomashartm/motley/internal/crew"
 	"github.com/thomashartm/motley/internal/member"
 	"github.com/thomashartm/motley/internal/report"
+	"github.com/thomashartm/motley/internal/shellx"
 	"github.com/thomashartm/motley/internal/state"
 	"github.com/thomashartm/motley/internal/tmux"
 )
@@ -22,19 +24,31 @@ func spawnCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "spawn --repo <name> --branch <new-branch>",
 		Short: "Create a worktree and start a coding agent in tmux",
-		Long:  "Create a new branch from origin/main (or origin/master), push it, copy local\nartifacts and start an agent. Switch inside tmux; attach outside.\nUse --detach to leave the session running in the background.",
+		Long:  "Create a new branch from origin/main (or origin/master), push it, copy local\nartifacts and start an agent. Switch inside tmux; attach outside.\nUse --detach to leave the session running in the background.\nA numeric --ticket looks up the GitHub issue with gh (title, body, URL) for\nblueprints and suggests a crew from its parent issue or milestone.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := config.Load()
 			if err != nil {
 				return err
 			}
-			m, err := member.Spawn(cfg, opts, cmd.ErrOrStderr())
+			p, err := member.Prepare(cfg, opts)
+			if err != nil {
+				return err
+			}
+			m, err := member.SpawnPrepared(p, cmd.ErrOrStderr())
 			if err != nil {
 				return err
 			}
 			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "Created %s\nWorktree: %s\nAttach: motley attach %s\n", m.ID, m.Worktree, m.ID); err != nil {
 				return err
+			}
+			// Notes follow the spawn because the crew hint names the new member id.
+			// A crews file that cannot be read only weakens the suggested id.
+			crews, _ := crew.Load()
+			for _, note := range spawnNotes(p, opts, crews, m.ID) {
+				if _, err := fmt.Fprintln(cmd.ErrOrStderr(), note); err != nil {
+					return err
+				}
 			}
 			if detach {
 				return nil
@@ -53,9 +67,37 @@ func spawnCommand() *cobra.Command {
 	cmd.Flags().StringVar(&opts.Ticket, "ticket", "", "Ticket identifier")
 	cmd.Flags().StringVar(&opts.Name, "name", "", "Display name (defaults to the branch's last component)")
 	cmd.Flags().BoolVar(&detach, "detach", false, "Create without attaching or switching")
+	cmd.Flags().BoolVar(&opts.NoGH, "no-gh", false, "Skip the GitHub issue lookup for a numeric --ticket")
+	cmd.Flags().BoolVar(&opts.CreateCrew, "create-crew", false, "Create and assign the crew suggested by the issue's parent or milestone")
 	_ = cmd.MarkFlagRequired("repo")
 	_ = cmd.MarkFlagRequired("branch")
 	return cmd
+}
+
+// spawnNotes reports lookup warnings, the issue found and what happened to its
+// suggested crew. crews is the crew list after the spawn.
+func spawnNotes(p member.Prepared, opts member.SpawnOptions, crews []crew.Crew, id string) []string {
+	var notes []string
+	for _, w := range p.Warnings {
+		notes = append(notes, "warning: "+w)
+	}
+	if p.Issue == nil {
+		return notes
+	}
+	notes = append(notes, fmt.Sprintf("Issue #%d: %s", p.Issue.Number, p.Issue.Title))
+	s := p.Issue.Suggestion
+	switch {
+	case s == nil:
+	case p.AutoCrew:
+		notes = append(notes, fmt.Sprintf("Crew: %s (matches %s %s)", p.Manifest.Crew, s.Source, s.URL))
+	case p.NewCrew != nil:
+		notes = append(notes, fmt.Sprintf("Crew: created %q from %s %s", s.Title, s.Source, s.URL))
+	case opts.Crew == "" && !opts.SkipSuggestion:
+		notes = append(notes, fmt.Sprintf("Suggested crew from %s %q:", s.Source, s.Title),
+			fmt.Sprintf("  motley crew add --url %s --title %s && motley crew assign %s %s", shellx.Quote(s.URL), shellx.Quote(s.Title), id, member.NewCrewID(crews, s.Title)),
+			"  or spawn with --create-crew next time")
+	}
+	return notes
 }
 
 func listCommand() *cobra.Command {

@@ -32,26 +32,59 @@ type file struct {
 var slug = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
 func Kind(raw string) string {
+	kind, _, _, _ := GitHubRef(raw)
+	return kind
+}
+
+// GitHubRef classifies a crew URL and returns the GitHub coordinates it names:
+// owner and number for a project, owner, repo and number for an issue.
+func GitHubRef(raw string) (kind, owner, repo string, number int) {
 	if raw == "" {
-		return "text"
+		return "text", "", "", 0
 	}
 	u, err := url.Parse(raw)
 	if err != nil || !strings.EqualFold(u.Hostname(), "github.com") {
-		return "link"
+		return "link", "", "", 0
 	}
 	p := strings.Split(strings.Trim(u.Path, "/"), "/")
 	if len(p) == 4 {
-		n, _ := strconv.Atoi(p[3])
-		if n > 0 {
+		if n, _ := strconv.Atoi(p[3]); n > 0 {
 			if (p[0] == "orgs" || p[0] == "users") && p[2] == "projects" {
-				return "project"
+				return "project", p[1], "", n
 			}
 			if p[2] == "issues" {
-				return "issue"
+				return "issue", p[0], p[1], n
 			}
 		}
 	}
-	return "link"
+	return "link", "", "", 0
+}
+
+// FindURL matches crews by URL, ignoring scheme and host case, query, fragment
+// and a trailing slash.
+func FindURL(crews []Crew, raw string) (Crew, bool) {
+	want := normalizeURL(raw)
+	if want == "" {
+		return Crew{}, false
+	}
+	for _, c := range crews {
+		if c.URL != "" && normalizeURL(c.URL) == want {
+			return c, true
+		}
+	}
+	return Crew{}, false
+}
+
+func normalizeURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+	u.Scheme, u.Host = strings.ToLower(u.Scheme), strings.ToLower(u.Host)
+	u.RawQuery, u.Fragment, u.RawFragment, u.RawPath = "", "", "", ""
+	u.Path = strings.TrimSuffix(u.Path, "/")
+	return u.String()
 }
 func Validate(c Crew) error {
 	if !slug.MatchString(c.ID) || c.ID == "none" {

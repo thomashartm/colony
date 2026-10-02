@@ -80,18 +80,32 @@ func AddCrew(title, url, color, gig string) (crew.Crew, error) {
 	if err != nil {
 		return crew.Crew{}, err
 	}
-	title = strings.TrimSpace(title)
-	base := slug(title)
+	c, err := newCrew(crews, title, url, color, gig)
+	if err != nil {
+		return c, err
+	}
+	return c, crew.Save(append(crews, c))
+}
+
+// NewCrewID is the id AddCrew would assign to title, given the existing crews.
+func NewCrewID(crews []crew.Crew, title string) string {
+	base := slug(strings.TrimSpace(title))
 	if base == "" || base == "none" {
 		base = "crew"
 	}
 	id := base
 	for n := 2; ; n++ {
 		if _, found := crew.Find(crews, id); !found {
-			break
+			return id
 		}
 		id = fmt.Sprintf("%s-%d", base, n)
 	}
+}
+
+// newCrew builds a validated crew without saving or locking; callers hold the
+// lifecycle lock.
+func newCrew(crews []crew.Crew, title, url, color, gig string) (crew.Crew, error) {
+	title = strings.TrimSpace(title)
 	if color == "" {
 		used := map[string]bool{}
 		for _, c := range crews {
@@ -105,11 +119,8 @@ func AddCrew(title, url, color, gig string) (crew.Crew, error) {
 			}
 		}
 	}
-	c := crew.Crew{ID: id, Title: title, Gig: strings.TrimSpace(gig), URL: url, Kind: crew.Kind(url), Color: color}
-	if err := crew.Validate(c); err != nil {
-		return c, err
-	}
-	return c, crew.Save(append(crews, c))
+	c := crew.Crew{ID: NewCrewID(crews, title), Title: title, Gig: strings.TrimSpace(gig), URL: url, Kind: crew.Kind(url), Color: color}
+	return c, crew.Validate(c)
 }
 
 type CrewEdit struct{ Title, URL, Color, Gig *string }
@@ -244,8 +255,9 @@ func EditIdentity(id string, edit IdentityEdit) error {
 			return fmt.Errorf("name must not be empty")
 		}
 	}
-	if edit.Ticket != nil {
-		m.Ticket = *edit.Ticket
+	if edit.Ticket != nil && *edit.Ticket != m.Ticket {
+		// The recorded issue belongs to the old ticket; u fetches the new one.
+		m.Ticket, m.Issue = *edit.Ticket, nil
 	}
 	if edit.Crew != nil {
 		m.Crew = *edit.Crew

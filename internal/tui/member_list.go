@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/thomashartm/motley/internal/gitx"
 	"github.com/thomashartm/motley/internal/member"
 	"github.com/thomashartm/motley/internal/palette"
 )
@@ -68,22 +69,25 @@ func (m Model) memberTableRow(r member.Row, width int, selected bool) string {
 // Explicit web links work for any tracker. Numeric tickets can be resolved
 // for known repository hosts; leave other identifiers as text rather than
 // inventing tracker URLs. Never emit terminal controls from persisted values.
+// safeWebURL admits only absolute http(s) URLs without credentials or control
+// characters; nothing else is linked or handed to open/xdg-open.
+func safeWebURL(raw string) *url.URL {
+	if strings.IndexFunc(raw, unicode.IsControl) >= 0 {
+		return nil
+	}
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.User != nil {
+		return nil
+	}
+	return u
+}
+
 func ticketLink(r member.Row) (string, string) {
 	ticket := strings.TrimSpace(r.Ticket)
 	if ticket == "" {
 		return "—", ""
 	}
-	safeURL := func(raw string) *url.URL {
-		if strings.IndexFunc(raw, unicode.IsControl) >= 0 {
-			return nil
-		}
-		u, err := url.Parse(raw)
-		if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.User != nil {
-			return nil
-		}
-		return u
-	}
-	if u := safeURL(ticket); u != nil {
+	if u := safeWebURL(ticket); u != nil {
 		label := "Link ↗"
 		parts := strings.Split(strings.TrimRight(u.Path, "/"), "/")
 		if last := parts[len(parts)-1]; digits(last) {
@@ -95,22 +99,8 @@ func ticketLink(r member.Row) (string, string) {
 	if !digits(number) {
 		return clean(ticket), ""
 	}
-	remote := r.RemoteURL
-	if strings.HasPrefix(remote, "git@") {
-		host, path, ok := strings.Cut(strings.TrimPrefix(remote, "git@"), ":")
-		if ok {
-			remote = "https://" + host + "/" + path
-		}
-	} else if strings.HasPrefix(remote, "ssh://git@") {
-		remote = "https://" + strings.TrimPrefix(remote, "ssh://git@")
-	}
-	u := safeURL(remote)
-	if u == nil {
-		return "#" + number, ""
-	}
-	u.Path = strings.TrimSuffix(strings.TrimRight(u.Path, "/"), ".git")
-	u.RawPath, u.RawQuery, u.Fragment = "", "", ""
-	if len(strings.Split(strings.Trim(u.Path, "/"), "/")) < 2 {
+	u, ok := gitx.Web(r.RemoteURL)
+	if !ok {
 		return "#" + number, ""
 	}
 	switch u.Host {

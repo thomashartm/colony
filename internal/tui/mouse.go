@@ -74,6 +74,10 @@ func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	if msg.Button != tea.MouseButtonLeft || msg.Action != tea.MouseActionPress {
 		return m, nil
 	}
+	// The message line sits between the panels and the footer.
+	if msg.Y == m.height-1-m.footerRows() && m.copyableMessage() != "" {
+		return m.copyMessage()
+	}
 	if msg.Y == m.height-1 {
 		for _, button := range []string{"[o Open agent]", "[1 List]", "[2 Details]", "[3 Actions]", "[q Close]"} {
 			start := strings.Index(navigationBar, button)

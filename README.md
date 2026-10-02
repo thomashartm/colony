@@ -130,7 +130,16 @@ only the buttons are shown while navigating the overview.
 | X | Terminate session (keep work) |
 | x / r | Retire / revive |
 | Page Up / Page Down | Scroll details |
+| c | Copy the message above the footer (or click it) |
 | q | Close |
+
+The line above the footer shows Motley's messages and errors, cut to the window
+width. **c**, a click on that line, or **Copy message** in Actions copies the full
+text to the clipboard; the line then shows **✓ copied**. Inside tmux the copy goes
+through tmux, which keeps it as a paste buffer and passes it to the terminal when
+`set-clipboard` is `external` or `on` (the default). If it is `off`, Motley says
+the text is only in tmux's paste buffer. Outside tmux, Motley sends the standard
+OSC 52 clipboard sequence, which Ghostty accepts by default.
 
 Press **3** or click **3 Actions**, then **↑/↓** and **Enter**
 to run an action on the selected member. **Terminate agent** stops its session

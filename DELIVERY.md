@@ -812,3 +812,25 @@ list stops at 100 columns: 80 → 40 | 35, 120 → 60 | 55, 200 → 100 | 95,
 240 → 100 | 135. `TestPanelSplit` checks those widths and that no rendered line
 exceeds the window; the full suite, including the real-terminal monitor tests,
 passed unchanged.
+
+
+The message line above the footer is cut to the window width and the monitor owns
+the mouse, so messages such as errors could not be copied. **c**, a click on the
+line, or **Copy message** (last in Actions, shown only while a message is present)
+copies the full text: the poll error when there is one, otherwise the message.
+Busy and filter text are not messages. The line shows **[c copy]**, then
+**✓ copied** until the message changes; failures replace it with "Copy failed: …".
+
+Inside tmux, `tmux load-buffer -w` stores a paste buffer and forwards it to the
+client terminal as OSC 52. The monitor targets its most recently active tab, the
+same rule as detach (now one helper). With `set-clipboard off` tmux cannot forward,
+and Motley says so rather than reporting success. Outside tmux Motley writes OSC 52
+itself. No AppleScript, `pbcopy` or terminal-specific API.
+
+Validation: TUI tests cover the full untruncated text, poll-error preference,
+busy/filter exclusion, no message, key, click, Actions entry, failure, monitor tab
+choice and the exact OSC 52 bytes. A real-binary test runs the overview in an
+isolated tmux pane with a pty client: the client receives OSC 52 with the payload,
+`show-buffer` matches and `set-clipboard off` reports the paste-buffer-only result.
+Four mutations (no `-w`, no off check, truncated copy, wrong monitor tab) each fail.
+

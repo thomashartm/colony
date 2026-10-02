@@ -81,6 +81,7 @@ func Run(monitor bool, client string, bell bool) error {
 	m.bell = bell
 	cache := &detailCache{dir: dir}
 	m.fetchDetail = cache.command
+	m.copyText = copyToClipboard(inside, os.Stdout)
 	var program *tea.Program
 	m.sendMsg = func(msg tea.Msg) { program.Send(msg) }
 	program = tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())

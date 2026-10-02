@@ -37,6 +37,10 @@ func (m Model) actions() []navigationAction {
 	if m.monitor {
 		actions = append(actions, navigationAction{"Pin work tab", "T"})
 	}
+	// Last, so a message appearing never shifts the cursor onto another action.
+	if m.copyableMessage() != "" {
+		actions = append(actions, navigationAction{"Copy message (c)", "c"})
+	}
 	return actions
 }
 

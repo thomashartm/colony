@@ -37,6 +37,15 @@ type Manifest struct {
 	Agent     string     `toml:"agent"`
 	CreatedAt time.Time  `toml:"created_at"`
 	RetiredAt *time.Time `toml:"retired_at,omitempty"`
+	// Issue is written at spawn or by an explicit refresh; never by hooks.
+	// Tables stay last so go-toml writes them after the scalar keys.
+	Issue *IssueRef `toml:"issue,omitempty"`
+}
+
+// IssueRef is the GitHub issue a member was spawned for.
+type IssueRef struct {
+	Title string `toml:"title"`
+	URL   string `toml:"url"`
 }
 
 var validID = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)

@@ -13,6 +13,7 @@ import (
 
 	"github.com/thomashartm/motley/internal/agents/claude"
 	"github.com/thomashartm/motley/internal/crew"
+	"github.com/thomashartm/motley/internal/ghostty"
 	"github.com/thomashartm/motley/internal/gitx"
 	"github.com/thomashartm/motley/internal/state"
 	"github.com/thomashartm/motley/internal/tmux"
@@ -222,8 +223,8 @@ func stopExternal(m Manifest) error {
 	return fmt.Errorf("the Claude is still stopping; member retained, retry after it exits")
 }
 
-// OpenExternal focuses the existing Ghostty surface; it never starts a second
-// Claude writer against an already-open conversation. Ambiguous paths refuse.
+// OpenExternal focuses the Ghostty surface running the session; it never starts
+// a second Claude writer against an already-open conversation.
 func OpenExternal(id string) error {
 	dir, err := state.MembersDir()
 	if err != nil {
@@ -245,21 +246,7 @@ func OpenExternal(id string) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	script := `on run argv
- tell application "Ghostty"
-  set matches to {}
-  repeat with term in terminals
-   if working directory of term is item 1 of argv then set end of matches to term
-  end repeat
-  if (count matches) is not 1 then error "Cannot identify a unique Ghostty tab for this directory. Open its original tab."
-  focus (item 1 of matches)
- end tell
-end run`
-	out, err := exec.CommandContext(ctx, "osascript", "-e", script, m.Worktree).CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("focus Ghostty: %s", strings.TrimSpace(string(out)))
-	}
-	return nil
+	return ghostty.FocusProcess(ctx, s.PID, func(dir string) bool { return sameDirectory(dir, m.Worktree) })
 }
 
 func importedLive(m Manifest) (bool, error) {

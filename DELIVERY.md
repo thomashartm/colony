@@ -781,3 +781,28 @@ Validation: `make check` stages (installer, uninstall, plugin, all Go and real
 tmux tests, vet), golangci-lint v2.14.0 (0 issues), gofmt and four cross-builds.
 The new exit test fails with the pane change reverted, and the plugin test fails
 with the interrupt marking disabled.
+
+### Open imported sessions that share a directory (#30) — 2026-10-02
+
+PRs #22 (import) and #23 (first-run config) had been merged into stacked branches
+and never reached main; this change merges them. Open agent on an imported member
+failed with "Cannot identify a unique Ghostty tab" whenever several Ghostty tabs
+shared the session's directory (five did for the reported member). Ghostty 1.3.1
+exposes only each terminal's id, title and working directory, not its tty.
+
+New `internal/ghostty`: a single terminal in the directory is focused as before.
+Otherwise Motley writes a unique OSC 2 title to the Claude process's own tty
+(`ps -o tty=`), finds the terminal showing it, restores that terminal's previous
+title and focuses it by id. The mark is rewritten on every poll because a working
+Claude retitles its terminal continuously. Terminals without a reported directory
+are found the same way. A session Motley cannot see (tmux, ssh, another app)
+gets a clear error, and its title is reset. The scripts no longer launch Ghostty
+when it is not running.
+
+Validation: unit tests with a fake Ghostty and a file standing in for the tty
+cover the direct path (no tty write), shared directories, agent retitling, missing
+directories, invisible sessions, invalid ttys and control characters in restored
+titles. Five mutations (no restore, single mark, no stripping, no direct path, no
+reset) each fail the suite. Live on Ghostty 1.3.1 with the reported member: the
+mark resolved the right terminal among five on the first poll, `motley attach`
+focused it and its title was restored.

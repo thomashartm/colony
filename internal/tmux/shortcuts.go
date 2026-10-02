@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/thomashartm/motley/internal/shellx"
@@ -52,6 +53,11 @@ func shortcutOptions(args []string, id, original string) []string {
 }
 
 func navigationBindings() error {
+	if runtime.GOOS == "darwin" {
+		if err := clipboardBindings("/usr/bin/pbcopy"); err != nil {
+			return err
+		}
+	}
 	self, err := os.Executable()
 	if err != nil {
 		return err
@@ -68,6 +74,26 @@ func navigationBindings() error {
 	}
 	return bindNavigation("root", "MouseUp1StatusLeft", guard,
 		"run-shell -b "+shellx.Quote(callback+" --row #{mouse_status_line} --column #{mouse_x} --prefix #{q:prefix}"))
+}
+
+// Clipboard options are server-wide, so use guarded bindings instead of changing
+// set-clipboard or terminal-features. An explicit pipe also works when OSC 52 is
+// disabled or unsupported by the terminal. Keep the user's bindings elsewhere.
+func clipboardBindings(command string) error {
+	guard := "#{||:#{@motley_member},#{@motley_monitor}}"
+	// Mouse-aware agents and the monitor otherwise consume drags themselves.
+	// Only take the drag: ordinary clicks and wheel events still reach the app.
+	if err := bindNavigation("root", "MouseDrag1Pane", guard,
+		"if-shell -F '#{pane_in_mode}' 'send-keys -M' 'copy-mode -M'"); err != nil {
+		return err
+	}
+	for _, table := range []string{"copy-mode", "copy-mode-vi"} {
+		if err := bindNavigation(table, "MouseDragEnd1Pane", guard,
+			"send-keys -X copy-pipe-and-cancel "+shellx.Quote(command)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // tmux key tables are server-wide. Retain the user's binding as the fallback
@@ -219,7 +245,29 @@ func bindingCommand(table, key string) string {
 	pattern := `(?m)^bind-key\s+(?:-r\s+)?-T\s+\S+\s+` + regexp.QuoteMeta(key) + `\s+([^\n]+)`
 	match := regexp.MustCompile(pattern).FindStringSubmatch(table)
 	if len(match) == 2 {
-		return match[1]
+		// list-keys escapes command separators for the outer bind-key command.
+		// Our fallback is already a command string inside if-shell; remove that
+		// extra escaping, while retaining escapes inside quoted arguments.
+		var command strings.Builder
+		var quote byte
+		for i := 0; i < len(match[1]); i++ {
+			ch := match[1][i]
+			if ch == '\\' && quote != '\'' && i+1 < len(match[1]) {
+				i++
+				if quote != 0 || match[1][i] != ';' {
+					command.WriteByte(ch)
+				}
+				command.WriteByte(match[1][i])
+				continue
+			}
+			if ch == quote {
+				quote = 0
+			} else if quote == 0 && (ch == '\'' || ch == '"') {
+				quote = ch
+			}
+			command.WriteByte(ch)
+		}
+		return command.String()
 	}
 	return ""
 }

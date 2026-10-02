@@ -256,6 +256,13 @@ if -F '#{>=:#{version},3.4}' 'set -as terminal-features ",xterm*:hyperlinks"'
   **Ctrl-a n/p** selects the next/previous window; **Ctrl-a arrow** selects a pane.
 - **Scrollback:** **Ctrl-a [**, then arrows or **Page Up/Page Down**;
   **q** leaves scrollback.
+- **Copy text (macOS):** drag across text in a member pane or the monitor;
+  releasing the mouse copies it to the system clipboard. Paste with **Cmd-V**.
+  This works locally in Ghostty, iTerm2 and Terminal.app through `pbcopy`, without
+  terminal clipboard configuration. Click navigation and wheel scrolling still
+  work. Reattach members or run `mtly monitor` after upgrading to apply the bindings.
+  On Linux, copying keeps the existing tmux/terminal configuration; over SSH,
+  `pbcopy` writes to the Mac running tmux, not the connecting computer.
 - **Detach:** **Ctrl-a d** returns to your shell and keeps the agent running.
 
 ### Open the agent in another Ghostty tab

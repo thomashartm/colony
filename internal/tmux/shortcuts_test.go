@@ -13,3 +13,11 @@ func TestBindingCommandFromWholeTable(t *testing.T) {
 		t.Fatalf("unbound key picked another action: %q", got)
 	}
 }
+
+func TestBindingCommandPreservesChainedFallback(t *testing.T) {
+	table := `bind-key -T root MouseDrag1Pane display-message "literal \\; and \"quote\"" \; copy-mode -M`
+	want := `display-message "literal \\; and \"quote\"" ; copy-mode -M`
+	if got := bindingCommand(table, "MouseDrag1Pane"); got != want {
+		t.Fatalf("fallback = %q, want %q", got, want)
+	}
+}

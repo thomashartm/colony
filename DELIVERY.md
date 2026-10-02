@@ -1010,3 +1010,11 @@ their alignment; dotted headings and spacing between sections remain intact.
 
 Validation: TUI tests, targeted real-terminal overview/monitor and mouse ticket
 link tests, TUI vet, build and diff checks passed.
+
+### Crew wordmark — 2026-10-02
+
+The TUI header pairs three crew bars in cyan, violet and amber with a bold
+uppercase MOTLEY wordmark. Both overview and monitor keep a single header row.
+
+Validation: TUI tests, real-terminal overview/monitor checks, TUI vet, build and
+diff checks passed.

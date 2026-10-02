@@ -73,7 +73,7 @@ func (m Model) updateRetire(key string) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "enter":
 		keys := []string{"y", "f", "k", "esc"}
-		if dialog.check.Manifest.ClaudeSession != "" {
+		if dialog.check.Manifest.Imported() {
 			keys = []string{"y", "esc"}
 		}
 		key = keys[dialog.focus]
@@ -112,7 +112,9 @@ func (m Model) retireView(height int) string {
 		lines = append(lines, "Checking worktree and commits…")
 	} else if d.err != nil {
 		lines = append(lines, "Cannot retire:", clean(d.err.Error()))
-	} else if d.check.Manifest.ClaudeSession != "" {
+	} else if d.check.Manifest.CodexSession != "" {
+		lines = append(lines, "Closes its Motley terminal and archives its Motley entry.", "Codex keeps its conversation and running work on the shared server.", "Keeps the checkout, files and all branches.", clean(d.check.Manifest.Worktree))
+	} else if d.check.Manifest.Imported() {
 		lines = append(lines, "Stops the imported agent and archives its Motley entry.", "Keeps the checkout, files and all branches.", clean(d.check.Manifest.Worktree))
 	} else {
 		dirty := "no"
@@ -145,7 +147,7 @@ func (m Model) retireView(height int) string {
 
 func (m Model) retireChoices() []string {
 	d := m.retiring
-	if d.check.Manifest.ClaudeSession != "" {
+	if d.check.Manifest.Imported() {
 		return []string{"Confirm retirement (keep files)", "Cancel"}
 	}
 	return []string{"Confirm retirement", fmt.Sprintf("Force: %t", d.force), fmt.Sprintf("Keep branch: %t", d.keep), "Cancel"}

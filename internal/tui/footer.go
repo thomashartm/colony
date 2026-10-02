@@ -141,7 +141,7 @@ func (m Model) footerGroups() (full, compact []string) {
 		}
 		return []string{"[Crews] Nav: ↑↓ crew · → actions", "Act: enter edit/add · esc back", "Shortcuts: a add · e edit · c colour · x delete"}, []string{"[Crews] ↑↓ crew · → actions", "enter edit · esc back"}
 	}
-	if m.retiring != nil && m.retiring.check.Manifest.ClaudeSession != "" {
+	if m.retiring != nil && m.retiring.check.Manifest.Imported() {
 		return []string{"[Retire] ↑↓ choose · enter confirm · esc cancel"}, []string{"[Retire] ↑↓ choose · enter confirm · esc cancel"}
 	}
 	if m.retiring != nil {

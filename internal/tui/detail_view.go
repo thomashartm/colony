@@ -121,7 +121,9 @@ func (m Model) memberDetails() string {
 		}
 	}
 	session := []detailField{{"ID", clean(r.ID)}, {"Created", r.CreatedAt.Local().Format("2006-01-02 15:04 MST")}, {"Tabs", strings.Join(clients, ", ")}}
-	if r.ClaudeSession != "" {
+	if r.CodexSession != "" {
+		session = append(session, detailField{"Codex ID", clean(r.CodexSession)}, detailField{"Checkout", "Imported; files and branches are kept on retirement."}, detailField{"Connection", "Shared Codex server; Open agent connects to the same conversation."})
+	} else if r.ClaudeSession != "" {
 		session = append(session, detailField{"Claude ID", clean(r.ClaudeSession)}, detailField{"Checkout", "Imported; files are kept on retirement."})
 		if r.External {
 			session = append(session, detailField{"Terminal", "Runs in its original terminal; Terminate and Revive to run it in Motley."})

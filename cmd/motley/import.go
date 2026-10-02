@@ -10,13 +10,13 @@ import (
 
 func importCommand() *cobra.Command {
 	var list bool
-	var name, crew string
-	cmd := &cobra.Command{Use: "import [claude-session-id]", Short: "Add a running Claude session from another terminal", Long: "Discover and add existing Claude sessions without restarting them.\nTheir directories and branches are always kept on retirement.\nUse --list to find a session ID, or Actions > Add existing Claude in the monitor.", Args: cobra.MaximumNArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+	var name, crew, agent string
+	cmd := &cobra.Command{Use: "import [session-id]", Short: "Add an existing Claude or Codex session", Long: "Discover and register existing sessions without restarting them.\nUse --agent claude (default) or --agent codex, and --list to choose a session.\nImported directories and branches are always kept on retirement.\nCodex requires a running local shared app-server; standalone --no-daemon sessions are not discoverable.", Args: cobra.MaximumNArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		if list || len(args) == 0 {
 			if len(args) > 0 {
 				return fmt.Errorf("use --list without a session ID")
 			}
-			sessions, err := member.DiscoverClaude()
+			sessions, err := member.DiscoverImports(agent)
 			if err != nil {
 				return err
 			}
@@ -31,13 +31,14 @@ func importCommand() *cobra.Command {
 			}
 			return w.Flush()
 		}
-		m, err := member.ImportClaude(args[0], name, crew)
+		m, err := member.Import(agent, args[0], name, crew)
 		if err != nil {
 			return err
 		}
-		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Added %s. Claude keeps running in its original terminal.\nOpen the monitor: mtly monitor\n", m.ID)
+		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Added %s. The existing %s session keeps running.\nOpen the monitor: mtly monitor\n", m.ID, agent)
 		return err
 	}}
+	cmd.Flags().StringVar(&agent, "agent", "claude", "Session provider: claude or codex")
 	cmd.Flags().BoolVar(&list, "list", false, "List running sessions not already in Motley")
 	cmd.Flags().StringVar(&name, "name", "", "Display name")
 	cmd.Flags().StringVar(&crew, "crew", "", "Crew ID")

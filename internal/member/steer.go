@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/thomashartm/motley/internal/state"
 	"github.com/thomashartm/motley/internal/tmux"
 )
 
@@ -57,6 +58,26 @@ func Reply(id, text string) error {
 			}
 			if s.Status == "ended" {
 				return fmt.Errorf("agent has ended; jump to its shell instead")
+			}
+			dir, err := state.MembersDir()
+			if err != nil {
+				return err
+			}
+			m, err := Load(dir, id)
+			if err != nil {
+				return err
+			}
+			if m.CodexSession != "" {
+				thread, err := validatedCodexSession(m)
+				if err != nil {
+					return err
+				}
+				if !thread.Loaded() {
+					return fmt.Errorf("codex session is no longer loaded; open the member first")
+				}
+				if thread.MotleyStatus() == "permission" {
+					return fmt.Errorf("permission needs a decision in the agent; jump to the member")
+				}
 			}
 			return tmux.SendText(id, text)
 		}

@@ -31,3 +31,36 @@ func TestManifestIssueRoundTripAndLegacy(t *testing.T) {
 		t.Fatalf("legacy manifest: %+v %v", old, err)
 	}
 }
+
+func TestImportedCodexManifestValidation(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		change func(*Manifest)
+		valid  bool
+	}{
+		{"valid", func(*Manifest) {}, true},
+		{"wrong agent", func(m *Manifest) { m.Agent = "claude" }, false},
+		{"missing thread", func(m *Manifest) { m.CodexSession = "" }, false},
+		{"relative socket", func(m *Manifest) { m.CodexSocket = "relative" }, false},
+		{"control socket", func(m *Manifest) { m.CodexSocket = "/tmp/\nsock" }, false},
+		{"relative checkout", func(m *Manifest) { m.Worktree = "relative" }, false},
+		{"mixed import", func(m *Manifest) { m.ClaudeSession = "claude-one" }, false},
+		{"override server", func(m *Manifest) { m.AgentArgs = []string{"--no-daemon"} }, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			m := Manifest{Schema: 1, ID: "codex-one", Agent: "codex", CodexSession: "one", CodexSocket: "/server.sock", Worktree: "/repo"}
+			tc.change(&m)
+			if err := saveManifest(dir, m); err != nil {
+				t.Fatal(err)
+			}
+			got, err := Load(dir, m.ID)
+			if (err == nil) != tc.valid {
+				t.Fatal(got, err)
+			}
+			if tc.valid && !got.Imported() {
+				t.Fatal("imported ownership lost")
+			}
+		})
+	}
+}

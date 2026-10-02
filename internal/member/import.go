@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/thomashartm/motley/internal/agents/claude"
+	"github.com/thomashartm/motley/internal/agents/codex"
 	"github.com/thomashartm/motley/internal/crew"
 	"github.com/thomashartm/motley/internal/gitx"
 	"github.com/thomashartm/motley/internal/state"
@@ -38,7 +39,7 @@ func DiscoverClaude() ([]claude.Session, error) {
 		}
 		managed := false
 		for _, m := range members {
-			if m.ClaudeSession == s.SessionID || (m.ClaudeSession == "" && sameDirectory(m.Worktree, s.Cwd)) {
+			if m.Agent == "claude" && (m.ClaudeSession == s.SessionID || (m.ClaudeSession == "" && sameDirectory(m.Worktree, s.Cwd))) {
 				managed = true
 				break
 			}
@@ -51,6 +52,10 @@ func DiscoverClaude() ([]claude.Session, error) {
 }
 
 func ImportClaude(sessionID, name, crewID string) (Manifest, error) {
+	return Import("claude", sessionID, name, crewID)
+}
+
+func Import(agent, sessionID, name, crewID string) (Manifest, error) {
 	if err := CheckID(sessionID); err != nil {
 		return Manifest{}, err
 	}
@@ -63,11 +68,11 @@ func ImportClaude(sessionID, name, crewID string) (Manifest, error) {
 		return Manifest{}, err
 	}
 	defer func() { _ = lock.Close() }()
-	sessions, err := DiscoverClaude()
+	sessions, err := DiscoverImports(agent)
 	if err != nil {
 		return Manifest{}, err
 	}
-	var selected *claude.Session
+	var selected *ImportCandidate
 	for i := range sessions {
 		if sessions[i].SessionID == sessionID {
 			selected = &sessions[i]
@@ -75,7 +80,7 @@ func ImportClaude(sessionID, name, crewID string) (Manifest, error) {
 		}
 	}
 	if selected == nil {
-		return Manifest{}, fmt.Errorf("the Claude session %s is no longer running or is already in Motley", sessionID)
+		return Manifest{}, fmt.Errorf("the %s session %s is no longer available or is already in Motley", agent, sessionID)
 	}
 	s := *selected
 	cwd, err := worktree.Physical(s.Cwd)
@@ -98,7 +103,7 @@ func ImportClaude(sessionID, name, crewID string) (Manifest, error) {
 	if strings.TrimSpace(name) == "" {
 		name = filepath.Base(cwd)
 	}
-	// Git metadata is optional. Existing Claude sessions may run outside a repo.
+	// Git metadata is optional. Existing sessions may run outside a repo.
 	repo := ""
 	branch, base, remote := "", "", ""
 	if rows, e := gitx.Worktrees(cwd); e == nil && len(rows) > 0 {
@@ -107,20 +112,25 @@ func ImportClaude(sessionID, name, crewID string) (Manifest, error) {
 		base, _ = worktree.Base(repo)
 		remote, _ = gitx.Output(repo, "remote", "get-url", "origin")
 	}
-	id := "claude-" + sessionID
+	id := agent + "-" + sessionID
 	if _, err := os.Lstat(filepath.Join(dir, id+".toml")); !os.IsNotExist(err) {
 		return Manifest{}, fmt.Errorf("member %s already exists", id)
 	}
-	m := Manifest{Schema: 1, ID: id, Name: name, Repo: filepath.Base(cwd), RepoPath: repo, Worktree: cwd, Branch: branch, Base: base, RemoteURL: remote, Agent: "claude", Crew: crewID, CreatedAt: time.Now().UTC(), ClaudeSession: sessionID}
+	m := Manifest{Schema: 1, ID: id, Name: name, Repo: filepath.Base(cwd), RepoPath: repo, Worktree: cwd, Branch: branch, Base: base, RemoteURL: remote, Agent: agent, Crew: crewID, CreatedAt: time.Now().UTC()}
+	if agent == "codex" {
+		m.CodexSession, m.CodexSocket = sessionID, s.Socket
+	} else {
+		m.ClaudeSession = sessionID
+	}
 	if err := saveManifest(dir, m); err != nil {
 		return Manifest{}, err
 	}
 	return m, nil
 }
 
-// RefreshExternal uses one bounded discovery call for all imported members.
+// refreshClaude uses one bounded discovery call for all imported Claude members.
 // Never infer that external sessions died when discovery itself fails.
-func RefreshExternal(rows []Row) ([]Row, error) {
+func refreshClaude(rows []Row) ([]Row, error) {
 	needed := false
 	for _, r := range rows {
 		if r.ClaudeSession != "" && !r.Alive {
@@ -267,4 +277,132 @@ func sameDirectory(a, b string) bool {
 		b = p
 	}
 	return filepath.Clean(a) == filepath.Clean(b)
+}
+
+// ImportCandidate is the common CLI/TUI representation; control stays agent-specific.
+type ImportCandidate struct{ Agent, SessionID, Name, Cwd, Status, Socket string }
+
+func DiscoverImports(agent string) ([]ImportCandidate, error) {
+	var candidates []ImportCandidate
+	switch agent {
+	case "claude":
+		sessions, err := DiscoverClaude()
+		if err != nil {
+			return nil, err
+		}
+		for _, s := range sessions {
+			candidates = append(candidates, ImportCandidate{Agent: agent, SessionID: s.SessionID, Name: s.Name, Cwd: s.Cwd, Status: s.MotleyStatus()})
+		}
+	case "codex":
+		sessions, err := codex.Sessions("")
+		if err != nil {
+			return nil, err
+		}
+		dir, err := state.MembersDir()
+		if err != nil {
+			return nil, err
+		}
+		members, err := loadAll(dir)
+		if err != nil {
+			return nil, err
+		}
+		for _, s := range sessions {
+			if CheckID(s.ID) != nil {
+				continue
+			}
+			managed := false
+			for _, m := range members {
+				if m.Agent == "codex" && (m.CodexSession == s.ID || (m.CodexSession == "" && sameDirectory(m.Worktree, s.Cwd))) {
+					managed = true
+					break
+				}
+			}
+			if !managed {
+				candidates = append(candidates, ImportCandidate{Agent: agent, SessionID: s.ID, Name: s.Name, Cwd: s.Cwd, Status: s.MotleyStatus(), Socket: s.Socket})
+			}
+		}
+	default:
+		return nil, fmt.Errorf("import supports claude or codex")
+	}
+	return candidates, nil
+}
+
+func RefreshExternal(rows []Row) ([]Row, error) {
+	rows, err := refreshClaude(rows)
+	if err != nil {
+		return rows, err
+	}
+	bySocket := map[string][]codex.Session{}
+	for i := range rows {
+		r := &rows[i]
+		if r.CodexSession == "" {
+			continue
+		}
+		sessions, ok := bySocket[r.CodexSocket]
+		if !ok {
+			sessions, err = codex.Sessions(r.CodexSocket)
+			if err != nil {
+				return rows, err
+			}
+			bySocket[r.CodexSocket] = sessions
+		}
+		r.External = !r.Alive
+		for _, s := range sessions {
+			if s.ID == r.CodexSession {
+				if !sameDirectory(s.Cwd, r.Worktree) {
+					return rows, fmt.Errorf("codex session directory changed; remove and import the member again")
+				}
+				r.Alive, r.Status, r.Seen = true, s.MotleyStatus(), time.Now().Unix()
+				break
+			}
+		}
+	}
+	return rows, nil
+}
+
+// ValidateCodex checks the saved thread on its original server before connecting.
+func ValidateCodex(m Manifest) error {
+	_, err := validatedCodexSession(m)
+	return err
+}
+
+func validatedCodexSession(m Manifest) (codex.Session, error) {
+	s, err := codex.ReadSession(m.CodexSocket, m.CodexSession)
+	if err != nil {
+		return s, err
+	}
+	if !sameDirectory(s.Cwd, m.Worktree) {
+		return s, fmt.Errorf("codex session directory changed; remove and import the member again")
+	}
+	return s, nil
+}
+
+// PrepareOpen creates only a terminal client to the existing Codex server.
+func PrepareOpen(id string) error {
+	dir, err := state.MembersDir()
+	if err != nil {
+		return err
+	}
+	m, err := Load(dir, id)
+	if err != nil {
+		return err
+	}
+	if m.CodexSession == "" {
+		return nil
+	}
+	if err := ValidateCodex(m); err != nil {
+		return err
+	}
+	live, err := importedLive(m)
+	if err != nil || live {
+		return err
+	}
+	return Revive(id)
+}
+
+func stopImported(m Manifest) error {
+	if m.CodexSession != "" {
+		return nil
+	} // The shared thread survives removal of the terminal client.
+	return stopExternal(m)
 }

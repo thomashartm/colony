@@ -94,7 +94,7 @@ func TestOverviewCreateActionsWithAndWithoutMembers(t *testing.T) {
 					t.Fatal("spawn unreachable")
 				}
 			case "a":
-				if got.importing == nil || cmd == nil {
+				if got.menu == nil || cmd != nil {
 					t.Fatal("import unreachable")
 				}
 			case "m":

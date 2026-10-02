@@ -93,6 +93,9 @@ func Run(monitor bool, client string, bell bool) error {
 	}
 	m = result.(Model)
 	if m.attachID != "" {
+		if err := member.PrepareOpen(m.attachID); err != nil {
+			return err
+		}
 		return tmux.Attach(m.attachID)
 	}
 	return nil

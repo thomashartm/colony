@@ -22,7 +22,7 @@ func Send(id, client string) error {
 	}
 	for _, r := range rows {
 		if r.ID == id && r.External {
-			return fmt.Errorf("session runs in its original terminal; use motley attach %s to focus it", id)
+			return fmt.Errorf("session runs in its original terminal; reply there")
 		}
 	}
 	clients, err := tmux.Clients()

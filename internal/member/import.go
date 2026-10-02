@@ -6,14 +6,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/thomashartm/motley/internal/agents/claude"
 	"github.com/thomashartm/motley/internal/crew"
-	"github.com/thomashartm/motley/internal/ghostty"
 	"github.com/thomashartm/motley/internal/gitx"
 	"github.com/thomashartm/motley/internal/state"
 	"github.com/thomashartm/motley/internal/tmux"
@@ -223,9 +221,10 @@ func stopExternal(m Manifest) error {
 	return fmt.Errorf("the Claude is still stopping; member retained, retry after it exits")
 }
 
-// OpenExternal focuses the Ghostty surface running the session; it never starts
-// a second Claude writer against an already-open conversation.
-func OpenExternal(id string) error {
+// ExternalTerminal explains where an imported session runs. Motley controls
+// terminals only through tmux, so it never focuses or drives the original one,
+// and it never starts a second Claude writer against an open conversation.
+func ExternalTerminal(id string) error {
 	dir, err := state.MembersDir()
 	if err != nil {
 		return err
@@ -241,12 +240,7 @@ func OpenExternal(id string) error {
 	if s == nil {
 		return fmt.Errorf("session stopped; use Revive to resume it in Motley")
 	}
-	if runtime.GOOS != "darwin" {
-		return fmt.Errorf("this session is running in its original terminal; automatic focus currently requires Ghostty on macOS")
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	return ghostty.FocusProcess(ctx, s.PID, func(dir string) bool { return sameDirectory(dir, m.Worktree) })
+	return fmt.Errorf("%s runs in its original terminal in %s; switch to it there, or Terminate and Revive to run it in Motley", m.Name, m.Worktree)
 }
 
 func importedLive(m Manifest) (bool, error) {

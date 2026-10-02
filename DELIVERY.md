@@ -685,8 +685,9 @@ interface and rechecks the selected conversation before registration. Imported
 sessions remain running in their original terminal, including sessions in main
 checkouts or non-Git directories. Their live status appears in the monitor.
 
-Open agent focuses a unique matching Ghostty directory on macOS; ambiguous or
-missing tabs report a clear error without starting a second conversation.
+Open agent focused a unique matching Ghostty directory through AppleScript. That
+broke the "No AppleScript" principle and was removed before landing on main (see
+the #30 entry).
 Terminate revalidates the Claude session/process, then waits for it to stop.
 Revive resumes the saved conversation under Motley. Imported directories and
 branches are always preserved on retirement, including after revival.
@@ -782,27 +783,23 @@ tmux tests, vet), golangci-lint v2.14.0 (0 issues), gofmt and four cross-builds.
 The new exit test fails with the pane change reverted, and the plugin test fails
 with the interrupt marking disabled.
 
-### Open imported sessions that share a directory (#30) — 2026-10-02
+### Imported sessions: no terminal control outside tmux (#30) — 2026-10-02
 
 PRs #22 (import) and #23 (first-run config) had been merged into stacked branches
-and never reached main; this change merges them. Open agent on an imported member
-failed with "Cannot identify a unique Ghostty tab" whenever several Ghostty tabs
-shared the session's directory (five did for the reported member). Ghostty 1.3.1
-exposes only each terminal's id, title and working directory, not its tty.
+and never reached main; this change merges them. #22 focused the original Ghostty
+tab through AppleScript and failed with "Cannot identify a unique Ghostty tab"
+whenever several tabs shared the session's directory. AppleScript contradicts
+REQUIREMENTS §0 ("No AppleScript or Ghostty API"), so the focus is removed rather
+than repaired. A tty-title variant built in PR #32 was removed before merge for
+the same reason.
 
-New `internal/ghostty`: a single terminal in the directory is focused as before.
-Otherwise Motley writes a unique OSC 2 title to the Claude process's own tty
-(`ps -o tty=`), finds the terminal showing it, restores that terminal's previous
-title and focuses it by id. The mark is rewritten on every poll because a working
-Claude retitles its terminal continuously. Terminals without a reported directory
-are found the same way. A session Motley cannot see (tmux, ssh, another app)
-gets a clear error, and its title is reset. The scripts no longer launch Ghostty
-when it is not running.
+Open agent, `attach` and `switch` on a running imported member now explain where
+it runs: "<name> runs in its original terminal in <dir>; switch to it there, or
+Terminate and Revive to run it in Motley." Reply and send messages no longer point
+to Open agent. Revive remains the tmux-only way to take a session over.
 
-Validation: unit tests with a fake Ghostty and a file standing in for the tty
-cover the direct path (no tty write), shared directories, agent retitling, missing
-directories, invisible sessions, invalid ttys and control characters in restored
-titles. Five mutations (no restore, single mark, no stripping, no direct path, no
-reset) each fail the suite. Live on Ghostty 1.3.1 with the reported member: the
-mark resolved the right terminal among five on the first poll, `motley attach`
-focused it and its title was restored.
+Validation: `TestNoAppleScript` scans every Go, shell and TypeScript source and
+fails on AppleScript use; it caught the removed package when restored. The import
+lifecycle test checks the attach/switch explanation for main, linked and non-Git
+sessions. The Claude discovery contract test now uses a generous bound through a
+test seam; it had hit the 3 s production bound at a load average near 20.

@@ -105,7 +105,7 @@ func connectCommand(attach bool) *cobra.Command {
 			}
 			for _, r := range rows {
 				if r.ID == args[0] && r.External {
-					return member.OpenExternal(r.ID)
+					return member.ExternalTerminal(r.ID)
 				}
 			}
 			if attach {

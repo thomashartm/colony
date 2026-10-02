@@ -69,7 +69,7 @@ func (m Model) beginReply() (tea.Model, tea.Cmd) {
 	}
 	r := m.selectedRow()
 	if r.External {
-		m.message = "Open agent (o) to reply in its original terminal."
+		m.message = "Reply in its original terminal; Motley cannot type into it."
 		return m, nil
 	}
 	if !r.Alive || r.CurrentStatus() == "ended" {
@@ -90,7 +90,7 @@ func (m Model) beginSend() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if m.selectedRow().External {
-		m.message = "This session is in its original terminal; Open agent (o) focuses it."
+		m.message = "This session is in its original terminal; Motley cannot type into it."
 		return m, nil
 	}
 	m.pickMode = "send"

@@ -77,6 +77,12 @@ func TestImportClaudeLifecycle(t *testing.T) {
 				t.Fatal("duplicate offered")
 			}
 			f.refused("import", sid)
+			// Motley controls terminals only through tmux; it explains where the session runs.
+			for _, command := range []string{"attach", "switch"} {
+				if out := f.refused(command, id); !strings.Contains(out, "runs in its original terminal in ") || !strings.Contains(out, "Terminate and Revive") {
+					t.Fatal(command, out)
+				}
+			}
 			assertListState(t, f.motley("ls"), id, "alive")
 			rows, err := member.List()
 			if err != nil || len(rows) != 1 || !rows[0].External || rows[0].CurrentStatus() != "working" {

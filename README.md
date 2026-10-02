@@ -241,11 +241,9 @@ mtly import --list
 mtly import <session-id> --name "Existing work"
 ```
 
-Status updates come from Claude. **Open agent** focuses the session's Ghostty tab
-on macOS. When several tabs share its directory, Motley briefly titles the
-session's own terminal to find it, then restores the title. Sessions in tmux, over
-ssh or in another terminal app must be opened manually.
-Reply there. **Terminate** stops Claude; **Revive** resumes the saved conversation
+Status updates come from Claude. The session stays in its original terminal, which
+Motley never controls: **Open agent** tells you where it runs. Switch to that tab
+and reply there. **Terminate** stops Claude; **Revive** resumes the saved conversation
 in Motley’s tmux session. **Retire** keeps imported directories and branches,
 even with Force.
 

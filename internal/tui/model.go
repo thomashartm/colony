@@ -450,7 +450,7 @@ func (m Model) jump() (tea.Model, tea.Cmd) {
 	}
 	if m.selectedRow().External {
 		m.busy = true
-		return m, func() tea.Msg { return actionDone{err: member.OpenExternal(id)} }
+		return m, func() tea.Msg { return actionDone{err: member.ExternalTerminal(id)} }
 	}
 	if !m.inside && !m.monitor {
 		m.attachID = id
@@ -560,7 +560,7 @@ func (m *Model) updateDetail() {
 	if r.ClaudeSession != "" {
 		body += "\n" + field("Claude session", r.ClaudeSession) + "\nImported checkout: kept on retirement"
 		if r.External {
-			body += "\nOpen agent focuses its original Ghostty tab."
+			body += "\nRuns in its original terminal; Terminate and Revive to run it in Motley."
 		}
 	}
 	if m.event.Status == status {

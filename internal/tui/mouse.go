@@ -6,7 +6,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const navigationBar = "[o Open agent] [1 List] [2 Details] [3 Actions] [q Close]"
+func (m Model) navigationBar() string {
+	bar := "[o Open agent] | [1 List] | [2 Details] | [3 Actions] | [q Close]"
+	if len(bar) > m.width-2 {
+		return strings.ReplaceAll(bar, " | ", "|")
+	}
+	return bar
+}
 
 func (m Model) navigationAvailable() bool {
 	return !m.busy && !m.searching && m.spawn == nil && m.editor == nil && !m.manager && m.retiring == nil && m.terminating == nil && m.importing == nil && m.opening == nil && !m.picking
@@ -111,7 +117,7 @@ func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	}
 	if msg.Y == m.height-1 {
 		for _, button := range []string{"[o Open agent]", "[1 List]", "[2 Details]", "[3 Actions]", "[q Close]"} {
-			start := strings.Index(navigationBar, button)
+			start := strings.Index(m.navigationBar(), button)
 			if msg.X < start || msg.X >= start+len(button) {
 				continue
 			}

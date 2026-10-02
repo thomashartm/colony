@@ -67,6 +67,8 @@ type Model struct {
 	choice                            int
 	poll                              tea.Cmd
 	fetchDetail                       func(member.Row, uint64, bool) tea.Cmd
+	copyText                          func(client, text string) error
+	copied                            string
 	detailSeq                         uint64
 	event                             state.Event
 	gitDetail                         string
@@ -96,6 +98,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.spawnMessage(msg)
 	case tick:
 		return m, m.poll
+	case copiedMsg:
+		m.copied = ""
+		if msg.err != nil {
+			m.message = "Copy failed: " + msg.err.Error()
+		} else {
+			m.copied = msg.text
+		}
+		return m, nil
 	case snapshot:
 		if msg.err != nil {
 			m.pollError = msg.err.Error()
@@ -269,6 +279,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch key {
 		case "a":
 			return m.beginImport()
+		case "c":
+			return m.copyMessage()
 		case "s":
 			return m.beginSpawn()
 		case "i":
@@ -293,15 +305,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			}
 			// Detach the most recently active monitor client, keeping the overview alive.
-			var own tmux.Client
-			for _, c := range m.clients {
-				if c.Session == tmux.MonitorSession && (own.Name == "" || c.Activity > own.Activity) {
-					own = c
-				}
-			}
-			if own.Name != "" {
+			if own := m.activeMonitorClient(); own != "" {
 				m.busy = true
-				return m, func() tea.Msg { return actionDone{err: tmux.DetachClient(own.Name)} }
+				return m, func() tea.Msg { return actionDone{err: tmux.DetachClient(own)} }
 			}
 		case "j", "down":
 			m.selectRow(min(m.selected+1, len(m.rows)-1))
@@ -674,7 +680,7 @@ func (m Model) View() string {
 		message = m.query.View()
 	}
 	header += "  [" + m.groupName() + "]"
-	return fit(header, m.width) + "\n" + lipgloss.JoinHorizontal(lipgloss.Top, left, detail) + "\n" + fit(clean(message), m.width) + "\n" + m.footer()
+	return fit(header, m.width) + "\n" + lipgloss.JoinHorizontal(lipgloss.Top, left, detail) + "\n" + m.messageLine(message) + "\n" + m.footer()
 }
 func (m Model) listView(height, width int) string {
 	if m.group == "crew" {

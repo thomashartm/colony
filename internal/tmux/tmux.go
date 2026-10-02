@@ -142,6 +142,29 @@ func ReportUpdate(ctx context.Context, id, status, contextText string, changed b
 	return nil
 }
 
+// SetClipboard stores text as a tmux paste buffer and sends it to the client's
+// terminal clipboard (OSC 52). An empty client lets tmux choose the current one.
+func SetClipboard(client, text string) error {
+	args := []string{"load-buffer", "-w"}
+	if client != "" {
+		args = append(args, "-t", client)
+	}
+	cmd := exec.Command("tmux", append(args, "-")...)
+	cmd.Stdin = strings.NewReader(text)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("tmux: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	// With set-clipboard off tmux never forwards the buffer; do not claim it did.
+	mode, err := run("show-options", "-sv", "set-clipboard")
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(mode) == "off" {
+		return fmt.Errorf("saved as a tmux paste buffer only; tmux set-clipboard is off")
+	}
+	return nil
+}
+
 func Switch(id string) error {
 	if err := showShortcuts(id); err != nil {
 		return err

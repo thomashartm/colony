@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/thomashartm/motley/internal/crew"
 	"github.com/thomashartm/motley/internal/palette"
 )
 
@@ -194,6 +195,104 @@ func TestColourSelectorCrewDefaultsAndMouse(t *testing.T) {
 		assertFooterFits(t, m)
 		if !strings.Contains(ansi.Strip(m.View()), "■ green") {
 			t.Fatal("compact selector hidden")
+		}
+	}
+}
+
+func TestCrewSelectorUsesNamesAndStoredIDs(t *testing.T) {
+	m := editorModel(100, 25)
+	m.crews = []crew.Crew{{ID: "crew-42", Title: "Payments", Color: "blue"}, {ID: "crew-77", Title: "Support", Color: "green"}}
+	m = arrow(arrow(m, tea.KeyDown), tea.KeyDown)
+	if !strings.Contains(ansi.Strip(m.View()), "No crew") {
+		t.Fatal("No crew option missing")
+	}
+	for _, want := range []string{"crew-42", "crew-77", "", "crew-42"} {
+		m = arrow(m, tea.KeyRight)
+		if m.editor.fields[2].Value() != want {
+			t.Fatalf("wrong stored crew: %q", m.editor.fields[2].Value())
+		}
+		if want != "" {
+			c, _ := crew.Find(m.crews, want)
+			if !strings.Contains(ansi.Strip(m.View()), "■ "+c.Title) {
+				t.Fatal("crew title missing")
+			}
+		}
+	}
+	if m.editor.fields[2].Focused() {
+		t.Fatal("crew selector has a text cursor")
+	}
+	for _, msg := range []tea.Msg{key("other-id"), tea.KeyMsg{Type: tea.KeyBackspace}, tea.KeyMsg{Type: tea.KeyDelete}} {
+		m = update(m, msg)
+	}
+	if m.editor.fields[2].Value() != "crew-42" {
+		t.Fatal("typing changed selected crew")
+	}
+	// Refresh and reorder while editing: preserve the ID, not the old list position.
+	m = update(m, snapshot{rows: m.allRows, crews: []crew.Crew{m.crews[1], m.crews[0]}})
+	if m.editor.fields[2].Value() != "crew-42" {
+		t.Fatal("refresh changed selection")
+	}
+	m = arrow(m, tea.KeyRight)
+	if m.editor.fields[2].Value() != "" {
+		t.Fatal("existing selection was not located by ID")
+	}
+	m = arrow(m, tea.KeyLeft)
+	if m.editor.fields[2].Value() != "crew-42" {
+		t.Fatal("left wrap missed last crew")
+	}
+	m = arrow(m, tea.KeyEnter)
+	if m.editor.focus != 3 || m.busy {
+		t.Fatal("Enter did not advance to Colour")
+	}
+	m = update(m, tea.KeyMsg{Type: tea.KeyEsc})
+	if m.editor != nil || m.selectedRow().Crew != "" {
+		t.Fatal("cancel saved an assignment")
+	}
+}
+
+func TestCrewSelectorEmptyAndRemovedCrews(t *testing.T) {
+	m := editorModel(100, 25)
+	m = arrow(arrow(m, tea.KeyDown), tea.KeyDown)
+	for _, direction := range []tea.KeyType{tea.KeyLeft, tea.KeyRight} {
+		m = arrow(m, direction)
+	}
+	if m.editor.fields[2].Value() != "" || !strings.Contains(ansi.Strip(m.View()), "No crews yet") {
+		t.Fatal("empty crew list is not explained")
+	}
+	m.editor.fields[2].SetValue("removed")
+	if !strings.Contains(ansi.Strip(m.View()), "Unavailable crew") {
+		t.Fatal("missing assignment hidden")
+	}
+	if m.editor.fields[2].Value() != "removed" {
+		t.Fatal("rendering silently cleared assignment")
+	}
+	m = arrow(m, tea.KeyRight)
+	if m.editor.fields[2].Value() != "" {
+		t.Fatal("cannot clear unavailable crew")
+	}
+}
+
+func TestCrewSelectorMouseAndLongNames(t *testing.T) {
+	for _, width := range []int{60, 80, 120} {
+		m := editorModel(width, 25)
+		m.crews = []crew.Crew{{ID: "long-id", Title: strings.Repeat("支払", 20), Color: "blue"}}
+		m = arrow(arrow(m, tea.KeyDown), tea.KeyDown)
+		next, cmd := editorClickText(t, m, "›")
+		m = next.(Model)
+		if cmd != nil || m.editor.fields[2].Value() != "long-id" {
+			t.Fatal("right arrow did not select crew")
+		}
+		assertFooterFits(t, m)
+		next, cmd = editorClickText(t, m, "‹")
+		m = next.(Model)
+		if cmd != nil || m.editor.fields[2].Value() != "" {
+			t.Fatal("left arrow did not clear assignment")
+		}
+		m = update(m, tea.WindowSizeMsg{Width: 60, Height: 10})
+		assertFooterFits(t, m)
+		next, _ = editorClickText(t, m, "›")
+		if next.(Model).editor.fields[2].Value() != "long-id" {
+			t.Fatal("compact arrow target missed")
 		}
 	}
 }

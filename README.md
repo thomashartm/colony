@@ -149,7 +149,8 @@ move the text cursor while editing. Click a field to focus it, or click the
 highlighted **Save**, **Send**, **Delete** or **Cancel** buttons. **Tab/Shift-Tab**
 and **Ctrl-s** still work. Colour fields are selectors: use **←/→** or click
 the arrows to cycle through colour swatches, including **Inherit** for members
-and **Automatic** for crews.
+and **Automatic** for crews. The member's **Crew** field uses the same arrows
+to select an existing crew by name or **No crew**.
 
 In crew view, the first **→** expands a crew; the next enters its member table.
 **←/Esc** returns to the list, where **←** collapses the crew. **Tab** also enters

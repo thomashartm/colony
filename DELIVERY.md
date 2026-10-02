@@ -944,3 +944,17 @@ vet, golangci-lint (0 issues), and four cross-builds passed. The unchanged
 OpenCode plugin reporter test missed its first event on the initial make check
 and a focused rerun; the baseline copy and a subsequent branch rerun passed.
 No plugin implementation or test was changed for that intermittent failure.
+
+### Crew selector in member editor — 2026-10-02
+
+The Crew field now shares the colour selector's keyboard and mouse pattern.
+Left/right arrows cycle through existing crew names with colour markers and
+No crew, while saving the corresponding ID automatically. Selection stays tied
+to its ID when the crew list refreshes. Empty lists, unavailable assignments,
+long names and compact terminals are handled without accepting typed IDs.
+Changes apply on Save; Cancel leaves the member unchanged.
+
+Validation: all TUI tests, real-terminal crew/member editing and arrow navigation,
+TUI vet, golangci-lint (0 issues), formatting and build passed. Tests cover
+keyboard/mouse selection, wrapping, refreshed lists, empty/unavailable crews,
+long Unicode names, cancellation and 60x10 bounds. Rebuilt `bin/motley`.

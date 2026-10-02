@@ -99,8 +99,8 @@ func (m Model) footerGroups() (full, compact []string) {
 		return []string{"[Filter] Type to search", "Act: enter keep · esc clear"}, []string{"[Filter] type", "enter keep · esc clear"}
 	}
 	if m.editor != nil {
-		if m.editor.colourField(m.editor.focus) {
-			return []string{"[Colour] Nav: ←→ choose · ↑↓/tab field/action", "Act: enter next · ctrl+s save · esc cancel"}, []string{"[Colour] ←→ choose · ↑↓ field", "enter next · esc cancel"}
+		if name := m.editor.selectorName(m.editor.focus); name != "" {
+			return []string{"[" + name + "] Nav: ←→ choose · ↑↓/tab field/action", "Act: enter next · ctrl+s save · esc cancel"}, []string{"[" + name + "] ←→ choose · ↑↓ field", "enter next · esc cancel"}
 		}
 		if m.editor.kind == "reply" {
 			return []string{"[Reply] Edit: ←→ cursor", "Act: enter send · esc cancel"}, []string{"[Reply] ←→ cursor", "enter send · esc cancel"}

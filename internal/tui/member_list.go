@@ -44,11 +44,18 @@ func (m Model) memberTableHeader(width int) string {
 	return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("8")).Render(
 		cell("ST AG", 7) + cell("TITLE", title) + " " + cell("TICKET", ticket) + " " + cell("CREW", crew))
 }
-func (m Model) memberTableRow(r member.Row, width int) string {
+func selectionMarker(selected bool) string {
+	if selected {
+		return "▌▌"
+	}
+	return "▌ "
+}
+
+func (m Model) memberTableRow(r member.Row, width int, selected bool) string {
 	title, ticket, crew := memberColumns(width)
 	icon, statusColor := statusIcon(r.CurrentStatus())
 	badge, badgeColor := palette.Badge(r.Agent)
-	prefix := colored("▌", member.Color(r.Manifest, m.crews)) + " " + lipgloss.NewStyle().Foreground(statusColor).Render(icon) + " " + colored(badge, badgeColor) + " "
+	prefix := colored(selectionMarker(selected), member.Color(r.Manifest, m.crews)) + lipgloss.NewStyle().Foreground(statusColor).Render(icon) + " " + colored(badge, badgeColor) + " "
 	name := r.Name
 	if name == "" {
 		name = r.ID
@@ -129,18 +136,15 @@ func digits(s string) bool {
 }
 
 func (m Model) listLayout(height, width int) memberListLayout {
-	top := control("Overview · actions (Home)", m.overview)
+	top := selectionMarker(m.overview) + "Overview · actions (Home)"
 	style := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
-	if m.overview {
-		style = style.Reverse(true)
-	}
 	layout := memberListLayout{fixed: []memberListLine{{style.Render(cell(top, width)), overviewEntry}}}
 	selectedLine := 0
 	if m.group == "crew" {
 		for i, e := range m.crewEntries() {
-			text := m.crewEntryLine(e, width)
-			if !m.overview && i == m.crewCursor {
-				text = lipgloss.NewStyle().Reverse(true).Render(cell(text, width))
+			selected := !m.overview && i == m.crewCursor
+			text := m.crewEntryLine(e, width, selected)
+			if selected {
 				selectedLine = i
 			}
 			layout.body = append(layout.body, memberListLine{text, i})
@@ -168,9 +172,9 @@ func (m Model) listLayout(height, width int) memberListLayout {
 				layout.body = append(layout.body, memberListLine{colored("  "+clean(c.Title), palette.Resolve(c.ID, c.Color, "")), listHeading})
 				lastCrew = c.ID
 			}
-			line := m.memberTableRow(r, width)
-			if !m.overview && i == m.selected {
-				line = lipgloss.NewStyle().Reverse(true).Render(line)
+			selected := !m.overview && i == m.selected
+			line := m.memberTableRow(r, width, selected)
+			if selected {
 				selectedLine = len(layout.body)
 			}
 			layout.body = append(layout.body, memberListLine{line, i})

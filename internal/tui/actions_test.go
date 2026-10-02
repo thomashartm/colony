@@ -168,7 +168,7 @@ func TestActionsWithoutMember(t *testing.T) {
 func TestActionsDoNotCaptureFooterClicks(t *testing.T) {
 	m := actionModel(60, 10)
 	next, cmd := m.Update(tea.MouseMsg{
-		X: strings.Index(m.navigationBar(), "[q Close]") + 1, Y: m.height - 1,
+		X: ansi.StringWidth(m.navigationBar()[:strings.Index(m.navigationBar(), "[q Close]")]) + 1, Y: m.height - 1,
 		Button: tea.MouseButtonLeft, Action: tea.MouseActionPress,
 	})
 	if cmd == nil {

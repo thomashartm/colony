@@ -102,7 +102,7 @@ func (m Model) agentPickerView(height int) string {
 			r = member.Row{Manifest: member.Manifest{ID: id, Name: "Unavailable"}}
 		}
 		// A visible marker identifies keyboard focus even on terminals without colour.
-		text := m.memberTableRow(r, max(1, width-2))
+		text := m.memberTableRow(r, max(1, width-2), false)
 		if width < 40 {
 			name := r.Name
 			if name == "" {

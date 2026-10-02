@@ -4,12 +4,13 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func (m Model) navigationBar() string {
-	bar := "[o Open agent] | [1 List] | [2 Details] | [3 Actions] | [q Close]"
-	if len(bar) > m.width-2 {
-		return strings.ReplaceAll(bar, " | ", "|")
+	bar := "[o Open agent] · [1 List] · [2 Details] · [3 Actions] · [q Close]"
+	if ansi.StringWidth(bar) > m.width-2 {
+		return strings.ReplaceAll(bar, " · ", "·")
 	}
 	return bar
 }
@@ -116,8 +117,9 @@ func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		return m.copyMessage()
 	}
 	if msg.Y == m.height-1 {
+		bar := m.navigationBar()
 		for _, button := range []string{"[o Open agent]", "[1 List]", "[2 Details]", "[3 Actions]", "[q Close]"} {
-			start := strings.Index(m.navigationBar(), button)
+			start := ansi.StringWidth(bar[:strings.Index(bar, button)])
 			if msg.X < start || msg.X >= start+len(button) {
 				continue
 			}

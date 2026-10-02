@@ -71,6 +71,7 @@ type Model struct {
 	poll                              tea.Cmd
 	fetchDetail                       func(member.Row, uint64, bool) tea.Cmd
 	copyText                          func(client, text string) error
+	openURL                           func(string) error
 	copied                            string
 	detailSeq                         uint64
 	event                             state.Event
@@ -101,6 +102,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.spawnMessage(msg)
 	case tick:
 		return m, m.poll
+	case linkOpened:
+		if msg.err != nil {
+			m.message = "Could not open link: " + msg.err.Error()
+		} else {
+			m.message = "Opened " + msg.url
+		}
+		return m, nil
 	case copiedMsg:
 		m.copied = ""
 		if msg.err != nil {

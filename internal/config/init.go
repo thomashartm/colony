@@ -20,6 +20,16 @@ func Dir() (string, error) {
 	return filepath.Abs(filepath.Join(root, "motley"))
 }
 
+// Mouse events must reach the overview and popup. Keep native OSC 8 support
+// optional so the generated config still loads on the minimum tmux 3.2.
+const tmuxInteraction = `# Motley mouse and prefix
+set -g mouse on
+set -g prefix C-a
+unbind C-b
+bind C-a send-prefix
+if -F '#{>=:#{version},3.4}' 'set -as terminal-features ",xterm*:hyperlinks"'
+`
+
 // Init scaffolds only missing files; existing user settings are never replaced.
 func Init() (string, error) {
 	if _, err := Ensure(); err != nil {
@@ -33,7 +43,7 @@ func Init() (string, error) {
 		return "", err
 	}
 	for _, file := range []struct{ name, body string }{
-		{"motley.tmux.conf", "# schema = 1\n# run-shell expands the originating client before opening the popup.\nbind h run-shell 'tmux display-popup -c #{q:client_name} -E -w 90% -h 85% \"motley --client #{q:client_name}\"'\nset -g status-interval 2\nset -g status-left-length 50\nset -g status-left \"" + tmux.StatusLeft + "\"\n"},
+		{"motley.tmux.conf", "# schema = 1\n" + tmuxInteraction + "# run-shell expands the originating client before opening the popup.\nbind h run-shell 'tmux display-popup -c #{q:client_name} -E -w 90% -h 85% \"motley --client #{q:client_name}\"'\nset -g status-interval 2\nset -g status-left-length 50\nset -g status-left \"" + tmux.StatusLeft + "\"\n"},
 	} {
 		path := filepath.Join(dir, file.name)
 		f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)

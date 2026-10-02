@@ -71,7 +71,7 @@ Repositories need an `origin` remote and a local `main` or `master` branch.
 
 Run `mtly`, press **s**, choose a repository and agent, then review and launch.
 **Launching creates and pushes a new branch.** Your main checkout stays intact.
-Press **Enter** to attach; **Ctrl-b d** detaches without stopping the session.
+Press **Enter** to attach; **Ctrl-a d** detaches without stopping the session.
 
 Or use the CLI:
 
@@ -111,7 +111,8 @@ tab, it opens there; with a separate work tab, it opens in that tab. Click
 
 The list groups members by crew within each status section, with columns for
 title, ticket and crew alongside the status icon and agent badge. Ticket cells
-use terminal hyperlinks: explicit web URLs work with any tracker; numeric tickets
+open in your browser with a left click, including inside tmux popups. Explicit
+web URLs work with any tracker; numeric tickets
 link to issues on the member's GitHub or GitLab.com remote.
 
 Click the pinned **Overview** entry or press **Home** for main actions: spawn a
@@ -179,28 +180,41 @@ Click the underlined footer controls, or use the keys below. In the overview,
 click **Open agent**, **List**, **Details**, **Actions**, a member or an action; the mouse wheel
 scrolls lists and details. Forms still use the keyboard.
 
-With the default tmux prefix, press **Ctrl-b**, release both keys, then press
+With Motley’s tmux configuration loaded, press **Ctrl-a**, release both keys, then press
 the next key. Use your own prefix if you changed it.
 
-- **Details:** **Ctrl-b h** opens Motley. Select a member with **↑/↓**, then
+The generated tmux config enables mouse support and binds **Ctrl-a Ctrl-a** to
+send a literal Ctrl-a to the agent. `motley init` preserves existing config files;
+for an older installation, add these settings to `motley.tmux.conf` and reload it
+with `tmux source-file ~/.config/motley/motley.tmux.conf`:
+
+```tmux
+set -g mouse on
+set -g prefix C-a
+unbind C-b
+bind C-a send-prefix
+if -F '#{>=:#{version},3.4}' 'set -as terminal-features ",xterm*:hyperlinks"'
+```
+
+- **Details:** **Ctrl-a h** opens Motley. Select a member with **↑/↓**, then
   **→** focuses its details. Scroll with **↑/↓** or **Page Up/Page Down**;
   **←/Esc** returns to the list.
-- **Monitor:** **Ctrl-b m** opens the persistent monitor in this tab;
+- **Monitor:** **Ctrl-a m** opens the persistent monitor in this tab;
   press it again to return to the previous session. The agent keeps running.
 - **Back to the agent:** **q** closes the popup. **Enter** switches to the
   selected member instead.
-- **Other tmux windows/panes:** **Ctrl-b w** opens the window picker;
-  **Ctrl-b n/p** selects the next/previous window; **Ctrl-b arrow** selects a pane.
-- **Scrollback:** **Ctrl-b [**, then arrows or **Page Up/Page Down**;
+- **Other tmux windows/panes:** **Ctrl-a w** opens the window picker;
+  **Ctrl-a n/p** selects the next/previous window; **Ctrl-a arrow** selects a pane.
+- **Scrollback:** **Ctrl-a [**, then arrows or **Page Up/Page Down**;
   **q** leaves scrollback.
-- **Detach:** **Ctrl-b d** returns to your shell and keeps the agent running.
+- **Detach:** **Ctrl-a d** returns to your shell and keeps the agent running.
 
 ### Open the agent in another Ghostty tab
 
 1. Press **Cmd-T** in Ghostty on macOS to open a tab (default shortcut).
 2. Run `mtly ls` to find the member ID, then `mtly attach <id>` in that tab.
    This attaches to the existing session; it does not start another agent.
-3. To move rather than share the view, detach the original tab with **Ctrl-b d**.
+3. To move rather than share the view, detach the original tab with **Ctrl-a d**.
 
 Motley's **t** sends a member to an already attached work tab; it does not create
 a Ghostty tab. Ghostty shortcuts are [configurable](https://ghostty.org/docs/config/keybind).

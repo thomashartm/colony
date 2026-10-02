@@ -13,6 +13,14 @@ func (m Model) navigationAvailable() bool {
 }
 
 func (m Model) mouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+	if !m.busy && (m.navigationAvailable() || m.opening != nil) &&
+		m.width >= 60 && m.height >= 10 && msg.X >= 0 && msg.X < m.width && msg.Y >= 2 && msg.Y < 2+m.panelHeight() &&
+		msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress {
+		if target := hyperlinkAt(m.View(), msg.X, msg.Y); target != "" {
+			return m.openLink(target)
+		}
+	}
+
 	if m.opening != nil {
 		return m.agentPickerMouse(msg)
 	}

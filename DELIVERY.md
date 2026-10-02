@@ -980,3 +980,25 @@ editor navigation, monitor switching and popup operation. Model coverage include
 grouping, selection and polling, action scope, keyboard/mouse opening,
 removed/stopped targets, ticket links, Unicode wrapping and 60x10 bounds.
 Vet, golangci-lint (0 issues), build and diff checks passed. Rebuilt `bin/motley`.
+
+### Ticket clicks and tmux mouse/prefix — 2026-10-02
+
+Left-clicking a visible ticket or crew hyperlink now opens it through the system
+browser, including in tmux panes and popups. Hit testing follows the rendered
+cells, including scrolling and Unicode. Wrapped detail hyperlinks close at each
+line boundary so they cannot extend into adjacent labels or the other panel.
+Hover/release and background links behind editors do not open a browser; opener
+failures appear in the message line. Web URLs are passed as individual process
+arguments without shell interpolation.
+
+New tmux configuration enables mouse support, uses Ctrl-a as its prefix and
+binds Ctrl-a Ctrl-a to send-prefix. Native xterm-family hyperlinks are enabled
+when tmux is 3.4 or newer; plain TUI clicks also work without native hyperlink
+support. Existing user config remains preserved by init, with an upgrade snippet
+in the README.
+
+Validation: all Go tests passed, including real tmux pane/popup ticket clicks
+with a stub browser, ordinary mouse navigation, Ctrl-a popup/detach and config
+reload checks. Vet, golangci-lint (0 issues), build and diff checks passed.
+Applied the interaction settings to the local tmux config after backing it up;
+server readback confirms Ctrl-a and mouse on across existing sessions.

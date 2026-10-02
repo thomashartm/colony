@@ -22,13 +22,13 @@ func detailFields(fields []detailField, width int) string {
 			value = "—"
 		}
 		if width < 40 {
-			wrapped := strings.Split(ansi.Wrap(value, max(1, width-2), ""), "\n")
+			wrapped := wrapLinkedValue(value, max(1, width-2))
 			for i := range wrapped {
 				wrapped[i] = "  " + wrapped[i]
 			}
 			blocks = append(blocks, labelStyle.Render(field.label+":")+"\n"+strings.Join(wrapped, "\n"))
 		} else {
-			wrapped := strings.Split(ansi.Wrap(value, max(1, width-15), ""), "\n")
+			wrapped := wrapLinkedValue(value, max(1, width-15))
 			wrapped[0] = labelStyle.Render(cell(field.label+":", 13)) + "  " + wrapped[0]
 			for i := 1; i < len(wrapped); i++ {
 				wrapped[i] = strings.Repeat(" ", 15) + wrapped[i]

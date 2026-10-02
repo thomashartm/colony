@@ -512,7 +512,9 @@ func (m Model) updatePicker(key string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m Model) listWidth() int   { return max(20, min(42, m.width/3)) }
+// The list and details split evenly; the list stops at 100 columns, beyond
+// which member rows gain nothing and details need the room.
+func (m Model) listWidth() int   { return max(20, min(100, m.width/2)) }
 func (m Model) detailWidth() int { return max(1, m.width-m.listWidth()-5) }
 func clean(s string) string {
 	return strings.Map(func(r rune) rune {

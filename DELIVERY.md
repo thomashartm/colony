@@ -803,3 +803,12 @@ fails on AppleScript use; it caught the removed package when restored. The impor
 lifecycle test checks the attach/switch explanation for main, linked and non-Git
 sessions. The Claude discovery contract test now uses a generous bound through a
 test seam; it had hit the 3 s production bound at a load average near 20.
+
+### Wider member list — 2026-10-02
+
+The list used a third of the window, capped at 42 columns, so details took about
+80% of wide windows (200 columns: 42 | 153). The panels now split evenly and the
+list stops at 100 columns: 80 → 40 | 35, 120 → 60 | 55, 200 → 100 | 95,
+240 → 100 | 135. `TestPanelSplit` checks those widths and that no rendered line
+exceeds the window; the full suite, including the real-terminal monitor tests,
+passed unchanged.

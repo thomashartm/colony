@@ -45,6 +45,7 @@ type Model struct {
 	spawnCfg            config.Config
 	sendMsg             func(tea.Msg)
 	focusID             string
+	importing           *importDialog
 
 	crews                             []crew.Crew
 	group                             string
@@ -89,6 +90,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.MouseMsg:
 		return m.mouse(msg)
+	case importLoaded, importDone:
+		return m.importMessage(msg)
 	case spawnLoaded, spawnPrepared, spawnProgress, spawnFinished, promptEdited:
 		return m.spawnMessage(msg)
 	case tick:
@@ -228,6 +231,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.spawn != nil {
 			return m.updateSpawn(msg)
 		}
+		if m.importing != nil {
+			return m.updateImport(key)
+		}
 		if m.searching {
 			return m.updateFilter(msg)
 		}
@@ -261,6 +267,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return next, cmd
 		}
 		switch key {
+		case "a":
+			return m.beginImport()
 		case "s":
 			return m.beginSpawn()
 		case "i":
@@ -440,6 +448,10 @@ func (m Model) jump() (tea.Model, tea.Cmd) {
 		m.message = "This member is dead; its tmux session is not running."
 		return m, nil
 	}
+	if m.selectedRow().External {
+		m.busy = true
+		return m, func() tea.Msg { return actionDone{err: member.ExternalTerminal(id)} }
+	}
 	if !m.inside && !m.monitor {
 		m.attachID = id
 		return m, tea.Quit
@@ -545,6 +557,12 @@ func (m *Model) updateDetail() {
 		"", field("Worktree", r.Worktree), field("Main repo", r.RepoPath), field("Remote", r.RemoteURL),
 		field("Created", r.CreatedAt.Local().Format("2006-01-02 15:04 MST")), field("Tabs", strings.Join(clients, ", ")),
 	}, "\n")
+	if r.ClaudeSession != "" {
+		body += "\n" + field("Claude session", r.ClaudeSession) + "\nImported checkout: kept on retirement"
+		if r.External {
+			body += "\nRuns in its original terminal; Terminate and Revive to run it in Motley."
+		}
+	}
 	if m.event.Status == status {
 		text := m.event.Summary
 		switch status {
@@ -606,6 +624,9 @@ func (m Model) View() string {
 	if m.panel == actionsPanel {
 		right = m.actionsView(height)
 	}
+	if m.importing != nil {
+		right = m.importView(height)
+	}
 	if m.picking {
 		right = m.pickerView(height)
 	}
@@ -626,7 +647,7 @@ func (m Model) View() string {
 	}
 	border := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("8"))
 	leftBorder, rightBorder := border, border
-	if m.panel == listPanel && m.editor == nil && !m.manager && m.spawn == nil && m.retiring == nil && m.terminating == nil && !m.picking {
+	if m.panel == listPanel && m.editor == nil && !m.manager && m.spawn == nil && m.retiring == nil && m.terminating == nil && m.importing == nil && !m.picking {
 		leftBorder = leftBorder.BorderForeground(lipgloss.Color("6"))
 	} else {
 		rightBorder = rightBorder.BorderForeground(lipgloss.Color("6"))

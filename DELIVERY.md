@@ -677,6 +677,43 @@ detached before the requested click trace. Temporary tracing was removed and
 the original MouseDown1Pane binding restored. Do not consider that report fixed
 based only on automated mouse tests.
 
+### Import running Claude sessions — 2026-10-01
+
+Added `mtly import --list`, `mtly import <session-id>` and the monitor's Add
+existing Claude action (a). Discovery uses Claude's supported `agents --json`
+interface and rechecks the selected conversation before registration. Imported
+sessions remain running in their original terminal, including sessions in main
+checkouts or non-Git directories. Their live status appears in the monitor.
+
+Open agent focused a unique matching Ghostty directory through AppleScript. That
+broke the "No AppleScript" principle and was removed before landing on main (see
+the #30 entry).
+Terminate revalidates the Claude session/process, then waits for it to stop.
+Revive resumes the saved conversation under Motley. Imported directories and
+branches are always preserved on retirement, including after revival.
+
+Validation: full Go suite and vet passed; focused import tests passed again
+after error-message lint fixes; lint and four cross-builds passed. Tests use
+isolated tmux servers and harmless fixture processes for main, linked and
+non-Git directories, discovery failure, duplicates, resumed conversation IDs,
+file/branch preservation and the real terminal picker. Read-only discovery
+found six local running sessions. Ghostty scripting compiled and its directory
+inventory was verified; no live Claude sessions were imported or interrupted.
+
+### First-run configuration — 2026-10-01
+
+Configuration now lives at ~/.motley/config.toml. The first config load or
+`mtly init` creates it with defaults, or copies an existing XDG config verbatim.
+Existing files, including invalid TOML, are never reset or overwritten. A
+complete temporary file is linked into place atomically so concurrent first
+launches cannot expose partial content or overwrite each other. Tmux snippets
+and blueprint paths retain their current locations.
+
+Validation passed: full Go suite, vet, lint, four cross-builds and whitespace
+checks. Tests cover defaults, legacy settings and comments, concurrent first
+loads, unchanged modification times, invalid-file preservation and CLI loading
+from the new location.
+
 ### Monitor shortcut — 2026-10-01
 
 Changed the monitor toggle to prefix m (Ctrl-b m with the default prefix).
@@ -745,3 +782,24 @@ Validation: `make check` stages (installer, uninstall, plugin, all Go and real
 tmux tests, vet), golangci-lint v2.14.0 (0 issues), gofmt and four cross-builds.
 The new exit test fails with the pane change reverted, and the plugin test fails
 with the interrupt marking disabled.
+
+### Imported sessions: no terminal control outside tmux (#30) — 2026-10-02
+
+PRs #22 (import) and #23 (first-run config) had been merged into stacked branches
+and never reached main; this change merges them. #22 focused the original Ghostty
+tab through AppleScript and failed with "Cannot identify a unique Ghostty tab"
+whenever several tabs shared the session's directory. AppleScript contradicts
+REQUIREMENTS §0 ("No AppleScript or Ghostty API"), so the focus is removed rather
+than repaired. A tty-title variant built in PR #32 was removed before merge for
+the same reason.
+
+Open agent, `attach` and `switch` on a running imported member now explain where
+it runs: "<name> runs in its original terminal in <dir>; switch to it there, or
+Terminate and Revive to run it in Motley." Reply and send messages no longer point
+to Open agent. Revive remains the tmux-only way to take a session over.
+
+Validation: `TestNoAppleScript` scans every Go, shell and TypeScript source and
+fails on AppleScript use; it caught the removed package when restored. The import
+lifecycle test checks the attach/switch explanation for main, linked and non-Git
+sessions. The Claude discovery contract test now uses a generous bound through a
+test seam; it had hit the 3 s production bound at a load average near 20.

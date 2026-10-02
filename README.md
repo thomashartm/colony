@@ -229,6 +229,24 @@ recorded session, as do Codex and OpenCode when reporting captured a session id.
 Without a recorded id, the agent starts fresh. If the agent exited but its tmux
 shell is still alive, restart the agent in that shell instead.
 
+### Add an existing Claude session
+
+In the monitor press **a**, or **3 Actions → Add existing Claude**, then select
+its name and press **Enter**. Claude keeps running in its original terminal;
+no restart, tmux setup or worktree conversion is needed. Requires Claude Code's
+`claude agents --json` command.
+
+```sh
+mtly import --list
+mtly import <session-id> --name "Existing work"
+```
+
+Status updates come from Claude. The session stays in its original terminal, which
+Motley never controls: **Open agent** tells you where it runs. Switch to that tab
+and reply there. **Terminate** stops Claude; **Revive** resumes the saved conversation
+in Motley’s tmux session. **Retire** keeps imported directories and branches,
+even with Force.
+
 To adopt an existing linked worktree, run inside its tmux session:
 
 ```sh
@@ -256,7 +274,8 @@ Revive keeps agent arguments without replaying the initial prompt.
 
 ## Configuration
 
-Edit `~/.config/motley/config.toml`:
+Motley creates `~/.motley/config.toml` on first launch, preserving it on later
+starts. Existing XDG settings are copied there once. Edit this file:
 
 ```toml
 schema = 1

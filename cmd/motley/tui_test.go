@@ -281,7 +281,7 @@ func TestOverviewAndMonitor(t *testing.T) {
 	f.tmux("set-environment", "-t", "=fixture", "PATH", filepath.Dir(bin)+string(os.PathListSeparator)+os.Getenv("PATH"))
 	f.tmux("switch-client", "-c", workName, "-t", "=fixture")
 	popupOffset := len(work.text())
-	work.send(t, "\x02")
+	work.send(t, "\x01")
 	eventually(t, func() bool { return f.tmux("display-message", "-p", "-c", workName, "#{client_prefix}") == "1" })
 	work.send(t, "h")
 	eventually(t, func() bool {

@@ -17,6 +17,11 @@ func TestInitPreservesUserFiles(t *testing.T) {
 	if err != nil || !strings.Contains(string(data), "schema = 1") || !strings.Contains(string(data), "#{q:client_name}") {
 		t.Fatalf("popup config %q %v", data, err)
 	}
+	for _, setting := range []string{"set -g mouse on", "set -g prefix C-a", "unbind C-b", "bind C-a send-prefix", "terminal-features", "hyperlinks"} {
+		if !strings.Contains(string(data), setting) {
+			t.Fatal("missing tmux setting", setting)
+		}
+	}
 	configPath, err := Ensure()
 	if err != nil {
 		t.Fatal(err)

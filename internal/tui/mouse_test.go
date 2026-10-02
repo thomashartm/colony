@@ -5,11 +5,26 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/thomashartm/motley/internal/member"
 )
 
 func click(m Model, x, y int) Model {
 	return update(m, tea.MouseMsg{X: x, Y: y, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+}
+
+func listScreenY(t *testing.T, m Model, text string) int {
+	t.Helper()
+	for y, line := range strings.Split(ansi.Strip(m.listView(m.contentHeight(), m.listWidth())), "\n") {
+		if strings.Contains(line, text) {
+			if y > 0 {
+				y += m.panelHeadingGap()
+			}
+			return y + 2
+		}
+	}
+	t.Fatalf("list row %q not visible:\n%s", text, m.listView(m.contentHeight(), m.listWidth()))
+	return -1
 }
 
 func TestMouseNavigation(t *testing.T) {
@@ -23,7 +38,7 @@ func TestMouseNavigation(t *testing.T) {
 	if m.panel != listPanel {
 		t.Fatal("list button")
 	}
-	m = click(m, 3, 4+m.panelHeadingGap()) // section heading, alpha, beta
+	m = click(m, 3, listScreenY(t, m, "beta"))
 	if m.selectedID() != "beta" {
 		t.Fatalf("clicked member: %s", m.selectedID())
 	}
@@ -64,7 +79,7 @@ func TestMouseCrewAndScrolling(t *testing.T) {
 	m := update(newModel(false, false, "", nil), tea.WindowSizeMsg{Width: 80, Height: 20})
 	m = update(m, crewSnapshot())
 	m = update(m, key("g"))
-	m = click(m, 3, 2)
+	m = click(m, 3, listScreenY(t, m, "FX Banking"))
 	if !m.expanded["fx"] {
 		t.Fatal("crew click did not expand")
 	}

@@ -34,6 +34,8 @@ type actionDone struct {
 }
 
 type Model struct {
+	overview            bool
+	opening             *agentPicker
 	panel, actionCursor int
 	actionScroll        int
 	managerActions      bool
@@ -139,6 +141,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.crews = msg.crews
 		m.sortRows()
+		if len(m.rows) == 0 {
+			m.overview = true
+		}
 		for i, row := range m.rows {
 			if row.ID == id {
 				m.selected = i
@@ -155,6 +160,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			for i, r := range m.rows {
 				if r.ID == m.focusID {
 					m.selected = i
+					m.overview = false
 					m.focusID = ""
 					break
 				}
@@ -239,6 +245,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		key := msg.String()
+		if m.opening != nil {
+			return m.updateAgentPicker(key)
+		}
 		if m.spawn != nil {
 			return m.updateSpawn(msg)
 		}
@@ -311,9 +320,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, func() tea.Msg { return actionDone{err: tmux.DetachClient(own)} }
 			}
 		case "j", "down":
-			m.selectRow(min(m.selected+1, len(m.rows)-1))
+			if m.overview {
+				m.selectRow(0)
+			} else {
+				m.selectRow(min(m.selected+1, len(m.rows)-1))
+			}
 		case "k", "up":
-			m.selectRow(max(0, m.selected-1))
+			if m.overview || m.selected == 0 {
+				m.selectOverview()
+			} else {
+				m.selectRow(m.selected - 1)
+			}
 		case "pgdown", "pgup":
 			m.detail, _ = m.detail.Update(msg)
 		case "d":
@@ -333,6 +350,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "enter", "o":
+			if m.overview && key == "enter" {
+				m.panel, m.actionCursor, m.actionScroll = actionsPanel, 0, 0
+				return m, nil
+			}
 			m.alert = false
 			return m.jump()
 		}
@@ -367,7 +388,8 @@ func (m *Model) requestDetail(force bool) tea.Cmd {
 }
 
 func (m *Model) selectRow(index int) {
-	if index >= 0 && index != m.selected {
+	if index >= 0 && index < len(m.rows) && (index != m.selected || m.overview) {
+		m.overview = false
 		m.selected = index
 		m.message = ""
 		m.detail.GotoTop()
@@ -375,6 +397,9 @@ func (m *Model) selectRow(index int) {
 	}
 }
 func (m Model) selectedID() string {
+	if m.overview {
+		return ""
+	}
 	if m.group == "crew" {
 		e := m.currentEntry()
 		if m.tableFocus {
@@ -449,7 +474,7 @@ func openClient(clients []tmux.Client, pinned string) (tmux.Client, error) {
 func (m Model) jump() (tea.Model, tea.Cmd) {
 	id := m.selectedID()
 	if id == "" {
-		return m, nil
+		return m.beginAgentPicker()
 	}
 	if !m.selectedRow().Alive {
 		m.message = "This member is dead; its tmux session is not running."
@@ -532,66 +557,12 @@ func clean(s string) string {
 	}, ansi.Strip(s))
 }
 func fit(s string, width int) string { return ansi.Truncate(s, max(0, width), "…") }
-func field(label, value string) string {
-	if value == "" {
-		value = "—"
-	}
-	return label + "  " + clean(value)
-}
 func (m *Model) updateDetail() {
 	if m.selectedID() == "" {
-		m.detail.SetContent("Select a member to see its details.")
+		m.detail.SetContent("Overview\n\nSpawn or add agents, open a running agent, and manage crews.\n\nPress Enter or 3 for main actions.\nSelect a member for its details and actions.")
 		return
 	}
-	r := m.selectedRow()
-	status := r.CurrentStatus()
-	var clients []string
-	for _, c := range m.clients {
-		if c.Session == tmux.SessionName(r.ID) {
-			clients = append(clients, c.Name)
-		}
-	}
-	blueprintInfo := ""
-	if r.Blueprint != "" {
-		blueprintInfo = "\n" + field("Blueprint", r.Blueprint)
-	}
-	gigInfo := ""
-	if c := m.crewFor(r.Crew); c.Gig != "" {
-		gigInfo = "\n" + field("Gig", c.Gig)
-	}
-	body := strings.Join([]string{
-		colored("▌ "+clean(r.Name), member.Color(r.Manifest, m.crews)), "", field("ID", r.ID), field("Status", status+" · "+since(r)), field("Ticket", r.Ticket),
-		field("Repo", r.Repo), field("Branch", r.Branch), field("Base", r.Base), field("Agent", r.Agent) + " · " + coloredBadge(r.Agent),
-		"Crew  " + m.crewLabel(r.Crew) + gigInfo + blueprintInfo,
-		"", field("Worktree", r.Worktree), field("Main repo", r.RepoPath), field("Remote", r.RemoteURL),
-		field("Created", r.CreatedAt.Local().Format("2006-01-02 15:04 MST")), field("Tabs", strings.Join(clients, ", ")),
-	}, "\n")
-	if r.ClaudeSession != "" {
-		body += "\n" + field("Claude session", r.ClaudeSession) + "\nImported checkout: kept on retirement"
-		if r.External {
-			body += "\nRuns in its original terminal; Terminate and Revive to run it in Motley."
-		}
-	}
-	if m.event.Status == status {
-		text := m.event.Summary
-		switch status {
-		case "question":
-			if q := m.event.Detail["question"]; q != "" {
-				text = q
-			}
-		case "permission":
-			if tool := m.event.Detail["tool"]; tool != "" {
-				text = tool + ": " + m.event.Detail["input"] + "\n\n" + text
-			}
-		}
-		if text != "" {
-			body = multiline(text) + "\n\n────────────────────\n" + body
-		}
-	}
-	if status == "ready" && m.gitDetail != "" {
-		body += "\n\n" + multiline(m.gitDetail)
-	}
-	m.detail.SetContent(ansi.Hardwrap(body, m.detail.Width, true))
+	m.detail.SetContent(m.memberDetails())
 }
 
 func (m Model) View() string {
@@ -627,11 +598,14 @@ func (m Model) View() string {
 	height, width := m.contentHeight(), m.listWidth()
 	list := m.listView(height, width)
 	right := m.detail.View()
-	if m.group == "crew" && m.currentEntry().id == "" {
+	if !m.overview && m.group == "crew" && m.currentEntry().id == "" {
 		right = m.crewTable(height, m.detailWidth())
 	}
 	if m.panel == actionsPanel {
 		right = m.actionsView(height)
+	}
+	if m.opening != nil {
+		right = m.agentPickerView(height)
 	}
 	if m.importing != nil {
 		right = m.importView(height)
@@ -656,7 +630,7 @@ func (m Model) View() string {
 	}
 	border := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("8"))
 	leftBorder, rightBorder := border, border
-	if m.panel == listPanel && m.editor == nil && !m.manager && m.spawn == nil && m.retiring == nil && m.terminating == nil && m.importing == nil && !m.picking {
+	if m.panel == listPanel && m.editor == nil && !m.manager && m.spawn == nil && m.retiring == nil && m.terminating == nil && m.importing == nil && m.opening == nil && !m.picking {
 		leftBorder = leftBorder.BorderForeground(lipgloss.Color("6"))
 	} else {
 		rightBorder = rightBorder.BorderForeground(lipgloss.Color("6"))
@@ -684,39 +658,6 @@ func (m Model) View() string {
 	}
 	header += "  [" + m.groupName() + "]"
 	return fit(header, m.width) + "\n" + lipgloss.JoinHorizontal(lipgloss.Top, left, detail) + "\n" + m.messageLine(message) + "\n" + m.footer()
-}
-func (m Model) listView(height, width int) string {
-	if m.group == "crew" {
-		return m.crewList(height, width)
-	}
-	if len(m.rows) == 0 {
-		if m.query.Value() != "" {
-			return "No matches.\nEsc clears the filter."
-		}
-		return "No members yet.\n\nmotley spawn --help"
-	}
-	var lines []string
-	selectedLine := 0
-	last := ""
-	for i, r := range m.rows {
-		group := section(r)
-		if m.group == "repo" {
-			group = clean(r.Repo)
-		}
-		if group != last {
-			lines = append(lines, group)
-			last = group
-		}
-		line := m.memberLine(r, width)
-		style := lipgloss.NewStyle()
-		if i == m.selected {
-			style = style.Reverse(true)
-			selectedLine = len(lines)
-		}
-		lines = append(lines, style.Render(line))
-	}
-	start := max(0, selectedLine-height+1)
-	return strings.Join(lines[start:min(len(lines), start+height)], "\n")
 }
 func (m Model) pickerView(height int) string {
 	labels := []string{"Automatic — most recently active work tab"}

@@ -12,6 +12,8 @@ import (
 func TestFooterFitsEveryContextAfterResize(t *testing.T) {
 	contexts := map[string]func(*Model){
 		"list":         func(m *Model) {},
+		"overview":     func(m *Model) { m.selectOverview() },
+		"open picker":  func(m *Model) { m.opening = &agentPicker{} },
 		"import":       func(m *Model) { m.importing = &importDialog{} },
 		"monitor":      func(m *Model) { m.monitor = true },
 		"crew":         func(m *Model) { m.group = "crew" },

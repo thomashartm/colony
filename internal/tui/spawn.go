@@ -201,7 +201,7 @@ func (m Model) spawnMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.spawn = nil
 		m.query.SetValue("")
 		m.group = "attention"
-		m.tableFocus = false
+		m.overview, m.tableFocus = false, false
 		m.panel = listPanel
 		m.focusID = msg.manifest.ID
 		rows := make([]member.Row, 0, len(m.allRows)+1)

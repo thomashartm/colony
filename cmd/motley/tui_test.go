@@ -110,6 +110,15 @@ func TestOverviewAndMonitor(t *testing.T) {
 	eventually(t, func() bool {
 		return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=overview:"), "Overview fixture")
 	})
+	// Main actions are reachable without a member selection. The Open picker
+	// then chooses the destination explicitly and switches the same client.
+	overview.send(t, "\x1b[H")
+	eventually(t, func() bool {
+		view := f.tmux("capture-pane", "-p", "-t", "=overview:")
+		return strings.Contains(view, "Overview actions") && strings.Contains(view, "Spawn member") && !strings.Contains(view, "Edit member")
+	})
+	overview.send(t, "o")
+	eventually(t, func() bool { return strings.Contains(f.tmux("capture-pane", "-p", "-t", "=overview:"), "[Open agent]") })
 	overview.send(t, "\r")
 	eventually(t, func() bool { return f.clientSession(overviewName) == id })
 
@@ -278,7 +287,7 @@ func TestOverviewAndMonitor(t *testing.T) {
 	eventually(t, func() bool {
 		// Titles already contain the name; wait for a loaded popup row.
 		view := ansi.Strip(work.text()[popupOffset:])
-		return strings.Contains(view, "ID  feat-overview") && strings.Contains(view, "[List]")
+		return strings.Contains(view, "Status:") && strings.Contains(view, "[List]")
 	})
 	work.send(t, "\x1b[C\r")
 	eventually(t, func() bool { return f.clientSession(workName) == id })

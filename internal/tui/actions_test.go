@@ -31,7 +31,7 @@ func actionModel(width, height int) Model {
 func TestActionsGroupsAndConsequences(t *testing.T) {
 	m := actionModel(150, 40)
 	view := ansi.Strip(m.actionsView(m.contentHeight()))
-	for _, group := range []string{"Member", "Crews & members", "Session & cleanup", "View"} {
+	for _, group := range []string{"Member", "Session & cleanup", "Overview"} {
 		if !strings.Contains(view, "\n"+group+"\n") {
 			t.Fatalf("missing group %s:\n%s", group, view)
 		}

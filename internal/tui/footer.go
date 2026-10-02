@@ -92,6 +92,9 @@ func (m Model) footerGroups() (full, compact []string) {
 			return []string{"[Spawn] Launching…"}, []string{"[Spawn] Launching…"}
 		}
 	}
+	if m.opening != nil {
+		return []string{"[Open agent] ↑↓ choose · enter open · esc cancel"}, []string{"[Open] ↑↓ choose · enter open · esc cancel"}
+	}
 	if m.importing != nil {
 		return []string{"[Import] ↑↓ choose · enter add · esc cancel"}, []string{"[Import] ↑↓ choose · enter add · esc cancel"}
 	}
@@ -138,6 +141,9 @@ func (m Model) footerGroups() (full, compact []string) {
 			movement = "member"
 		}
 		return []string{"[Details] Nav: ↑↓ " + movement + " · ← back · → actions", "Act: enter open · esc list"}, []string{"[Details] ← back · → actions", "↑↓ " + movement + " · enter open"}
+	}
+	if m.overview {
+		return []string{"[Overview] ↓ members · enter/→ actions", "s spawn · a add · o open · m crews"}, []string{"[Overview] ↓ members · enter/→ actions · q close"}
 	}
 	quit := "q quit"
 	tabs := "Run: t tab"

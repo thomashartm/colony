@@ -29,6 +29,7 @@ archives:
       - README.md
       - uninstall.sh
       - motley-logo.png
+      - motley-screen.png
       - config.example.toml
       - examples/blueprints/*.md
 checksum:
